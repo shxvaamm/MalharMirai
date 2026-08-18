@@ -46,6 +46,8 @@ body {
   font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   letter-spacing: -0.015em;
   text-rendering: optimizeSpeed;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 ::selection {
