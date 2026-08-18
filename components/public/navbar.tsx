@@ -47,14 +47,15 @@ export function PublicNavbar() {
       <div className="mx-auto flex h-16 md:h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
         {/* Brand: MALHAR Wordmark */}
-        <Link href="/" className="flex items-center justify-center py-1 group shrink-0" id="navbar-logo">
-          <div className="relative h-8 sm:h-9 w-32 sm:w-40 flex items-center justify-center">
+        <Link href="/" className="flex items-center justify-center py-1 group shrink-0 select-none" id="navbar-logo">
+          <div className="relative h-8 sm:h-9 w-32 sm:w-40 flex items-center justify-center select-none">
             <Image
               src="/images/malhar-wordmark.png"
               alt="MALHAR"
               fill
               unoptimized
-              className="object-contain object-left group-hover:brightness-110 transition-all drop-shadow-[0_2px_10px_rgba(255,255,255,0.08)]"
+              draggable={false}
+              className="object-contain object-left group-hover:brightness-110 transition-all drop-shadow-[0_2px_10px_rgba(255,255,255,0.08)] pointer-events-none select-none"
               priority
             />
           </div>
@@ -98,13 +99,14 @@ export function PublicNavbar() {
 
 
           {/* Official Mirai Logo - Seamlessly blended on navbar background */}
-          <div className="hidden sm:flex items-center pl-1">
+          <div className="hidden sm:flex items-center pl-1 select-none">
             <Image
               src="/images/mirai-logo.png"
               alt="Mirai School of Technology"
               width={120}
               height={26}
-              className="h-6 w-auto object-contain brightness-110 opacity-80 hover:opacity-100 transition-opacity"
+              draggable={false}
+              className="h-6 w-auto object-contain brightness-110 opacity-80 hover:opacity-100 transition-opacity pointer-events-none select-none"
               priority
               unoptimized
             />

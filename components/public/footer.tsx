@@ -10,23 +10,25 @@ export function PublicFooter() {
           {/* Brand & About */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="relative h-10 w-10 rounded-full overflow-hidden border border-white/10 shadow-sm bg-neutral-900 shrink-0">
+              <div className="relative h-10 w-10 rounded-full overflow-hidden border border-white/10 shadow-sm bg-neutral-900 shrink-0 select-none">
                 <Image
                   src="/images/malhar-logo.png"
                   alt="MALHAR Society Logo"
                   fill
                   unoptimized
-                  className="object-cover brightness-105"
+                  draggable={false}
+                  className="object-cover brightness-105 pointer-events-none select-none"
                 />
               </div>
-              <div className="flex flex-col">
-                <div className="relative h-5 w-28 mb-0.5">
+              <div className="flex flex-col select-none">
+                <div className="relative h-5 w-28 mb-0.5 select-none">
                   <Image
                     src="/images/malhar-wordmark.png"
                     alt="MALHAR"
                     fill
                     unoptimized
-                    className="object-contain object-left brightness-110"
+                    draggable={false}
+                    className="object-contain object-left brightness-110 pointer-events-none select-none"
                   />
                 </div>
                 <span className="text-[10px] font-medium text-neutral-400">

@@ -50,6 +50,11 @@ body {
   -webkit-user-select: text;
 }
 
+img, svg, video {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
 ::selection {
   background-color: #e5e5e5;
   color: #000000;
