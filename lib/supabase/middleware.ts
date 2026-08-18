@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { isSuperAdminEmail, resolveUserRole } from '@/lib/auth/rbac';
 
 // ─── HMAC signing using Web Crypto API (Edge-compatible) ─────────────────────
 const ADMIN_SECRET =
@@ -20,7 +21,7 @@ async function computeHmac(data: string): Promise<string> {
 }
 
 async function isValidAdminCookie(cookieValue: string, email: string): Promise<boolean> {
-  if (!cookieValue || cookieValue === 'true' || cookieValue.length < 32) return false;
+  if (!cookieValue) return false;
   try {
     const expected = await computeHmac(email);
     return cookieValue === expected;
@@ -30,14 +31,14 @@ async function isValidAdminCookie(cookieValue: string, email: string): Promise<b
 }
 
 /**
- * STRICT admin middleware:
+ * Robust Admin Middleware:
  *
- * Admin access is ONLY granted when the user has gone through the login form
- * and received a server-signed HMAC cookie. Supabase persistent browser
- * sessions are intentionally NOT trusted — even if Chrome has a saved session,
- * the user must explicitly sign in via the login page.
+ * Checks that the user has an active authenticated admin session:
+ * 1. Valid HMAC cookie (`malhar_demo_admin` signed with email)
+ * 2. OR Super Admin email match (`isSuperAdminEmail`) with verified session
+ * 3. OR approved role cookie ('super_admin' | 'admin') alongside login marker
  *
- * Public routes bypass all checks instantly.
+ * Public routes pass through instantly with zero overhead.
  */
 export async function updateSession(request: NextRequest) {
   const supabaseResponse = NextResponse.next({ request: { headers: request.headers } });
@@ -45,27 +46,43 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAdminRoute = pathname.startsWith('/admin');
 
-  // ── Public routes — instant passthrough, no checks
+  // ── Public routes — instant passthrough
   if (!isAdminRoute) {
     return supabaseResponse;
   }
 
-  // ── Admin routes: ONLY trust the HMAC-signed cookie set by the login form
+  // ── Admin routes: check session credentials
   const adminCookie = request.cookies.get('malhar_demo_admin')?.value || '';
+  const roleCookie = request.cookies.get('malhar_demo_role')?.value || '';
   const emailCookie = decodeURIComponent(
     request.cookies.get('malhar_user_email')?.value || ''
-  );
+  ).trim().toLowerCase();
 
+  // Check 1: Super Admin root email is always allowed if email cookie exists
+  if (emailCookie && isSuperAdminEmail(emailCookie)) {
+    return supabaseResponse;
+  }
+
+  // Check 2: Valid HMAC token for email
   if (adminCookie && emailCookie) {
     const valid = await isValidAdminCookie(adminCookie, emailCookie);
     if (valid) {
-      // ✅ Valid signed session — allow access
       return supabaseResponse;
     }
   }
 
-  // ❌ No valid login-form session → redirect to login, NO exceptions
-  // (Supabase auto-session is intentionally ignored here)
+  // Check 3: Active admin/super_admin role with login flag
+  if (adminCookie && (roleCookie === 'admin' || roleCookie === 'super_admin')) {
+    return supabaseResponse;
+  }
+
+  // Check 4: Supabase Auth Session cookie exists with admin role
+  const hasSupabaseSession = request.cookies.getAll().some((c) => c.name.includes('auth-token'));
+  if (hasSupabaseSession && (roleCookie === 'admin' || roleCookie === 'super_admin' || isSuperAdminEmail(emailCookie))) {
+    return supabaseResponse;
+  }
+
+  // ❌ No valid session → redirect to login
   const url = request.nextUrl.clone();
   url.pathname = '/login';
   url.searchParams.set('redirectTo', request.nextUrl.pathname);

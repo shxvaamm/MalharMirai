@@ -168,7 +168,23 @@ export async function GET(request: Request) {
   const role = isSuper ? "super_admin" : "admin";
   const isProduction = process.env.NODE_ENV === "production";
 
-  cookieStore.set("malhar_demo_admin", "true", {
+  const ADMIN_SECRET =
+    process.env.ADMIN_SESSION_SECRET || "malhar_xK9pL3mQ_secure_admin_2026_8fTqWvNz";
+
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(ADMIN_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(verifiedEmail));
+  const hmac = Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  cookieStore.set("malhar_demo_admin", hmac, {
     path: "/",
     maxAge: 86400,
     sameSite: "lax",
