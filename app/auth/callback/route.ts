@@ -29,9 +29,9 @@ async function computeHmac(data: string): Promise<string> {
  * 1. Exchanges the OAuth authorization code for an authenticated Supabase session.
  * 2. Queries the Supabase `profiles` table to retrieve the user's assigned role.
  * 3. Sets HMAC-signed admin cookies (same as email/password login flow).
- * 4. Role-based redirect logic:
- *    - 'super_admin' | 'admin' => /admin/dashboard
- *    - Standard users          => /dashboard
+ * 4. ALL users land on /dashboard (member portal):
+ *    - Admins/Super Admins see an "Admin Console" banner there to switch portals
+ *    - Members see their tickets, passes, events
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -103,11 +103,11 @@ export async function GET(request: Request) {
 
       const effectiveRole = resolveUserRole(userEmail, userRole);
 
-      // 4. Role-based redirect with HMAC-signed cookies (mirrors email/password login)
+      // 4. All users land on /dashboard (member portal).
+      //    Admins/Super Admins see an "Enter Admin Console" banner from there.
       if (effectiveRole === "super_admin" || effectiveRole === "admin") {
         const hmac = await computeHmac(userEmail);
-        const response = NextResponse.redirect(`${origin}/admin/dashboard`);
-        // Session cookies (no max-age) — cleared when browser closes
+        const response = NextResponse.redirect(`${origin}/dashboard`);
         const opts = { path: "/", sameSite: "lax" as const };
         response.cookies.set("malhar_demo_admin", hmac, opts);
         response.cookies.set("malhar_demo_role", effectiveRole, opts);
