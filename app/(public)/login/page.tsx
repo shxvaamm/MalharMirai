@@ -66,7 +66,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/admin";
+  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
   const errorParam = searchParams.get("error");
   const emailParam = searchParams.get("email");
   const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
@@ -240,12 +240,9 @@ function AuthForm() {
         const effectiveRole = resolveUserRole(userEmail, userRole);
         await grantAdminSession(userEmail, effectiveRole);
 
-        const targetDestination = (effectiveRole === "super_admin" || effectiveRole === "admin")
-          ? "/admin/dashboard"
-          : "/dashboard";
-
-        setSuccessMessage(`Signed in successfully! Opening dashboard...`);
-        router.push(targetDestination);
+        // All users land on the member portal — admins see an "Admin Console" button there
+        setSuccessMessage(`Signed in successfully! Opening your portal...`);
+        router.push("/dashboard");
         router.refresh();
         return;
       }
@@ -256,12 +253,9 @@ function AuthForm() {
         const effectiveRole = resolveUserRole(emailCheck.normalizedEmail, verification.role);
         await grantAdminSession(emailCheck.normalizedEmail, effectiveRole);
 
-        const targetDestination = (effectiveRole === "super_admin" || effectiveRole === "admin")
-          ? "/admin/dashboard"
-          : "/dashboard";
-
-        setSuccessMessage(`Signed in successfully! Opening dashboard...`);
-        router.push(targetDestination);
+        // All users land on the member portal — admins see an "Admin Console" button there
+        setSuccessMessage(`Signed in successfully! Opening your portal...`);
+        router.push("/dashboard");
         router.refresh();
         return;
       }
@@ -369,8 +363,8 @@ function AuthForm() {
         });
 
         await grantAdminSession(emailCheck.normalizedEmail, "admin");
-        setSuccessMessage("Admin account created! Redirecting to dashboard...");
-        router.push("/admin/dashboard");
+        setSuccessMessage("Admin account created! Opening your portal...");
+        router.push("/dashboard");
         router.refresh();
         return;
       }
@@ -403,12 +397,10 @@ function AuthForm() {
       }
 
       await grantAdminSession(email, regResult.role);
-      const targetDestination = (regResult.role === "super_admin" || regResult.role === "admin")
-        ? "/admin/dashboard"
-        : "/dashboard";
 
-      setSuccessMessage("Account created successfully! Opening dashboard...");
-      router.push(targetDestination);
+      // All users land on the member portal — admins see an "Admin Console" button there
+      setSuccessMessage("Account created successfully! Opening your portal...");
+      router.push("/dashboard");
       router.refresh();
 
     } catch (err: any) {
