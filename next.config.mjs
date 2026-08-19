@@ -7,9 +7,11 @@ const nextConfig = {
       bodySizeLimit: "10mb",
     },
     scrollRestoration: true,
+    optimizePackageImports: ["lucide-react"],
   },
   images: {
     formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 3600,
     remotePatterns: [
       {
         protocol: "https",

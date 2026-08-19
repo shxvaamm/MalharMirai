@@ -17,13 +17,14 @@ interface ScrollRevealProps {
 /**
  * Wraps children and animates them into view when they enter the viewport.
  * Uses IntersectionObserver — zero layout jank, no layout thrashing.
+ * rootMargin triggers reveal slightly before element is fully in view.
  */
 export function ScrollReveal({
   children,
   className = "",
   variant = "reveal",
   delay = 0,
-  threshold = 0.12,
+  threshold = 0.08,
   as: Tag = "div",
   stagger = false,
 }: ScrollRevealProps) {
@@ -33,6 +34,19 @@ export function ScrollReveal({
     const el = ref.current;
     if (!el) return;
 
+    // Apply delay inline before observing to avoid FOUC
+    if (delay) el.style.transitionDelay = `${delay}ms`;
+
+    // Check if already visible (e.g. above the fold on load)
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      // Small rAF so CSS transition has time to register
+      requestAnimationFrame(() => {
+        el.classList.add("reveal-visible");
+      });
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -40,11 +54,8 @@ export function ScrollReveal({
           observer.unobserve(el); // fire once
         }
       },
-      { threshold }
+      { threshold, rootMargin: "0px 0px -32px 0px" }
     );
-
-    // Apply delay inline
-    if (delay) el.style.transitionDelay = `${delay}ms`;
 
     observer.observe(el);
     return () => observer.disconnect();
