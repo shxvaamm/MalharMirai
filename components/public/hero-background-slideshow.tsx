@@ -40,9 +40,9 @@ export function HeroBackgroundSlideshow({
     <div
       aria-hidden="true"
       suppressHydrationWarning
-      className="absolute inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden"
+      className="fixed inset-0 w-full h-full min-h-screen pointer-events-none select-none z-0 overflow-hidden"
     >
-      {/* Slides Container — Edge-to-edge full-screen slideshow */}
+      {/* Slides Container — Edge-to-edge full-screen background */}
       <div
         suppressHydrationWarning
         className={`absolute inset-0 h-full w-full pointer-events-none select-none ${opacityClassName}`}
@@ -76,28 +76,48 @@ export function HeroBackgroundSlideshow({
         })}
       </div>
 
-      {/* Clean full-width overlays for text readability and seamless bottom blend */}
-      <div className="absolute inset-0 bg-black/30 pointer-events-none select-none" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/15 to-black pointer-events-none select-none" />
+      {/* Clean full-width overlays for text readability and deep contrast */}
+      <div className="absolute inset-0 bg-black/35 pointer-events-none select-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/15 to-black/85 pointer-events-none select-none" />
+    </div>
+  );
+}
 
-      {/* Slide Indicators */}
-      {activeSlides.length > 1 && (
-        <div className="absolute bottom-4 sm:bottom-6 inset-x-0 z-20 flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto">
-          {activeSlides.map((slide, index) => (
-            <button
-              key={slide.id}
-              type="button"
-              onClick={() => setCurrentIndex(index)}
-              aria-label={`Go to slide ${index + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none ${
-                index === currentIndex
-                  ? "w-7 sm:w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
-                  : "w-2 bg-white/30 hover:bg-white/60"
-              }`}
-            />
-          ))}
-        </div>
-      )}
+export function HeroSlideIndicators() {
+  const { activeSlides } = useHeroSlides();
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!activeSlides || activeSlides.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, [activeSlides]);
+
+  if (!mounted || !activeSlides || activeSlides.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-1.5 sm:gap-2 pt-6 pointer-events-auto select-none">
+      {activeSlides.map((slide, index) => (
+        <span
+          key={slide.id}
+          className={`h-1.5 rounded-full transition-all duration-300 ${
+            index === currentIndex
+              ? "w-7 sm:w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+              : "w-2 bg-white/30"
+          }`}
+        />
+      ))}
     </div>
   );
 }
