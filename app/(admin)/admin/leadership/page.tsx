@@ -63,7 +63,7 @@ export default function AdminLeadershipPage() {
   // Filter & Sort Leadership Members exclusively by designated leadership titles:
   // 1. President, 2. Vice President, 3. Treasurer, 4. Media Head, 5. Faculty Coordinator
   const sortedLeadership = React.useMemo(() => {
-    const list = members.filter((m) => isLeadershipRole(m.specialty));
+    const list = members.filter((m) => isLeadershipRole(m.specialty, m.department));
 
     return list.sort((a, b) => {
       const rankA = getLeadershipRank(a.specialty);

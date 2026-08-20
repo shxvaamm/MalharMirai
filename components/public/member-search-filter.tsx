@@ -43,7 +43,7 @@ export function MemberSearchFilter() {
 
   // Exclude executive leaders (President, Vice President, Treasurer, Media Head, Faculty Coordinator)
   const members = React.useMemo(() => {
-    return rawMembers.filter((m) => !isLeadershipRole(m.specialty));
+    return rawMembers.filter((m) => !isLeadershipRole(m.specialty, m.department));
   }, [rawMembers]);
 
   return (

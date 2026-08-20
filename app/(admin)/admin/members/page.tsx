@@ -204,7 +204,7 @@ export default function AdminMembersPage() {
   const filteredMembers = React.useMemo(() => {
     return members.filter((m) => {
       // Exclude executive leaders (managed in /admin/leadership)
-      if (isLeadershipRole(m.specialty)) return false;
+      if (isLeadershipRole(m.specialty, m.department)) return false;
 
       const matchDept = deptFilter === "all" || m.department === deptFilter;
       const matchRole = roleFilter === "all" || m.role === roleFilter;

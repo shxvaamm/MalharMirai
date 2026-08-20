@@ -32,7 +32,7 @@ export default function LeadershipPage() {
         // Fast initial render from synced storage
         const cached = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
         const cachedCore = cached.filter((c) =>
-          isLeadershipRole(c.specialty, c.department, c.role, c.email)
+          isLeadershipRole(c.specialty, c.department)
         );
         if (cachedCore.length > 0 && isMounted) {
           setMembers(cachedCore);
@@ -93,9 +93,7 @@ export default function LeadershipPage() {
         const coreProfiles = rawMerged.filter((p: any) => {
           const specialty = (p.specialty || p.leadership_role || p.position || "").trim();
           const department = (p.department || "").trim();
-          const role = (p.role || "").trim();
-          const email = (p.email || "").trim();
-          return isLeadershipRole(specialty, department, role, email);
+          return isLeadershipRole(specialty, department);
         });
 
         if (isMounted) {

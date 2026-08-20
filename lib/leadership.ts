@@ -1,131 +1,90 @@
-import { isSuperAdminEmail } from "@/lib/auth/rbac";
-
 export const OFFICIAL_LEADERSHIP_ROLES = [
   "President",
   "Vice President",
   "Treasurer",
   "Media Head",
-  "Tech Head",
-  "Design Head",
-  "Management Head",
-  "PR Head",
   "Faculty Coordinator",
 ] as const;
 
 export type OfficialLeadershipRole = (typeof OFFICIAL_LEADERSHIP_ROLES)[number];
 
 /**
- * Hierarchy ranking rule:
- * 1. President / Founder / Super Admin
+ * Hierarchy ranking rule for Core Committee:
+ * 1. President / Founder
  * 2. Vice President
  * 3. Treasurer / Finance
  * 4. Media Head
- * 5. Tech Head
- * 6. Design Head
- * 7. Management Head
- * 8. PR Head
- * 9. Faculty Coordinator
- * 10. Other Heads / Leads / Coordinators
+ * 5. Faculty Coordinator
  */
 export function getLeadershipRank(specialty: string = ""): number {
   const s = specialty.toLowerCase().trim();
   if (s.includes("vice president") || s.includes("vice-president") || s === "vp") {
     return 2;
   }
-  if (s.includes("president") || s.includes("founder") || s.includes("super admin")) {
+  if (s.includes("president") || s.includes("founder")) {
     return 1;
   }
   if (
     s.includes("treasurer") ||
     s.includes("treaturer") ||
-    s.includes("finance") ||
+    s.includes("finance head") ||
     s.includes("treasury")
   ) {
     return 3;
   }
   if (
-    s.includes("media") ||
-    s.includes("social media")
+    s.includes("media head") ||
+    s.includes("head of media")
   ) {
     return 4;
   }
   if (
-    s.includes("tech") ||
-    s.includes("technical") ||
-    s.includes("web") ||
-    s.includes("developer")
-  ) {
-    return 5;
-  }
-  if (
-    s.includes("design") ||
-    s.includes("creative") ||
-    s.includes("graphics")
-  ) {
-    return 6;
-  }
-  if (
-    s.includes("management") ||
-    s.includes("operations") ||
-    s.includes("event")
-  ) {
-    return 7;
-  }
-  if (
-    s.includes("pr") ||
-    s.includes("public relations") ||
-    s.includes("outreach") ||
-    s.includes("sponsorship")
-  ) {
-    return 8;
-  }
-  if (
-    s.includes("faculty") ||
     s.includes("faculty coordinator") ||
     s.includes("faculty advisor") ||
     s.includes("mentor")
   ) {
-    return 9;
+    return 5;
   }
-  if (
-    s.includes("head") ||
-    s.includes("lead") ||
-    s.includes("secretary") ||
-    s.includes("joint") ||
-    s.includes("executive") ||
-    s.includes("convenor") ||
-    s.includes("coordinator") ||
-    s.includes("core")
-  ) {
-    return 10;
-  }
-  return 15;
+  return 10;
 }
 
-export function isLeadershipRole(
-  specialty: string = "",
-  department: string = "",
-  role: string = "",
-  email: string = ""
-): boolean {
-  if (email && isSuperAdminEmail(email)) return true;
-  if (role === "super_admin" || role === "admin") return true;
-
+/**
+ * Clean & strict separation:
+ * Only returns true if the member belongs to the Core Committee / Leadership Board.
+ * Department contributors, coordinators, and volunteers remain in Society Members.
+ */
+export function isLeadershipRole(specialty: string = "", department: string = ""): boolean {
   const d = (department || "").toLowerCase().trim();
   if (
-    d.includes("leadership") ||
-    d.includes("core") ||
-    d.includes("executive") ||
-    d.includes("board") ||
-    d.includes("council")
+    d === "leadership board" ||
+    d === "core committee" ||
+    d === "core" ||
+    d === "leadership"
   ) {
     return true;
   }
 
   const s = (specialty || "").toLowerCase().trim();
   if (!s) return false;
-  if (getLeadershipRank(s) <= 15) return true;
-  if (s !== "member" && s !== "general" && s !== "official member") return true;
+
+  // Strict leadership roles
+  if (
+    s === "president" ||
+    s === "vice president" ||
+    s === "vice-president" ||
+    s === "vp" ||
+    s === "treasurer" ||
+    s === "media head" ||
+    s === "faculty coordinator" ||
+    s === "faculty advisor" ||
+    s === "founder" ||
+    s === "club president" ||
+    s === "society president" ||
+    s === "club treasurer"
+  ) {
+    return true;
+  }
+
   return false;
 }
 
@@ -163,10 +122,6 @@ export function getLeadershipBadgeColor(specialty: string = ""): {
         iconColor: "text-neutral-300",
       };
     case 4: // Media Head
-    case 5: // Tech Head
-    case 6: // Design Head
-    case 7: // Management Head
-    case 8: // PR Head
       return {
         bg: "bg-white/[0.06]",
         text: "text-neutral-200",
@@ -174,7 +129,7 @@ export function getLeadershipBadgeColor(specialty: string = ""): {
         glow: "shadow-white/5",
         iconColor: "text-neutral-300",
       };
-    case 9: // Faculty Coordinator
+    case 5: // Faculty Coordinator
       return {
         bg: "bg-white/[0.06]",
         text: "text-neutral-200",
