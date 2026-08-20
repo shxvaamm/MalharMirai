@@ -34,16 +34,40 @@ export function getLeadershipRank(specialty: string = ""): number {
   }
   if (
     s.includes("media head") ||
-    s.includes("head of media")
+    s.includes("head of media") ||
+    s.includes("media")
   ) {
     return 4;
+  }
+  if (
+    s.includes("tech") ||
+    s.includes("technical")
+  ) {
+    return 5;
+  }
+  if (
+    s.includes("design") ||
+    s.includes("creative")
+  ) {
+    return 6;
+  }
+  if (
+    s.includes("management") ||
+    s.includes("coordinator")
+  ) {
+    return 7;
+  }
+  if (
+    s.includes("specialist")
+  ) {
+    return 8;
   }
   if (
     s.includes("faculty coordinator") ||
     s.includes("faculty advisor") ||
     s.includes("mentor")
   ) {
-    return 5;
+    return 9;
   }
   return 10;
 }
