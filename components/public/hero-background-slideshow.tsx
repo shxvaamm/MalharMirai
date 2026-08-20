@@ -77,8 +77,27 @@ export function HeroBackgroundSlideshow({
       </div>
 
       {/* Clean full-width overlays for text readability and seamless bottom blend */}
-      <div className="absolute inset-0 bg-black/40 pointer-events-none select-none" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black pointer-events-none select-none" />
+      <div className="absolute inset-0 bg-black/30 pointer-events-none select-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/15 to-black pointer-events-none select-none" />
+
+      {/* Slide Indicators */}
+      {activeSlides.length > 1 && (
+        <div className="absolute bottom-4 sm:bottom-6 inset-x-0 z-20 flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto">
+          {activeSlides.map((slide, index) => (
+            <button
+              key={slide.id}
+              type="button"
+              onClick={() => setCurrentIndex(index)}
+              aria-label={`Go to slide ${index + 1}`}
+              className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none ${
+                index === currentIndex
+                  ? "w-7 sm:w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                  : "w-2 bg-white/30 hover:bg-white/60"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
