@@ -40,9 +40,9 @@ export function HeroBackgroundSlideshow({
     <div
       aria-hidden="true"
       suppressHydrationWarning
-      className="absolute inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden bg-black"
+      className="absolute inset-x-0 top-0 h-[520px] sm:h-[620px] md:h-[720px] lg:h-[820px] max-h-[90vh] w-full pointer-events-none select-none z-0 overflow-hidden"
     >
-      {/* Slides Container — Scoped to Hero Section only */}
+      {/* Slides Container — Edge-to-edge full width across all tabs */}
       <div
         suppressHydrationWarning
         className={`absolute inset-0 h-full w-full pointer-events-none select-none ${opacityClassName}`}
@@ -78,7 +78,7 @@ export function HeroBackgroundSlideshow({
 
       {/* Clean full-width overlays: text readability and deep fade to black at bottom */}
       <div className="absolute inset-0 bg-black/30 pointer-events-none select-none" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black pointer-events-none select-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 via-60% to-black pointer-events-none select-none" />
     </div>
   );
 }

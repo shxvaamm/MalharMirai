@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Calendar, Users, ArrowRight, Compass } from "lucide-react";
 import { EmergencyBanner } from "@/components/public/emergency-banner";
-import { HeroBackgroundSlideshow, HeroSlideIndicators } from "@/components/public/hero-background-slideshow";
+import { HeroSlideIndicators } from "@/components/public/hero-background-slideshow";
 import { DepartmentsShowcase } from "@/components/public/departments-showcase";
 import { EventsShowcase } from "@/components/public/events-showcase";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
@@ -37,14 +37,11 @@ export default async function HomePage() {
   const { activeMembers, eventsOrganised } = await getStats();
 
   return (
-    <div className="flex flex-col gap-16 md:gap-24 pb-24 overflow-hidden bg-black">
+    <div className="flex flex-col gap-16 md:gap-24 pb-24 overflow-hidden bg-transparent">
       <EmergencyBanner />
 
       {/* ── Hero Section (Fits 100vh - navbar perfectly) ─────────────── */}
-      <section className="relative w-full min-h-[calc(100dvh-4rem)] md:min-h-[calc(100dvh-5rem)] flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-10 sm:py-16 text-center overflow-hidden bg-black">
-        {/* Scoped Hero Slideshow Background — Only visible in Hero Section */}
-        <HeroBackgroundSlideshow intervalMs={4500} opacityClassName="opacity-80" />
-
+      <section className="relative w-full min-h-[calc(100dvh-4rem)] md:min-h-[calc(100dvh-5rem)] flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-10 sm:py-16 text-center">
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center justify-center w-full">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-white/[0.02] blur-[140px] rounded-full pointer-events-none -z-10" />
 
