@@ -15,7 +15,8 @@ import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { getLeadershipRank, getLeadershipBadgeColor, isLeadershipRole } from "@/lib/leadership";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
-import { ClubMember } from "@/lib/mock-data";
+import { ClubMember, MOCK_MEMBERS } from "@/lib/mock-data";
+import { getSyncedData, STORAGE_KEYS } from "@/lib/store/sync-store";
 import Image from "next/image";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
 
@@ -28,23 +29,73 @@ export default function LeadershipPage() {
 
     async function loadLeadershipProfiles() {
       try {
-        const supabase = createClient();
-
-        // Read from club_members — no FK constraint, works for any admin-added person
-        const { data: rawData, error } = await (supabase.from("club_members") as any)
-          .select("*")
-          .order("created_at", { ascending: true });
-
-        if (error) {
-          console.warn("Error fetching club_members:", error.message);
+        // Fast initial render from synced storage
+        const cached = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
+        const cachedCore = cached.filter((c) =>
+          isLeadershipRole(c.specialty, c.department, c.role, c.email)
+        );
+        if (cachedCore.length > 0 && isMounted) {
+          setMembers(cachedCore);
         }
 
-        const dataList = rawData && rawData.length > 0 ? rawData : [];
+        const supabase = createClient();
+
+        // Dual-source fetch: club_members (admin-managed) + profiles (auth users)
+        const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+        const [clubResult, profilesResult] = await Promise.all([
+          Promise.race([
+            (supabase.from("club_members") as any).select("*"),
+            timeout.then(() => ({ data: null })),
+          ]),
+          Promise.race([
+            (supabase.from("profiles") as any).select("*"),
+            timeout.then(() => ({ data: null })),
+          ]),
+        ]);
+
+        const clubRows: any[] = clubResult?.data || [];
+        const profileRows: any[] = profilesResult?.data || [];
+
+        // Deduplicate & merge
+        const seenIds = new Set<string>();
+        const seenEmails = new Set<string>();
+        const rawMerged: any[] = [];
+
+        for (const row of clubRows) {
+          const email = (row.email || "").toLowerCase().trim();
+          if (!seenIds.has(row.id) && !seenEmails.has(email)) {
+            seenIds.add(row.id);
+            if (email) seenEmails.add(email);
+            rawMerged.push(row);
+          }
+        }
+
+        for (const row of profileRows) {
+          const email = (row.email || "").toLowerCase().trim();
+          if (!seenIds.has(row.id) && !seenEmails.has(email)) {
+            seenIds.add(row.id);
+            if (email) seenEmails.add(email);
+            rawMerged.push(row);
+          }
+        }
+
+        // Include any locally cached members
+        for (const c of cached) {
+          const email = (c.email || "").toLowerCase().trim();
+          if (!seenIds.has(c.id) && !seenEmails.has(email)) {
+            seenIds.add(c.id);
+            if (email) seenEmails.add(email);
+            rawMerged.push(c);
+          }
+        }
 
         // Filter only leadership roles
-        const coreProfiles = dataList.filter((p: any) => {
+        const coreProfiles = rawMerged.filter((p: any) => {
           const specialty = (p.specialty || p.leadership_role || p.position || "").trim();
-          return isLeadershipRole(specialty);
+          const department = (p.department || "").trim();
+          const role = (p.role || "").trim();
+          const email = (p.email || "").trim();
+          return isLeadershipRole(specialty, department, role, email);
         });
 
         if (isMounted) {
@@ -63,13 +114,20 @@ export default function LeadershipPage() {
                 d.specialty ||
                 d.leadership_role ||
                 d.position ||
-                (isSuperAdminEmail(d.email) ? "President" : "Coordinator");
+                (isSuperAdminEmail(d.email)
+                  ? "President"
+                  : d.role === "admin" || d.role === "super_admin"
+                  ? "Lead Coordinator"
+                  : "Core Member");
 
               return {
                 id: d.id,
-                full_name: d.full_name || "Core Leader",
+                full_name: d.full_name || (isSuperAdminEmail(d.email) ? "Shivam Kumar" : "Core Leader"),
                 email: d.email || "",
-                role: d.role === "admin" || d.role === "super_admin" ? "admin" : "member",
+                role:
+                  d.role === "admin" || d.role === "super_admin" || isSuperAdminEmail(d.email)
+                    ? "admin"
+                    : "member",
                 department: d.department || "Core Committee",
                 phone: d.phone || "",
                 avatar_url: d.avatar_url || null,
@@ -78,8 +136,8 @@ export default function LeadershipPage() {
                 year: d.year || "3rd Year",
                 specialty: resolvedSpecialty,
                 socials: {
-                  instagram: d.instagram || null,
-                  linkedin: d.linkedin || null,
+                  instagram: d.instagram || d.socials?.instagram || null,
+                  linkedin: d.linkedin || d.socials?.linkedin || null,
                 },
               };
             });
@@ -99,7 +157,6 @@ export default function LeadershipPage() {
         }
       } catch (err) {
         console.warn("Leadership public fetch error:", err);
-        if (isMounted) setMembers([]);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -107,15 +164,22 @@ export default function LeadershipPage() {
 
     loadLeadershipProfiles();
 
-    // Supabase Realtime — instant cross-device updates on club_members table
+    // Supabase Realtime — cross-device sync on club_members & profiles
     let channel: any = null;
     try {
       const supabase = createClient();
       channel = supabase
-        .channel("public_leadership_club_members")
+        .channel("public_leadership_sync_v2")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "club_members" },
+          () => {
+            loadLeadershipProfiles();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "profiles" },
           () => {
             loadLeadershipProfiles();
           }
