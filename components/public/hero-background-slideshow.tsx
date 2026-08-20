@@ -40,9 +40,9 @@ export function HeroBackgroundSlideshow({
     <div
       aria-hidden="true"
       suppressHydrationWarning
-      className="absolute inset-x-0 top-0 h-[calc(100dvh-4rem)] md:h-[calc(100dvh-5rem)] w-full pointer-events-none select-none z-0 overflow-hidden bg-black"
+      className="absolute inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden bg-black"
     >
-      {/* Slides — Cross-fading uncropped photographs fitting full viewport */}
+      {/* Slides Container — Smooth cross-fading uncropped photographs */}
       <div
         suppressHydrationWarning
         className={`absolute inset-0 h-full w-full pointer-events-none select-none ${opacityClassName}`}
@@ -61,7 +61,7 @@ export function HeroBackgroundSlideshow({
               }}
             >
               {/* Visually appropriate ambient blurred background behind the image */}
-              <div className="absolute inset-0 w-full h-full overflow-hidden opacity-25 filter blur-3xl scale-110 pointer-events-none select-none">
+              <div className="absolute inset-0 w-full h-full overflow-hidden opacity-20 filter blur-3xl scale-110 pointer-events-none select-none">
                 <Image
                   src={slide.image_url}
                   alt=""
@@ -82,7 +82,7 @@ export function HeroBackgroundSlideshow({
                   className="object-contain object-center w-full h-full pointer-events-none select-none drop-shadow-[0_10px_35px_rgba(0,0,0,0.85)]"
                   loading={index === 0 ? "eager" : "lazy"}
                   priority={index === 0}
-                  sizes="100vw"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1400px"
                   unoptimized
                 />
               </div>
@@ -92,7 +92,7 @@ export function HeroBackgroundSlideshow({
       </div>
 
       {/* Gentle readability overlays: top scrim and bottom fade */}
-      <div className="absolute inset-0 bg-black/40 pointer-events-none select-none" />
+      <div className="absolute inset-0 bg-black/45 pointer-events-none select-none" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black pointer-events-none select-none" />
     </div>
   );
