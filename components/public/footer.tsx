@@ -4,8 +4,8 @@ import { Mail, MapPin, Instagram } from "lucide-react";
 
 export function PublicFooter() {
   return (
-    <footer className="relative z-30 border-t border-white/[0.06] bg-black text-neutral-400 mt-auto">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <footer className="relative z-30 border-t border-white/[0.06] bg-black/90 backdrop-blur-xl text-neutral-400 mt-auto w-full">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 pb-14 sm:pb-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 mb-12">
           {/* Brand & About */}
           <div className="space-y-4">

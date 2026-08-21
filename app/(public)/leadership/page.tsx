@@ -197,7 +197,7 @@ export default function LeadershipPage() {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pb-20 sm:pb-28 space-y-16">
       {/* Header Banner */}
       <ScrollReveal variant="reveal" className="text-center space-y-4 max-w-3xl mx-auto">
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-neutral-100">
