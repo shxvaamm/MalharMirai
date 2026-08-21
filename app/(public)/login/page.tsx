@@ -71,7 +71,14 @@ function AuthForm() {
   const emailParam = searchParams.get("email");
   const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
 
-  const { loginAsQuickAdmin, user: currentUser, role: currentRole } = useAuth();
+  const { loginAsQuickAdmin, user: currentUser, role: currentRole, loading: authLoading } = useAuth();
+
+  // ─── If already authenticated, redirect to destination portal immediately
+  React.useEffect(() => {
+    if (!authLoading && currentUser) {
+      router.replace(redirectTo || "/dashboard");
+    }
+  }, [authLoading, currentUser, redirectTo, router]);
 
   // ─── Sets HMAC-signed admin cookie server-side BEFORE navigating to /admin ───
   const grantAdminSession = React.useCallback(

@@ -21,6 +21,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { useAuth } from "@/lib/auth/auth-context";
+
 const navLinks = [
   { name: "Home", href: "/", icon: Sparkles },
   { name: "About", href: "/about", icon: Info },
@@ -34,13 +36,12 @@ const navLinks = [
 
 export function PublicNavbar() {
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   React.useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
-
-
 
   return (
     <header className="sticky top-0 z-50 w-full bg-black/90 backdrop-blur-xl border-b border-white/[0.06] transition-all duration-300">
@@ -88,15 +89,25 @@ export function PublicNavbar() {
 
         {/* Action Button & Seamless Mirai Logo */}
         <div className="flex items-center gap-3 sm:gap-4">
-          {/* CTA Button - Always routes to login page */}
-          <Link
-            href="/login"
-            className="hidden sm:inline-flex items-center justify-center rounded-full px-5 py-2 text-xs font-semibold bg-neutral-200 text-neutral-950 hover:bg-neutral-300 shadow-sm active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
-          >
-            <span>Login</span>
-          </Link>
-
-
+          {/* CTA Button: Dashboard when logged in, Login when logged out */}
+          {user ? (
+            <Link
+              href="/dashboard"
+              id="navbar-dashboard-btn"
+              className="hidden sm:inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-2 text-xs font-semibold bg-neutral-200 text-neutral-950 hover:bg-neutral-300 shadow-sm active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span>Dashboard</span>
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              id="navbar-login-btn"
+              className="hidden sm:inline-flex items-center justify-center rounded-full px-5 py-2 text-xs font-semibold bg-neutral-200 text-neutral-950 hover:bg-neutral-300 shadow-sm active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+            >
+              <span>Login</span>
+            </Link>
+          )}
 
           {/* Official Mirai Logo - Seamlessly blended on navbar background */}
           <div className="hidden sm:flex items-center pl-1 select-none">
@@ -154,20 +165,42 @@ export function PublicNavbar() {
               );
             })}
 
-            <div className="pt-3 border-t border-white/[0.06]">
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center justify-center rounded-full py-3 font-semibold text-xs bg-neutral-200 text-neutral-950 hover:bg-neutral-300 shadow-sm transition-all"
-              >
-                <span>Login</span>
-              </Link>
+            <div className="pt-3 border-t border-white/[0.06] space-y-2">
+              {user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 rounded-full py-3 font-semibold text-xs bg-neutral-200 text-neutral-950 hover:bg-neutral-300 shadow-sm transition-all"
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5" />
+                    <span>Dashboard</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setMobileMenuOpen(false);
+                      await signOut();
+                    }}
+                    className="w-full flex items-center justify-center rounded-full py-2.5 font-medium text-xs text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-all"
+                  >
+                    <span>Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-center rounded-full py-3 font-semibold text-xs bg-neutral-200 text-neutral-950 hover:bg-neutral-300 shadow-sm transition-all"
+                >
+                  <span>Login</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
       )}
     </header>
-
   );
 }
 

@@ -35,18 +35,12 @@ interface AuthContextType {
   loginAsQuickAdmin: (email?: string, targetRole?: UserRole) => void;
 }
 
-function getInitialAuthState(): { user: AuthUser | null; role: UserRole; loading: boolean } {
-  if (typeof window === "undefined") {
-    return { user: null, role: "member", loading: false };
-  }
+function resolveStoredSession(): AuthUser | null {
+  if (typeof window === "undefined") return null;
 
   try {
-    // Check for HMAC-signed admin cookie (must be 64-char hex, not just "true")
-    const adminCookieMatch = document.cookie.match(/malhar_demo_admin=([^;]+)/);
-    const adminCookieValue = adminCookieMatch ? adminCookieMatch[1] : '';
-    const isDemoAdminCookie = adminCookieValue.length === 64 && /^[0-9a-f]+$/.test(adminCookieValue);
+    // 1. Get stored email from localStorage or cookie
     let storedEmail = localStorage.getItem("malhar_current_user_email");
-
     if (!storedEmail) {
       const emailCookie = document.cookie.match(/malhar_user_email=([^;]+)/);
       if (emailCookie) {
@@ -54,47 +48,70 @@ function getInitialAuthState(): { user: AuthUser | null; role: UserRole; loading
       }
     }
 
-    const cookieRoleMatch = document.cookie.match(/malhar_demo_role=([^;]+)/);
-    const storedRole = (cookieRoleMatch ? cookieRoleMatch[1] : null) as UserRole | null;
+    if (!storedEmail) return null;
+    const activeEmail = storedEmail.trim().toLowerCase();
+    if (!activeEmail) return null;
 
-    if (isDemoAdminCookie && storedEmail) {
-      const activeEmail = storedEmail.trim().toLowerCase();
-      const activeSuper = getActiveSuperAdminEmail();
-      const isSuper = storedRole === "super_admin" || isSuperAdminEmail(activeEmail) || activeEmail === activeSuper;
-
-      const membersList = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
-      const member = membersList.find((m) => m.email.toLowerCase() === activeEmail);
-      const isPromotedAdmin = member?.role === "admin";
-
-      const effectiveRole: UserRole = isSuper
-        ? "super_admin"
-        : (isPromotedAdmin || storedRole === "admin" ? "admin" : "member");
-
-      if (effectiveRole === "super_admin" || effectiveRole === "admin") {
-        const registered = getRegisteredCredentials().find((c) => c.email.toLowerCase() === activeEmail);
-
-        const fullName =
-          registered?.fullName ||
-          member?.full_name ||
-          (isSuper ? "Shivam Kumar (Super Admin)" : "Administrator");
-
-        const currentUser: AuthUser = {
-          id: member?.id || `user-${activeEmail}`,
-          email: activeEmail,
-          fullName,
-          role: effectiveRole,
-          avatarUrl: member?.avatar_url,
-          department: registered?.department || member?.department || "General",
-        };
-
-        return { user: currentUser, role: effectiveRole, loading: false };
-      }
+    // 2. Get stored role from cookie or localStorage
+    let storedRole: UserRole = "member";
+    const roleCookieMatch = document.cookie.match(/malhar_demo_role=([^;]+)/);
+    if (roleCookieMatch && roleCookieMatch[1]) {
+      storedRole = roleCookieMatch[1] as UserRole;
+    } else {
+      const localRole = localStorage.getItem("malhar_current_user_role");
+      if (localRole) storedRole = localRole as UserRole;
     }
-  } catch {
-    // Fallback
-  }
 
-  return { user: null, role: "member", loading: false };
+    // 3. Check for admin HMAC cookie
+    const adminCookieMatch = document.cookie.match(/malhar_demo_admin=([^;]+)/);
+    const adminCookieValue = adminCookieMatch ? adminCookieMatch[1] : "";
+    const hasAdminHmac = adminCookieValue.length === 64 && /^[0-9a-f]+$/.test(adminCookieValue);
+
+    const activeSuper = getActiveSuperAdminEmail();
+    const isSuper = isSuperAdminEmail(activeEmail) || activeEmail === activeSuper || storedRole === "super_admin";
+
+    const membersList = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
+    const member = membersList.find((m) => m.email.toLowerCase() === activeEmail);
+    const isPromotedAdmin = member?.role === "admin";
+    const registered = getRegisteredCredentials().find((c) => c.email.toLowerCase() === activeEmail);
+    const isRegisteredAdmin = registered?.role === "admin" || registered?.role === "super_admin";
+
+    let effectiveRole: UserRole = "member";
+    if (isSuper) {
+      effectiveRole = "super_admin";
+    } else if (hasAdminHmac || isPromotedAdmin || isRegisteredAdmin || storedRole === "admin") {
+      effectiveRole = "admin";
+    } else {
+      effectiveRole = "member";
+    }
+
+    const fullName =
+      registered?.fullName ||
+      member?.full_name ||
+      (isSuper ? "Shivam Kumar (Super Admin)" : (effectiveRole === "admin" ? "Administrator" : activeEmail.split("@")[0]));
+
+    const currentUser: AuthUser = {
+      id: member?.id || (registered as any)?.id || `user-${activeEmail}`,
+      email: activeEmail,
+      fullName,
+      role: effectiveRole,
+      avatarUrl: member?.avatar_url,
+      department: registered?.department || member?.department || "General",
+    };
+
+    return currentUser;
+  } catch {
+    return null;
+  }
+}
+
+function getInitialAuthState(): { user: AuthUser | null; role: UserRole; loading: boolean } {
+  const user = resolveStoredSession();
+  return {
+    user,
+    role: user ? user.role : "member",
+    loading: false,
+  };
 }
 
 export const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -104,89 +121,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initial] = React.useState(getInitialAuthState);
   const [user, setUser] = React.useState<AuthUser | null>(initial.user);
   const [role, setRole] = React.useState<UserRole>(initial.role);
-  const [loading, setLoading] = React.useState(initial.loading);
+  const [loading, setLoading] = React.useState(false);
 
-  // Initialize session state on mount
+  // Initialize and verify session state on mount / route changes
   React.useEffect(() => {
     let isMounted = true;
 
     async function initAuth() {
-      try {
-        // ── FAST PATH ─────────────────────────────────────────────────────────────
-        // getInitialAuthState() already ran synchronously and validated the HMAC
-        // admin cookie. If it found a valid session, trust it and return immediately.
-        //
-        // Previously this code re-checked the cookie using `.includes("malhar_demo_admin=true")`
-        // which NEVER matched because the server sets the cookie to a 64-char HMAC hash,
-        // not the literal string "true". This caused the code to always fall through to
-        // the 1200ms Supabase timeout, then call setUser(null) — clearing the session
-        // on every single page load/mount. That was the root cause of the auth bug.
-        if (initial.user) {
-          if (isMounted) setLoading(false);
-          return;
-        }
-
-        // ── SLOW PATH ─────────────────────────────────────────────────────────────
-        // No valid cookie session found by getInitialAuthState — check Supabase Auth.
-        // This covers: Supabase OAuth users, and users whose cookies have expired.
-        setLoading(true);
-
-        try {
-          const supabase = createClient();
-          const sessionPromise = supabase.auth.getSession();
-          const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-            setTimeout(() => resolve({ data: { session: null } }), 1200)
-          );
-
-          const result = await Promise.race([sessionPromise, timeoutPromise]);
-          const session = result?.data?.session;
-
-          if (session && session.user && session.user.email) {
-            const userEmail = session.user.email.toLowerCase().trim();
-            const isSuper = isSuperAdminEmail(userEmail);
-            const membersList = typeof window !== "undefined"
-              ? getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS)
-              : MOCK_MEMBERS;
-            const member = membersList.find((m) => m.email.toLowerCase() === userEmail);
-            const isPromotedAdmin = member?.role === "admin";
-            const effectiveRole: UserRole = isSuper
-              ? "super_admin"
-              : (isPromotedAdmin ? "admin" : "member");
-
-            if (isMounted) {
-              setUser({
-                id: session.user.id,
-                email: userEmail,
-                fullName: isSuper
-                  ? "Shivam Kumar (Super Admin)"
-                  : (session.user.user_metadata?.full_name || member?.full_name || "User"),
-                role: effectiveRole,
-                avatarUrl: session.user.user_metadata?.avatar_url || member?.avatar_url,
-                department: member?.department || "General",
-              });
-              setRole(effectiveRole);
-            }
-            return;
-          }
-        } catch {
-          // Supabase auth query fallback — silently ignore
-        }
-
-        // No session found at all
+      // 1. Synchronous check from storage/cookies
+      const storedUser = resolveStoredSession();
+      if (storedUser) {
         if (isMounted) {
-          setUser(null);
-          setRole("member");
-        }
-
-      } catch {
-        if (isMounted) {
-          setUser(null);
-          setRole("member");
-        }
-      } finally {
-        if (isMounted) {
+          setUser(storedUser);
+          setRole(storedUser.role);
           setLoading(false);
         }
+        return;
+      }
+
+      // 2. Check Supabase Auth session if no local session marker was found
+      try {
+        const supabase = createClient();
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), 1200)
+        );
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        const session = result?.data?.session;
+
+        if (session && session.user && session.user.email) {
+          const userEmail = session.user.email.toLowerCase().trim();
+          const isSuper = isSuperAdminEmail(userEmail);
+          const membersList = typeof window !== "undefined"
+            ? getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS)
+            : MOCK_MEMBERS;
+          const member = membersList.find((m) => m.email.toLowerCase() === userEmail);
+          const isPromotedAdmin = member?.role === "admin";
+          const registered = typeof window !== "undefined"
+            ? getRegisteredCredentials().find((c) => c.email.toLowerCase() === userEmail)
+            : null;
+          const isRegisteredAdmin = registered?.role === "admin" || registered?.role === "super_admin";
+          const effectiveRole: UserRole = isSuper
+            ? "super_admin"
+            : (isPromotedAdmin || isRegisteredAdmin ? "admin" : "member");
+
+          const hasAdminAccess = effectiveRole === "super_admin" || effectiveRole === "admin";
+          if (hasAdminAccess) {
+            fetch("/api/auth/admin-session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ email: userEmail, role: effectiveRole }),
+            }).catch(() => {});
+          }
+
+          document.cookie = `malhar_demo_role=${effectiveRole}; path=/; max-age=86400; SameSite=Lax`;
+          document.cookie = `malhar_user_email=${encodeURIComponent(userEmail)}; path=/; max-age=86400; SameSite=Lax`;
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("malhar_current_user_email", userEmail);
+            localStorage.setItem("malhar_current_user_role", effectiveRole);
+          }
+
+          if (isMounted) {
+            setUser({
+              id: session.user.id,
+              email: userEmail,
+              fullName: isSuper
+                ? "Shivam Kumar (Super Admin)"
+                : (registered?.fullName || session.user.user_metadata?.full_name || member?.full_name || "User"),
+              role: effectiveRole,
+              avatarUrl: session.user.user_metadata?.avatar_url || member?.avatar_url,
+              department: registered?.department || member?.department || "General",
+            });
+            setRole(effectiveRole);
+            setLoading(false);
+          }
+          return;
+        }
+      } catch {
+        // Supabase query fallback
+      }
+
+      // 3. No session found at all
+      if (isMounted) {
+        setUser(null);
+        setRole("member");
+        setLoading(false);
       }
     }
 
@@ -217,19 +239,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           const hasAdminAccess = effectiveRole === "super_admin" || effectiveRole === "admin";
 
-          // Call the server-side admin-session API to issue a proper HMAC-signed cookie.
-          // Previously this wrote `malhar_demo_admin=true` (literal) which overwrote the
-          // HMAC token set by the login flow, breaking getInitialAuthState's HMAC validation
-          // on subsequent page loads.
           if (hasAdminAccess) {
             fetch("/api/auth/admin-session", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
               body: JSON.stringify({ email: userEmail, role: effectiveRole }),
-            }).catch(() => {
-              // Best-effort; if this fails, middleware will redirect to /login on next admin route visit
-            });
+            }).catch(() => {});
           } else {
             document.cookie = "malhar_demo_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
           }
@@ -278,8 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isMounted = false;
       authListener?.subscription?.unsubscribe();
     };
-  }, [initial.user]);
-
+  }, []);
 
   const can = React.useCallback(
     (permission: AdminPermission) => {
@@ -307,13 +322,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const hasAdminAccess = effectiveRole === "super_admin" || effectiveRole === "admin";
 
-    // ─── Update React state (cookie is set by grantAdminSession in login page)
+    // Set cookie and localStorage for role & email for ALL users
     if (!hasAdminAccess) {
-      // Clear admin cookies if not admin
       document.cookie = "malhar_demo_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "malhar_demo_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     }
 
+    document.cookie = `malhar_demo_role=${effectiveRole}; path=/; max-age=86400; SameSite=Lax`;
     document.cookie = `malhar_user_email=${encodeURIComponent(normalizedEmail)}; path=/; max-age=86400; SameSite=Lax`;
 
     if (typeof window !== "undefined") {
@@ -328,10 +342,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fullName =
       registered?.fullName ||
       member?.full_name ||
-      (isSuper ? "Shivam Kumar (Super Admin)" : (effectiveRole === "admin" ? "Administrator" : "User"));
+      (isSuper ? "Shivam Kumar (Super Admin)" : (effectiveRole === "admin" ? "Administrator" : normalizedEmail.split("@")[0]));
 
     const currentUser: AuthUser = {
-      id: member?.id || `user-${normalizedEmail}`,
+      id: member?.id || (registered as any)?.id || `user-${normalizedEmail}`,
       email: normalizedEmail,
       fullName,
       role: effectiveRole,
@@ -344,15 +358,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-
   const switchDemoRole = (newRole: UserRole) => {
     document.cookie = `malhar_demo_role=${newRole}; path=/; max-age=86400; SameSite=Lax`;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("malhar_current_user_role", newRole);
+    }
     setRole(newRole);
     if (user) {
       setUser({
         ...user,
         role: newRole,
-        fullName: newRole === "super_admin" ? "Shivam Kumar (Super Admin)" : "Administrator",
+        fullName: newRole === "super_admin" ? "Shivam Kumar (Super Admin)" : (newRole === "admin" ? "Administrator" : user.fullName),
       });
     }
   };
