@@ -18,7 +18,7 @@ export default function PublicLayout({
       {/* All elements below are in normal document flow, auto-stacked above z:-1 */}
       <PublicNavbar />
 
-      <main className="flex-1 flex flex-col min-h-[calc(100vh-140px)] bg-transparent pt-16 md:pt-20">
+      <main className="flex-1 flex flex-col bg-transparent pt-16 md:pt-20 pb-24 md:pb-36">
         <PageTransition>{children}</PageTransition>
       </main>
 
