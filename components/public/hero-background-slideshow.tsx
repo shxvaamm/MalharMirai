@@ -38,39 +38,71 @@ export function HeroBackgroundSlideshow({
 
   return (
     /*
-     * FIXED VIEWPORT BACKGROUND
-     * ─────────────────────────
-     * `fixed` pins the element to the viewport, not the document.
-     * It is removed from normal flow so content scrolls freely over it.
-     * `pointer-events-none` on every layer ensures links/buttons stay clickable.
-     * `z-0` keeps it behind the navbar (z-50) and main content (z-10).
+     * GLOBAL FIXED VIEWPORT BACKGROUND
+     * ──────────────────────────────────
+     * Rules that make this work correctly:
      *
-     * Mobile note: `position: fixed` is reliable across all modern mobile browsers.
-     * We intentionally avoid `background-attachment: fixed` (CSS-only) because
-     * iOS Safari disables it on <video> / scroll containers. This JS approach
-     * with `position: fixed` is the most cross-browser-compatible solution.
+     * 1. `position: fixed` + `inset: 0` → pins to viewport, not the document.
+     *    Content scrolls over it freely. Works on all pages the layout covers.
+     *
+     * 2. `z-index: -1` → sits below ALL content, navbar, modals, dropdowns.
+     *    Using -1 instead of 0 avoids any risk of blocking interactions even
+     *    without pointer-events-none (though we still add it for safety).
+     *
+     * 3. NO `transform`, NO `will-change: transform` on the container wrapper.
+     *    Those CSS properties create a new stacking context which would trap
+     *    fixed children and break their viewport-relative positioning.
+     *    Only slide children use `will-change: opacity` for the fade transition.
+     *
+     * 4. `overflow: hidden` clips images to the viewport bounds without
+     *    creating a stacking context (unlike transform).
+     *
+     * Root cause of previous failures:
+     *    `transform: translateZ(0)` on <body> in globals.css created a stacking
+     *    context on body itself, making fixed elements fixed relative to body
+     *    (which scrolls) rather than the viewport. Removed in globals.css.
      */
     <div
       aria-hidden="true"
       suppressHydrationWarning
-      className="fixed inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden"
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: -1,
+        pointerEvents: "none",
+        userSelect: "none",
+        overflow: "hidden",
+      }}
     >
-      {/* Slides Container */}
+      {/* Slides — cross-fade between images */}
       <div
         suppressHydrationWarning
-        className={`absolute inset-0 h-full w-full pointer-events-none select-none ${opacityClassName}`}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+        }}
+        className={opacityClassName}
       >
         {activeSlides.map((slide, index) => {
           const isActive = index === currentIndex;
-
           return (
             <div
               key={slide.id}
-              className="absolute inset-0 w-full h-full pointer-events-none select-none"
               style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
                 opacity: isActive ? 1 : 0,
                 transition: "opacity 900ms cubic-bezier(0.4, 0, 0.2, 1)",
                 zIndex: isActive ? 2 : 1,
+                willChange: "opacity",
+                pointerEvents: "none",
               }}
             >
               <Image
@@ -78,7 +110,12 @@ export function HeroBackgroundSlideshow({
                 alt={slide.title || "MALHAR Slideshow"}
                 fill
                 draggable={false}
-                className="object-cover object-center w-full h-full pointer-events-none select-none"
+                style={{
+                  objectFit: "cover",
+                  objectPosition: "center",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
                 loading={index === 0 ? "eager" : "lazy"}
                 priority={index === 0}
                 sizes="100vw"
@@ -89,12 +126,21 @@ export function HeroBackgroundSlideshow({
         })}
       </div>
 
-      {/* Overlays: dark tint for text readability + vertical fade to black at bottom */}
-      <div className="absolute inset-0 bg-black/30 pointer-events-none select-none" style={{ zIndex: 3 }} />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 via-60% to-black pointer-events-none select-none" style={{ zIndex: 4 }} />
+      {/* Single uniform dark tint — keeps text readable on all sections.
+          No gradient-to-black so the background stays visible site-wide. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0,0,0,0.45)",
+          zIndex: 5,
+          pointerEvents: "none",
+        }}
+      />
     </div>
   );
 }
+
 
 export function HeroSlideIndicators() {
   const { activeSlides } = useHeroSlides();

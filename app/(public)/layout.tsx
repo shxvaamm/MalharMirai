@@ -10,26 +10,19 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-black text-foreground selection:bg-white selection:text-black">
-      {/* Fixed cinematic background — z-0, stays anchored to viewport while everything else scrolls */}
-      <HeroBackgroundSlideshow intervalMs={4500} opacityClassName="opacity-80" />
+    // bg-transparent so the global fixed background at z:-1 shows through every page
+    <div className="min-h-screen flex flex-col bg-transparent text-foreground selection:bg-white selection:text-black">
+      {/* Global fixed background — renders at z-index:-1, stays anchored to viewport */}
+      <HeroBackgroundSlideshow intervalMs={4500} opacityClassName="opacity-85" />
 
-      {/* Navigation Bar — z-50 so it always sits above the background */}
-      <div className="relative z-50">
-        <PublicNavbar />
-      </div>
+      {/* All elements below are in normal document flow, auto-stacked above z:-1 */}
+      <PublicNavbar />
 
-      {/* Main Body Content — z-10 so text/cards scroll over the fixed background */}
-      <main className="relative z-10 flex-1 flex flex-col min-h-[calc(100vh-140px)] bg-transparent">
-        <div className="relative flex-1 flex flex-col">
-          <PageTransition>{children}</PageTransition>
-        </div>
+      <main className="flex-1 flex flex-col min-h-[calc(100vh-140px)] bg-transparent">
+        <PageTransition>{children}</PageTransition>
       </main>
 
-      {/* Footer — sits in normal flow above background */}
-      <div className="relative z-10">
-        <PublicFooter />
-      </div>
+      <PublicFooter />
     </div>
   );
 }

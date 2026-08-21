@@ -68,9 +68,11 @@ body {
   letter-spacing: -0.015em;
   text-rendering: optimizeSpeed;
   overflow-x: hidden;
-  /* Promote entire page to its own compositing layer for smooth scrolling */
-  transform: translateZ(0);
+  /* NOTE: transform:translateZ(0) intentionally removed — it creates a stacking context
+     on <body> which traps position:fixed children, breaking the global background slideshow.
+     Fixed elements must be fixed relative to the viewport (initial containing block), not body. */
 }
+
 
 img, svg, video {
   -webkit-user-drag: none;
