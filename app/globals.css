@@ -46,6 +46,8 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: var(--navbar-height);
   -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+  background-color: #000000;
 }
 
 /* Ensure all anchor targets and sections clear the fixed navbar */
