@@ -32,12 +32,25 @@
   --ring: 0 0% 90%;
 
   --radius: 1rem;
+  --navbar-height: 5rem; /* 80px on desktop (md:h-20) */
 }
 
-/* ── Global GPU compositing layer promotion ── */
+@media (max-width: 767px) {
+  :root {
+    --navbar-height: 4rem; /* 64px on mobile (h-16) */
+  }
+}
+
+/* ── Global Scroll & Layout Positioning System ── */
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: var(--navbar-height);
   -webkit-text-size-adjust: 100%;
+}
+
+/* Ensure all anchor targets and sections clear the fixed navbar */
+section, [id], main > div {
+  scroll-margin-top: var(--navbar-height);
 }
 
 *,
