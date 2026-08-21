@@ -45,14 +45,12 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: var(--navbar-height);
-  scroll-padding-bottom: var(--footer-height, 320px);
   -webkit-text-size-adjust: 100%;
 }
 
-/* Ensure all anchor targets and sections clear fixed navbar & fixed footer */
+/* Ensure all anchor targets and sections clear the fixed navbar */
 section, [id], main > div {
   scroll-margin-top: var(--navbar-height);
-  scroll-margin-bottom: var(--footer-height, 320px);
 }
 
 *,

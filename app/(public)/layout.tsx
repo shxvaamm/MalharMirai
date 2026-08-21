@@ -15,17 +15,15 @@ export default function PublicLayout({
       {/* Global fixed background — renders at z-index:-1, stays anchored to viewport */}
       <HeroBackgroundSlideshow intervalMs={4500} opacityClassName="opacity-85" />
 
-      {/* Fixed top navbar (z-50) */}
+      {/* Fixed top navbar */}
       <PublicNavbar />
 
-      <main
-        className="flex-1 flex flex-col bg-transparent pt-16 md:pt-20"
-        style={{ paddingBottom: "calc(var(--footer-height, 320px) + 2rem)" }}
-      >
+      {/* Main page content - offset for fixed navbar */}
+      <main className="flex-1 flex flex-col bg-transparent pt-16 md:pt-20">
         <PageTransition>{children}</PageTransition>
       </main>
 
-      {/* Fixed bottom footer (z-40) */}
+      {/* Standard page footer at the end of the document */}
       <PublicFooter />
     </div>
   );
