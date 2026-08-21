@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
     const hmac = await computeHmac(email);
 
     const res = NextResponse.json({ success: true, token: hmac });
-    // Session cookies (no max-age) — cleared when browser closes
-    const cookieOpts = { path: '/', sameSite: 'lax' as const };
+    // Persistent cookies — survive tab close, last 24 hours (matching client-side cookie max-age)
+    const cookieOpts = { path: '/', sameSite: 'lax' as const, maxAge: 86400 };
     res.cookies.set('malhar_demo_admin', hmac, cookieOpts);
     res.cookies.set('malhar_demo_role', role, cookieOpts);
     res.cookies.set('malhar_user_email', encodeURIComponent(email), cookieOpts);

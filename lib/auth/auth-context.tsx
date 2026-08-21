@@ -112,73 +112,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function initAuth() {
       try {
+        // ── FAST PATH ─────────────────────────────────────────────────────────────
+        // getInitialAuthState() already ran synchronously and validated the HMAC
+        // admin cookie. If it found a valid session, trust it and return immediately.
+        //
+        // Previously this code re-checked the cookie using `.includes("malhar_demo_admin=true")`
+        // which NEVER matched because the server sets the cookie to a 64-char HMAC hash,
+        // not the literal string "true". This caused the code to always fall through to
+        // the 1200ms Supabase timeout, then call setUser(null) — clearing the session
+        // on every single page load/mount. That was the root cause of the auth bug.
+        if (initial.user) {
+          if (isMounted) setLoading(false);
+          return;
+        }
+
+        // ── SLOW PATH ─────────────────────────────────────────────────────────────
+        // No valid cookie session found by getInitialAuthState — check Supabase Auth.
+        // This covers: Supabase OAuth users, and users whose cookies have expired.
         setLoading(true);
-
-        // 1. Check cookies & local storage
-        const isDemoAdminCookie = typeof document !== "undefined" &&
-          document.cookie.includes("malhar_demo_admin=true");
-
-        let storedEmail = typeof window !== "undefined"
-          ? localStorage.getItem("malhar_current_user_email")
-          : null;
-
-        if (!storedEmail && typeof document !== "undefined") {
-          const emailCookie = document.cookie.match(/malhar_user_email=([^;]+)/);
-          if (emailCookie) {
-            storedEmail = decodeURIComponent(emailCookie[1]);
-          }
-        }
-
-        const cookieRoleMatch = typeof document !== "undefined"
-          ? document.cookie.match(/malhar_demo_role=([^;]+)/)
-          : null;
-        const storedRole = (cookieRoleMatch ? cookieRoleMatch[1] : null) as UserRole | null;
-
-        // Establish session ONLY if explicit authenticated credentials exist
-        if (isDemoAdminCookie && storedEmail) {
-          const activeEmail = storedEmail.trim().toLowerCase();
-          const activeSuper = getActiveSuperAdminEmail();
-          const isSuper = storedRole === "super_admin" || isSuperAdminEmail(activeEmail) || activeEmail === activeSuper;
-
-          const membersList = typeof window !== "undefined"
-            ? getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS)
-            : MOCK_MEMBERS;
-          const member = membersList.find((m) => m.email.toLowerCase() === activeEmail);
-          const isPromotedAdmin = member?.role === "admin";
-
-          const effectiveRole: UserRole = isSuper
-            ? "super_admin"
-            : (isPromotedAdmin || storedRole === "admin" ? "admin" : "member");
-
-          if (effectiveRole === "super_admin" || effectiveRole === "admin") {
-            const registered = typeof window !== "undefined"
-              ? getRegisteredCredentials().find((c) => c.email.toLowerCase() === activeEmail)
-              : null;
-
-            const fullName =
-              registered?.fullName ||
-              member?.full_name ||
-              (isSuper ? "Shivam Kumar (Super Admin)" : "Administrator");
-
-            const currentUser: AuthUser = {
-              id: member?.id || `user-${activeEmail}`,
-              email: activeEmail,
-              fullName,
-              role: effectiveRole,
-              avatarUrl: member?.avatar_url,
-              department: registered?.department || member?.department || "General",
-            };
-
-            if (isMounted) {
-              setUser(currentUser);
-              setRole(effectiveRole);
-              setLoading(false);
-            }
-            return;
-          }
-        }
-
-        // 2. Check Supabase Auth Session with safety timeout (1200ms)
 
         try {
           const supabase = createClient();
@@ -218,15 +169,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
         } catch {
-          // Supabase auth query fallback
+          // Supabase auth query fallback — silently ignore
         }
 
+        // No session found at all
         if (isMounted) {
           setUser(null);
           setRole("member");
         }
 
-      } catch (err) {
+      } catch {
         if (isMounted) {
           setUser(null);
           setRole("member");
@@ -240,12 +192,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
 
-    // 3. Listen for real-time Supabase Auth state changes (OAuth sign-in, tokens)
+    // Listen for real-time Supabase Auth state changes (OAuth sign-in, token refresh)
     let authListener: { subscription: { unsubscribe: () => void } } | null = null;
     try {
       const supabase = createClient();
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
         if (!isMounted) return;
+
         if (event === "SIGNED_IN" && session?.user?.email) {
           const userEmail = session.user.email.toLowerCase().trim();
           const isSuper = isSuperAdminEmail(userEmail);
@@ -263,11 +216,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             : (isPromotedAdmin || isRegisteredAdmin ? "admin" : "member");
 
           const hasAdminAccess = effectiveRole === "super_admin" || effectiveRole === "admin";
+
+          // Call the server-side admin-session API to issue a proper HMAC-signed cookie.
+          // Previously this wrote `malhar_demo_admin=true` (literal) which overwrote the
+          // HMAC token set by the login flow, breaking getInitialAuthState's HMAC validation
+          // on subsequent page loads.
           if (hasAdminAccess) {
-            document.cookie = "malhar_demo_admin=true; path=/; max-age=86400; SameSite=Lax";
+            fetch("/api/auth/admin-session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ email: userEmail, role: effectiveRole }),
+            }).catch(() => {
+              // Best-effort; if this fails, middleware will redirect to /login on next admin route visit
+            });
           } else {
             document.cookie = "malhar_demo_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
           }
+
           document.cookie = `malhar_demo_role=${effectiveRole}; path=/; max-age=86400; SameSite=Lax`;
           document.cookie = `malhar_user_email=${encodeURIComponent(userEmail)}; path=/; max-age=86400; SameSite=Lax`;
 
@@ -288,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           setRole(effectiveRole);
           setLoading(false);
+
         } else if (event === "SIGNED_OUT") {
           document.cookie = "malhar_demo_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
           document.cookie = "malhar_demo_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -301,7 +268,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setRole("member");
         }
-
       });
       authListener = data;
     } catch {
@@ -312,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isMounted = false;
       authListener?.subscription?.unsubscribe();
     };
-  }, []);
+  }, [initial.user]);
 
 
   const can = React.useCallback(
