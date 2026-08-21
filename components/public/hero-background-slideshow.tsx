@@ -37,12 +37,25 @@ export function HeroBackgroundSlideshow({
   }
 
   return (
+    /*
+     * FIXED VIEWPORT BACKGROUND
+     * ─────────────────────────
+     * `fixed` pins the element to the viewport, not the document.
+     * It is removed from normal flow so content scrolls freely over it.
+     * `pointer-events-none` on every layer ensures links/buttons stay clickable.
+     * `z-0` keeps it behind the navbar (z-50) and main content (z-10).
+     *
+     * Mobile note: `position: fixed` is reliable across all modern mobile browsers.
+     * We intentionally avoid `background-attachment: fixed` (CSS-only) because
+     * iOS Safari disables it on <video> / scroll containers. This JS approach
+     * with `position: fixed` is the most cross-browser-compatible solution.
+     */
     <div
       aria-hidden="true"
       suppressHydrationWarning
-      className="absolute inset-x-0 top-0 h-[520px] sm:h-[620px] md:h-[720px] lg:h-[820px] max-h-[90vh] w-full pointer-events-none select-none z-0 overflow-hidden"
+      className="fixed inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden"
     >
-      {/* Slides Container — Edge-to-edge full width across all tabs */}
+      {/* Slides Container */}
       <div
         suppressHydrationWarning
         className={`absolute inset-0 h-full w-full pointer-events-none select-none ${opacityClassName}`}
@@ -53,7 +66,7 @@ export function HeroBackgroundSlideshow({
           return (
             <div
               key={slide.id}
-              className="absolute inset-0 w-full h-full slide-layer overflow-hidden pointer-events-none select-none"
+              className="absolute inset-0 w-full h-full pointer-events-none select-none"
               style={{
                 opacity: isActive ? 1 : 0,
                 transition: "opacity 900ms cubic-bezier(0.4, 0, 0.2, 1)",
@@ -76,9 +89,9 @@ export function HeroBackgroundSlideshow({
         })}
       </div>
 
-      {/* Clean full-width overlays: text readability and deep fade to black at bottom */}
-      <div className="absolute inset-0 bg-black/30 pointer-events-none select-none" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 via-60% to-black pointer-events-none select-none" />
+      {/* Overlays: dark tint for text readability + vertical fade to black at bottom */}
+      <div className="absolute inset-0 bg-black/30 pointer-events-none select-none" style={{ zIndex: 3 }} />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/10 via-60% to-black pointer-events-none select-none" style={{ zIndex: 4 }} />
     </div>
   );
 }

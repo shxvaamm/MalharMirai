@@ -10,23 +10,26 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-black text-foreground selection:bg-white selection:text-black relative">
-      {/* Navigation Bar */}
-      <PublicNavbar />
-
-      {/* Hero Slideshow Background — Visible across all tabs at the top, fading to solid black */}
+    <div className="min-h-screen flex flex-col bg-black text-foreground selection:bg-white selection:text-black">
+      {/* Fixed cinematic background — z-0, stays anchored to viewport while everything else scrolls */}
       <HeroBackgroundSlideshow intervalMs={4500} opacityClassName="opacity-80" />
 
-      {/* Main Body Content */}
-      <main className="relative flex-1 flex flex-col min-h-[calc(100vh-140px)] bg-transparent z-10">
-        <div className="relative z-10 flex-1 flex flex-col">
+      {/* Navigation Bar — z-50 so it always sits above the background */}
+      <div className="relative z-50">
+        <PublicNavbar />
+      </div>
+
+      {/* Main Body Content — z-10 so text/cards scroll over the fixed background */}
+      <main className="relative z-10 flex-1 flex flex-col min-h-[calc(100vh-140px)] bg-transparent">
+        <div className="relative flex-1 flex flex-col">
           <PageTransition>{children}</PageTransition>
         </div>
       </main>
 
-      {/* Footer */}
-      <PublicFooter />
+      {/* Footer — sits in normal flow above background */}
+      <div className="relative z-10">
+        <PublicFooter />
+      </div>
     </div>
   );
 }
-
