@@ -360,18 +360,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       const supabase = createClient();
-      await supabase.auth.signOut();
+      // scope:'local' ends the session in THIS browser only.
+      // It does NOT revoke the user's account or delete their data on any table.
+      // Supabase profile, registrations, and all backend data remain intact.
+      // The user can log back in at any time and see the same data.
+      await supabase.auth.signOut({ scope: "local" });
     } catch {
-      // ignore
+      // ignore Supabase errors — still clear local session markers below
     } finally {
-      // Clear all auth cookies and local storage items
+      // Clear ONLY the three session-token cookies and the two auth-state markers.
+      // All actual application data (synced events, members, registrations, credentials)
+      // stored in localStorage under malhar_synced_* keys is intentionally NOT touched.
+      // Logout ≠ Delete Account.
       document.cookie = "malhar_demo_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       document.cookie = "malhar_demo_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       document.cookie = "malhar_user_email=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 
       if (typeof window !== "undefined") {
+        // Only remove the "who is currently logged in" markers, not any user data.
         localStorage.removeItem("malhar_current_user_email");
         localStorage.removeItem("malhar_current_user_role");
+        // malhar_registered_credentials, malhar_synced_*, etc. are deliberately preserved.
       }
 
       setUser(null);
@@ -380,6 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.refresh();
     }
   };
+
 
   return (
     <AuthContext.Provider

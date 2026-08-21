@@ -105,18 +105,20 @@ export async function GET(request: Request) {
 
       // 4. All users land on /dashboard (member portal).
       //    Admins/Super Admins see an "Enter Admin Console" banner from there.
+      //    Cookies are persistent (maxAge: 86400 = 24h) so they survive tab close.
+      const cookieOpts = { path: "/", sameSite: "lax" as const, maxAge: 86400 };
+
       if (effectiveRole === "super_admin" || effectiveRole === "admin") {
         const hmac = await computeHmac(userEmail);
         const response = NextResponse.redirect(`${origin}/dashboard`);
-        const opts = { path: "/", sameSite: "lax" as const };
-        response.cookies.set("malhar_demo_admin", hmac, opts);
-        response.cookies.set("malhar_demo_role", effectiveRole, opts);
-        response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), opts);
+        response.cookies.set("malhar_demo_admin", hmac, cookieOpts);
+        response.cookies.set("malhar_demo_role", effectiveRole, cookieOpts);
+        response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), cookieOpts);
         return response;
       } else {
         const response = NextResponse.redirect(`${origin}/dashboard`);
-        response.cookies.set("malhar_demo_role", effectiveRole, { path: "/", sameSite: "lax" });
-        response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), { path: "/", sameSite: "lax" });
+        response.cookies.set("malhar_demo_role", effectiveRole, cookieOpts);
+        response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), cookieOpts);
         return response;
       }
     }
