@@ -1,7 +1,7 @@
 "use client";
 
 import { UserRole, SUPER_ADMIN_EMAILS, VALID_SUPER_ADMIN_PASSWORDS } from "@/lib/auth/rbac";
-import { getSyncedData, setSyncedData, STORAGE_KEYS } from "@/lib/store/sync-store";
+import { getSyncedData, STORAGE_KEYS } from "@/lib/store/sync-store";
 import { ClubMember, MOCK_MEMBERS } from "@/lib/mock-data";
 
 export interface RegisteredCredential {
@@ -126,26 +126,12 @@ export function updateRegisteredUserRole(
     inMemoryCredentials = allCreds;
   }
 
-  // Sync with member store
-  const members = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
-  const memberIdx = members.findIndex((m) => m.email.toLowerCase() === normalized);
-  if (memberIdx >= 0) {
-    members[memberIdx].role = newRole === "super_admin" || newRole === "admin" ? "admin" : newRole === "volunteer" ? "volunteer" : "member";
-    setSyncedData(STORAGE_KEYS.MEMBERS, members);
-  } else {
-    members.push({
-      id: `member-${normalized.replace(/[^a-zA-Z0-9]/g, "-")}`,
-      full_name: normalized.split("@")[0],
-      email: normalized,
-      role: newRole === "super_admin" || newRole === "admin" ? "admin" : newRole === "volunteer" ? "volunteer" : "member",
-      department: "Management Department",
-      phone: "+91 98765 00000",
-      avatar_initials: normalized.substring(0, 2).toUpperCase(),
-      specialty: newRole === "admin" ? "Society Administrator" : newRole === "volunteer" ? "Society Volunteer" : "Society Member",
-      bio: "Active contributor to MALHAR.",
-    });
-    setSyncedData(STORAGE_KEYS.MEMBERS, members);
-  }
+  // NOTE: We intentionally do NOT write to STORAGE_KEYS.MEMBERS here.
+  // The public member list (useMembers hook) reads exclusively from Supabase
+  // club_members. Writing synthetic "member-{email}" entries to localStorage
+  // caused auth users to appear on the public Team page — that bug is fixed by
+  // removing these writes. Admin role management in the admin console is handled
+  // by use-admin-data.ts which has its own independent Supabase sync.
 
   return true;
 }
@@ -173,11 +159,10 @@ export function deleteRegisteredCredential(email: string): boolean {
     inMemoryCredentials = allCreds;
   }
 
-  // Also remove from members synced store
-  const members = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS).filter(
-    (m) => m.email.toLowerCase() !== normalized
-  );
-  setSyncedData(STORAGE_KEYS.MEMBERS, members);
+  // NOTE: We intentionally do NOT write to STORAGE_KEYS.MEMBERS here.
+  // Deleting a credential only removes it from the local admin login store —
+  // actual member records in Supabase club_members must be deleted via the
+  // admin console's deleteMember() function in use-admin-data.ts.
 
   return true;
 }
@@ -227,19 +212,10 @@ export function transferSuperAdminInStore(
       // ignore
     }
 
-    // 4. Update member roster
-    const members = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
-    const prevMemIdx = members.findIndex((m) => m.email.toLowerCase() === prevSuper);
-    if (prevMemIdx >= 0) {
-      members[prevMemIdx].role = "admin";
-    }
-
-    const targetMemIdx = members.findIndex((m) => m.email.toLowerCase() === newSuper);
-    if (targetMemIdx >= 0) {
-      members[targetMemIdx].role = "admin";
-    }
-
-    setSyncedData(STORAGE_KEYS.MEMBERS, members);
+    // NOTE: We intentionally do NOT write to STORAGE_KEYS.MEMBERS here.
+    // Super admin transfer only affects local login credentials.
+    // Role changes in the public Supabase club_members table must be made
+    // explicitly through the admin console (use-admin-data.ts updateMember).
   }
 
   return {
@@ -293,28 +269,11 @@ export function appointNewAdmin(input: {
     }
   }
 
-  // Also sync with member store
-  const members = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
-  const memberIdx = members.findIndex((m) => m.email.toLowerCase() === normalized);
-  if (memberIdx >= 0) {
-    members[memberIdx].role = "admin";
-    if (input.fullName) members[memberIdx].full_name = input.fullName.trim();
-    if (input.department) members[memberIdx].department = input.department.trim();
-    setSyncedData(STORAGE_KEYS.MEMBERS, members);
-  } else {
-    members.push({
-      id: `member-${normalized.replace(/[^a-zA-Z0-9]/g, "-")}`,
-      full_name: input.fullName.trim() || normalized.split("@")[0],
-      email: normalized,
-      role: "admin",
-      department: input.department?.trim() || "Executive Council",
-      phone: "+91 98765 00000",
-      avatar_initials: (input.fullName || normalized).substring(0, 2).toUpperCase(),
-      specialty: input.specialty?.trim() || "Society Administrator",
-      bio: "Appointed Administrator of MALHAR.",
-    });
-    setSyncedData(STORAGE_KEYS.MEMBERS, members);
-  }
+  // NOTE: We intentionally do NOT write to STORAGE_KEYS.MEMBERS here.
+  // appointNewAdmin only stores login credentials for the admin portal.
+  // To make an admin appear in the public member directory, the admin must
+  // be added via the admin console's "Add Member" flow (use-admin-data.ts
+  // createMember), which writes to Supabase club_members.
 
   return { success: true };
 }

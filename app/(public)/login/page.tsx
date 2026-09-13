@@ -101,7 +101,7 @@ function AuthForm() {
     [loginAsQuickAdmin]
   );
 
-  const [mode, setMode] = React.useState<"login" | "register">(initialMode);
+  const [mode, setMode] = React.useState<"login" | "register" | "forgot">(initialMode);
 
   // Sign In state
   const [loginEmail, setLoginEmail] = React.useState("");
@@ -121,6 +121,7 @@ function AuthForm() {
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+  const [forgotEmail, setForgotEmail] = React.useState("");
 
   React.useEffect(() => {
     if (errorParam === "admin_only_access" || errorParam === "unauthorized_admin_access") {
@@ -336,14 +337,13 @@ function AuthForm() {
           confirmedAdminMember = adminCheckData.member;
         }
       } catch {
-        // API unreachable — fall through to local check
+        // API unreachable — fall through
       }
 
-      // ─── Step 2a: Confirmed Admin — bypass restriction, register directly
+      // ─── Step 2a: Confirmed Admin — unchanged fast-path (do not modify)
       if (isConfirmedAdmin && confirmedAdminMember) {
         const supabase = createClient();
 
-        // Register in Supabase Auth
         const { error: signUpError } = await supabase.auth.signUp({
           email: emailCheck.normalizedEmail,
           password,
@@ -361,7 +361,6 @@ function AuthForm() {
           return;
         }
 
-        // Also persist in localStorage for offline/local session
         appointNewAdmin({
           email: emailCheck.normalizedEmail,
           fullName: fullName || confirmedAdminMember.full_name || "",
@@ -376,45 +375,97 @@ function AuthForm() {
         return;
       }
 
-      // ─── Step 2b: Not a confirmed admin — use normal restricted flow
-      const regResult = registerAccountCredential({
-        fullName,
+      // ─── Step 2b: Regular member signup — Supabase Auth only.
+      // The credential-store (registerAccountCredential) is admin-only and
+      // blocks all non-admin signups. We bypass it entirely for regular members.
+      const supabase = createClient();
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: emailCheck.normalizedEmail,
         password,
-        department: "General",
-        specialty: "Society Member",
+        options: { data: { full_name: fullName } },
       });
 
-      if (!regResult.success) {
-        setErrorMessage(regResult.error || "Failed to create account.");
+      if (signUpError) {
+        const msg = signUpError.message || "";
+        const low = msg.toLowerCase();
+        if (low.includes("already registered") || low.includes("user_already_exists") || low.includes("already been registered")) {
+          setErrorMessage("An account with this email already exists. Try signing in instead.");
+        } else if (low.includes("weak_password") || low.includes("password should")) {
+          setErrorMessage("Password is too weak. Use at least 8 characters with a mix of letters and numbers.");
+        } else if (low.includes("rate limit") || low.includes("over_email_send_rate_limit")) {
+          setErrorMessage("Too many attempts. Please wait a few minutes and try again.");
+        } else if (low.includes("not authorized")) {
+          setErrorMessage("This email address is not authorized to sign up.");
+        } else {
+          setErrorMessage("Could not create your account. Please try again.");
+        }
         setLoading(false);
         return;
       }
 
-      // Supabase Auth registration for non-admin (super admin)
-      try {
-        const supabase = createClient();
-        await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName, role: regResult.role } },
-        });
-      } catch {
-        // Local credential storage persists
+      if (!signUpData?.user) {
+        setErrorMessage("Something went wrong. Please try again.");
+        setLoading(false);
+        return;
       }
 
-      await grantAdminSession(email, regResult.role);
-
-      // All users land on the member portal — admins see an "Admin Console" button there
-      setSuccessMessage("Account created successfully! Opening your portal...");
-      router.push("/dashboard");
-      router.refresh();
+      if (signUpData.session) {
+        // Email confirmation is OFF — user is fully signed in immediately.
+        // Set the same cookies the OAuth callback sets for members.
+        await grantAdminSession(emailCheck.normalizedEmail, "member");
+        setSuccessMessage("Account created! Taking you to your portal...");
+        router.push(redirectTo || "/dashboard");
+        router.refresh();
+      } else {
+        // Email confirmation is ON — session is null until user clicks the link.
+        setSuccessMessage(
+          "Account created! Please check your email inbox and click the confirmation link to activate your account, then come back and sign in."
+        );
+        setMode("login");
+      }
 
     } catch (err: any) {
       setErrorMessage(err?.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle forgot password reset email
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const emailCheck = validateEmail(forgotEmail.trim().toLowerCase());
+    if (!emailCheck.valid) {
+      setErrorMessage(emailCheck.error || "Please enter a valid email address.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const siteUrl =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : process.env.NEXT_PUBLIC_SITE_URL || "";
+
+      // Supabase handles non-existent emails gracefully (sends nothing, returns no error)
+      await supabase.auth.resetPasswordForEmail(emailCheck.normalizedEmail, {
+        redirectTo: `${siteUrl}/reset-password`,
+      });
+    } catch {
+      // Intentionally ignored — always show neutral confirmation
+    }
+
+    // Always show neutral message — never reveal whether the email exists
+    setSuccessMessage(
+      "If an account exists with that email address, a reset link has been sent. Check your inbox and spam folder."
+    );
+    setForgotEmail("");
+    setLoading(false);
   };
 
   return (
@@ -439,51 +490,57 @@ function AuthForm() {
           />
         </div>
         <CardTitle className="text-xl font-bold tracking-tight text-neutral-100">
-          {mode === "login" ? "Sign In" : "Create Account"}
+          {mode === "login" ? "Sign In" : mode === "register" ? "Create Account" : "Reset Password"}
         </CardTitle>
 
         <CardDescription className="text-xs text-neutral-400">
           {mode === "login"
             ? "Enter your email and password to sign in."
-            : "Sign up with your email to get started."}
+            : mode === "register"
+            ? "Sign up with your email to get started."
+            : "Enter your email and we\u2019ll send you a secure reset link."}
         </CardDescription>
 
-        {/* Tabs */}
-        <div className="grid grid-cols-2 gap-1 bg-black p-1 rounded-full border border-white/10 mt-2">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setErrorMessage(null);
-              setSuccessMessage(null);
-            }}
-            className={`py-2 text-xs font-semibold rounded-full transition-all flex items-center justify-center gap-1.5 ${
-              mode === "login"
-                ? "bg-neutral-200 text-neutral-950 font-semibold shadow-sm"
-                : "text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <LogIn className="h-3.5 w-3.5" />
-            <span>Sign In</span>
-          </button>
+        {/* Tabs — hidden in forgot-password mode */}
+        {mode !== "forgot" ? (
+          <div className="grid grid-cols-2 gap-1 bg-black p-1 rounded-full border border-white/10 mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className={`py-2 text-xs font-semibold rounded-full transition-all flex items-center justify-center gap-1.5 ${
+                mode === "login"
+                  ? "bg-neutral-200 text-neutral-950 font-semibold shadow-sm"
+                  : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Sign In</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setMode("register");
-              setErrorMessage(null);
-              setSuccessMessage(null);
-            }}
-            className={`py-2 text-xs font-semibold rounded-full transition-all flex items-center justify-center gap-1.5 ${
-              mode === "register"
-                ? "bg-neutral-200 text-neutral-950 font-semibold shadow-sm"
-                : "text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            <span>Sign Up</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("register");
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className={`py-2 text-xs font-semibold rounded-full transition-all flex items-center justify-center gap-1.5 ${
+                mode === "register"
+                  ? "bg-neutral-200 text-neutral-950 font-semibold shadow-sm"
+                  : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>Sign Up</span>
+            </button>
+          </div>
+        ) : (
+          <p className="text-[10px] text-neutral-500 mt-2 text-center tracking-wide uppercase font-semibold">Account Recovery</p>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4 pt-0">
@@ -577,6 +634,17 @@ function AuthForm() {
               )}
             </Button>
 
+            {/* Forgot password */}
+            <div className="text-center -mt-1">
+              <button
+                type="button"
+                onClick={() => { setMode("forgot"); setErrorMessage(null); setSuccessMessage(null); }}
+                className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                Forgot your password?
+              </button>
+            </div>
+
             {/* OR Divider */}
             <div className="relative my-4">
               <div className="absolute inset-0 flex items-center">
@@ -620,7 +688,7 @@ function AuthForm() {
               </button>
             </div>
           </form>
-        ) : (
+        ) : mode === "register" ? (
           /* ===================== SIGN UP ===================== */
           <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
             <div>
@@ -778,6 +846,58 @@ function AuthForm() {
                 className="text-xs text-neutral-400 hover:text-neutral-200 font-medium"
               >
                 Already have an account? Sign In &rarr;
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* ===================== FORGOT PASSWORD ===================== */
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Enter your registered email address and we&apos;ll send you a link to reset your password.
+            </p>
+
+            <div>
+              <label className="text-xs font-medium text-neutral-300 block mb-1.5">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-neutral-500" />
+                <Input
+                  type="email"
+                  placeholder="Enter your email"
+                  className="pl-9 text-xs bg-black/60 border-white/10 text-neutral-200 placeholder:text-neutral-500"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="email"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="default"
+              className="w-full rounded-full font-semibold py-5 text-xs bg-[#E5E5E5] text-neutral-950 hover:bg-[#D4D4D4] shadow-sm"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span>Sending Reset Link...</span>
+                </>
+              ) : (
+                <span>Send Reset Link</span>
+              )}
+            </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => { setMode("login"); setErrorMessage(null); setSuccessMessage(null); setForgotEmail(""); }}
+                className="text-xs text-neutral-400 hover:text-neutral-200 font-medium transition-colors"
+              >
+                &larr; Back to Sign In
               </button>
             </div>
           </form>

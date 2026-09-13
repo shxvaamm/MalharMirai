@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Calendar, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Calendar, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/public/event-card";
+import { EmptyState } from "@/components/public/empty-state";
 import { useEvents } from "@/lib/hooks/use-events";
 
 export function EventsShowcase() {
@@ -45,9 +46,12 @@ export function EventsShowcase() {
       )}
 
       {!loading && upcomingEvents.length === 0 && (
-        <div className="p-8 rounded-xl glass-panel text-center text-muted-foreground text-xs">
-          No upcoming events scheduled right now. Check back soon!
-        </div>
+        <EmptyState
+          icon={<Calendar className="h-6 w-6" />}
+          headline="No upcoming events right now"
+          subtext="Follow us on Instagram for announcements about our next fest or workshop."
+          showInstagramCta={true}
+        />
       )}
 
       {!loading && upcomingEvents.length > 0 && (

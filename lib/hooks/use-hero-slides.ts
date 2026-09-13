@@ -52,19 +52,41 @@ async function seedDefaultSlidesToDB(): Promise<void> {
   }
 }
 
-export function useHeroSlides() {
-  const [slides, setSlides] = React.useState<HeroSlide[]>(DEFAULT_HERO_SLIDES);
-  const [mounted, setMounted] = React.useState(false);
+/**
+ * Three distinct states for initialSlides:
+ *  - undefined  → component used without a layout server-fetch (standalone).
+ *                 Fall back to DEFAULT_HERO_SLIDES immediately so there's always
+ *                 something to show.
+ *  - []         → layout tried to fetch but got nothing (server error / empty DB).
+ *                 Start empty; wait for client-side fetch. Show dark bg, no dummy.
+ *  - [...]      → layout fetched real admin slides. Use them immediately, no flash.
+ */
+export function useHeroSlides(initialSlides?: HeroSlide[]) {
+  const serverProvided = initialSlides !== undefined; // layout explicitly passed this prop
+
+  const [slides, setSlides] = React.useState<HeroSlide[]>(() => {
+    if (!serverProvided) {
+      // Standalone usage (no layout fetch) — use defaults immediately
+      return DEFAULT_HERO_SLIDES;
+    }
+    // Server provided slides (possibly empty []) — use exactly what the server returned
+    return initialSlides!;
+  });
 
   React.useEffect(() => {
-    setMounted(true);
     let cancelled = false;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let channel: any = null;
 
-    // Show cached data immediately (same browser)
-    const cached = getSyncedData<HeroSlide[]>(STORAGE_KEYS.HERO_SLIDES, DEFAULT_HERO_SLIDES);
-    if (cached && cached.length > 0) setSlides(cached);
+    // Only use localStorage cache when the server gave us nothing.
+    // If server provided slides (even []), those are fresher than localStorage.
+    if (!serverProvided) {
+      const cached = getSyncedData<HeroSlide[]>(STORAGE_KEYS.HERO_SLIDES, DEFAULT_HERO_SLIDES);
+      // Only apply genuine localStorage data, not the fallback constant
+      if (cached && cached !== DEFAULT_HERO_SLIDES && cached.length > 0) {
+        setSlides(cached);
+      }
+    }
 
     async function loadAndSync() {
       if (cancelled) return;
@@ -124,6 +146,7 @@ export function useHeroSlides() {
         } catch {}
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeSlides = React.useMemo(() => {
@@ -134,6 +157,14 @@ export function useHeroSlides() {
 
   return {
     slides,
-    activeSlides: activeSlides.length > 0 ? activeSlides : DEFAULT_HERO_SLIDES,
+    // When slides is empty (server gave []) — return [] so component renders nothing.
+    // Only fall back to DEFAULT_HERO_SLIDES in standalone (no layout fetch) usage.
+    activeSlides:
+      activeSlides.length > 0
+        ? activeSlides
+        : serverProvided
+        ? [] // server said empty → show nothing, client fetch will fill in
+        : DEFAULT_HERO_SLIDES, // standalone → show defaults
   };
 }
+

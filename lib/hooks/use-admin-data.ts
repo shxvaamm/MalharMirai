@@ -199,64 +199,24 @@ export function useAdminData() {
             };
           };
 
-          // Merge club_members (primary) + profiles (secondary for auth users)
+          // club_members only — profiles rows are intentionally excluded from
+          // STORAGE_KEYS.MEMBERS. Including profiles caused every auth signup to
+          // appear on the public /leadership Team page. The admin console manages
+          // its own member data exclusively via club_members.
           const seenIds = new Set<string>();
-          const seenEmails = new Set<string>();
           const merged: ClubMember[] = [];
 
           for (const d of clubMembersData) {
-            const email = (d.email || "").toLowerCase();
-            if (!seenIds.has(d.id) && !seenEmails.has(email)) {
+            if (!seenIds.has(d.id)) {
               seenIds.add(d.id);
-              if (email) seenEmails.add(email);
-              const cachedMatch = cached.find((c) => c.id === d.id || c.email?.toLowerCase() === email);
+              const cachedMatch = cached.find((c: ClubMember) => c.id === d.id);
               merged.push(mapRow(d, cachedMatch));
-            }
-          }
-
-          if (profData && profData.length > 0) {
-            for (const d of profData) {
-              const email = (d.email || "").toLowerCase();
-              if (!seenIds.has(d.id) && !seenEmails.has(email)) {
-                seenIds.add(d.id);
-                if (email) seenEmails.add(email);
-                const cachedMatch = cached.find((c) => c.id === d.id || c.email?.toLowerCase() === email);
-                merged.push(mapRow(d, cachedMatch));
-              }
-            }
-          }
-
-          // Also include any local-only members not yet saved to DB
-          for (const c of cached) {
-            if (!seenIds.has(c.id) && !seenEmails.has(c.email.toLowerCase())) {
-              merged.push(c);
             }
           }
 
           setMembers(merged);
           setSyncedData(STORAGE_KEYS.MEMBERS, merged);
-        } else if (profData && profData.length > 0) {
-          // Fallback: only profiles available
-          const cached = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
-          const mappedProfs: ClubMember[] = profData.map((d: any) => {
-            const initials = d.full_name ? d.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "MC";
-            const cachedMatch = cached.find((c) => c.id === d.id || (d.email && c.email?.toLowerCase() === d.email.toLowerCase()));
-            return {
-              id: d.id, full_name: d.full_name || cachedMatch?.full_name || "Member",
-              email: d.email || cachedMatch?.email || "",
-              role: d.role === "super_admin" || d.role === "admin" ? "admin" : d.role === "volunteer" ? "volunteer" : (cachedMatch?.role || "member"),
-              department: d.department || d.departments?.name || cachedMatch?.department || "General",
-              phone: d.phone || cachedMatch?.phone || "+91 98765 00000",
-              avatar_url: d.avatar_url || cachedMatch?.avatar_url,
-              avatar_initials: initials,
-              bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
-              year: d.year || cachedMatch?.year || "1st Year",
-              specialty: d.specialty || cachedMatch?.specialty || "Official Member",
-              socials: { instagram: d.instagram || cachedMatch?.socials?.instagram || null, linkedin: d.linkedin || cachedMatch?.socials?.linkedin || null },
-            };
-          });
-          setMembers(mappedProfs);
-          setSyncedData(STORAGE_KEYS.MEMBERS, mappedProfs);
+
         }
 
 

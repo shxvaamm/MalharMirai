@@ -1,104 +1,143 @@
 "use client";
 
 import * as React from "react";
-import { Search, Calendar, AlertCircle } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-
+import { Calendar, Radio, Clock } from "lucide-react";
 import { EventCard } from "@/components/public/event-card";
+import { EmptyState } from "@/components/public/empty-state";
 import { useEvents } from "@/lib/hooks/use-events";
+import { ClubEvent } from "@/lib/mock-data";
 
+// ─── Status ordering ─────────────────────────────────────────────────────────
+const STATUS_ORDER: Record<string, number> = { ongoing: 0, upcoming: 1, completed: 2 };
+
+function sortEvents(events: ClubEvent[]): ClubEvent[] {
+  return [...events].sort((a, b) => {
+    const sa = STATUS_ORDER[a.status] ?? 99;
+    const sb = STATUS_ORDER[b.status] ?? 99;
+    if (sa !== sb) return sa - sb;
+    // Within the same status, sort ascending by date
+    return new Date(a.date_time).getTime() - new Date(b.date_time).getTime();
+  });
+}
+
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
+function EventsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="rounded-2xl border border-white/[0.06] bg-neutral-900/80 animate-pulse"
+        >
+          <div className="aspect-video w-full bg-neutral-800/60 rounded-t-2xl" />
+          <div className="p-4 space-y-3">
+            <div className="h-4 w-3/4 bg-neutral-800 rounded" />
+            <div className="h-3 w-1/2 bg-neutral-800/60 rounded" />
+            <div className="h-3 w-2/3 bg-neutral-800/60 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Tab definitions ──────────────────────────────────────────────────────────
+const TABS = [
+  { label: "All", value: "all",       icon: null },
+  { label: "Ongoing",  value: "ongoing",  icon: Radio },
+  { label: "Upcoming", value: "upcoming", icon: Clock },
+  { label: "Past",     value: "completed", icon: Calendar },
+] as const;
+
+type TabValue = (typeof TABS)[number]["value"];
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function EventsPage() {
-  const [statusTab, setStatusTab] = React.useState<string>("all");
-  const [searchQuery, setSearchQuery] = React.useState<string>("");
+  const [activeTab, setActiveTab] = React.useState<TabValue>("all");
+  const { events: allEvents, loading } = useEvents("all", "all");
 
-  const { events, loading } = useEvents("all", statusTab);
+  // Sorted flat list: Ongoing → Upcoming → Past
+  const sorted = React.useMemo(() => sortEvents(allEvents), [allEvents]);
 
-  const filteredEvents = React.useMemo(() => {
-    if (!searchQuery.trim()) return events;
-    const q = searchQuery.toLowerCase();
-    return events.filter(
-      (e) =>
-        e.title.toLowerCase().includes(q) ||
-        e.category.toLowerCase().includes(q) ||
-        e.venue.toLowerCase().includes(q) ||
-        e.description.toLowerCase().includes(q)
-    );
-  }, [events, searchQuery]);
+  // Filtered by tab
+  const displayed = React.useMemo(() => {
+    if (activeTab === "all") return sorted;
+    return sorted.filter((e) => e.status === activeTab);
+  }, [sorted, activeTab]);
+
+  // Count per tab for badge hints
+  const counts = React.useMemo(() => ({
+    all:       allEvents.length,
+    ongoing:   allEvents.filter((e) => e.status === "ongoing").length,
+    upcoming:  allEvents.filter((e) => e.status === "upcoming").length,
+    completed: allEvents.filter((e) => e.status === "completed").length,
+  }), [allEvents]);
+
+  const emptyMessages: Record<TabValue, { headline: string; subtext: string }> = {
+    all:       { headline: "No events scheduled right now", subtext: "We announce upcoming fests, workshops, and competitions on Instagram first — follow us to be the first to know." },
+    ongoing:   { headline: "No ongoing events at the moment", subtext: "Check back during our next competition or showcase." },
+    upcoming:  { headline: "No upcoming events yet", subtext: "Watch our Instagram for announcements about our next fest or workshop." },
+    completed: { headline: "No past events to show", subtext: "As MALHAR grows, our archive of past events will appear here." },
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
-      {/* Header */}
-      <div className="text-center space-y-4 max-w-3xl mx-auto">
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-neutral-100">
-          Club <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">Events & Showcases</span>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="text-center space-y-3 max-w-2xl mx-auto">
+        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-neutral-100">
+          Events &amp;{" "}
+          <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">
+            Showcases
+          </span>
         </h1>
-        <p className="text-sm sm:text-base text-neutral-400 leading-relaxed">
-          Discover upcoming inter-college competitions, stage plays, acoustic nights, and fest auditions. Reserve your participant or spectator slot in real-time.
+        <p className="text-sm text-neutral-400 leading-relaxed">
+          Competitions, stage plays, acoustic nights, and cultural showcases at Mirai School of Technology.
         </p>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="glass-card p-4 sm:p-6 rounded-3xl border border-white/[0.06] space-y-4 bg-[#0D0D0D]/75">
-        {/* Search */}
-        <div className="relative w-full">
-          <Search className="absolute left-4 top-3.5 h-4 w-4 text-neutral-400" />
-          <Input
-            placeholder="Search events by title, venue, or description..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-11 h-11 bg-black/60 border-white/10 text-sm rounded-full w-full text-neutral-200 placeholder:text-neutral-500"
-          />
-        </div>
-
-        {/* Status Tabs */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/[0.06]">
-          {[
-            { label: "All Events", value: "all" },
-            { label: "Upcoming Competitions", value: "upcoming" },
-            { label: "Ongoing Showcases", value: "ongoing" },
-            { label: "Past Fest Archives", value: "completed" },
-          ].map((tab) => (
+      {/* ── Status Tabs ────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-center gap-2 flex-wrap">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.value;
+          const count = counts[tab.value];
+          return (
             <button
               key={tab.value}
               type="button"
-              onClick={() => setStatusTab(tab.value)}
-              className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                statusTab === tab.value
+              onClick={() => setActiveTab(tab.value)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${
+                isActive
                   ? "bg-neutral-200 text-neutral-950 font-semibold shadow-sm"
-                  : "bg-white/[0.03] border border-white/10 text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200"
+                  : "bg-white/[0.03] border border-white/10 text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200 hover:border-white/20"
               }`}
             >
-              {tab.label}
+              {Icon && <Icon className="h-3 w-3" />}
+              <span>{tab.label}</span>
+              {count > 0 && (
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${isActive ? "bg-neutral-950/20" : "bg-white/[0.06]"}`}>
+                  {count}
+                </span>
+              )}
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* Events Grid */}
-      {filteredEvents.length === 0 ? (
-        <div className="glass-panel p-12 rounded-3xl border border-white/[0.06] text-center space-y-3 bg-[#0D0D0D]/75">
-          <Calendar className="mx-auto h-12 w-12 text-neutral-600" />
-          <h3 className="text-lg font-bold text-neutral-100">No events found</h3>
-          <p className="text-xs text-neutral-400 max-w-sm mx-auto">
-            Try adjusting your search criteria or switch status tabs.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSearchQuery("");
-              setStatusTab("all");
-            }}
-            className="rounded-full border-white/10 text-neutral-300 hover:bg-white/[0.06]"
-          >
-            Clear Filters
-          </Button>
-        </div>
-
+      {/* ── Content ────────────────────────────────────────────────────── */}
+      {loading && allEvents.length === 0 ? (
+        <EventsSkeleton />
+      ) : displayed.length === 0 ? (
+        <EmptyState
+          icon={<Calendar className="h-7 w-7" />}
+          headline={emptyMessages[activeTab].headline}
+          subtext={emptyMessages[activeTab].subtext}
+          showInstagramCta={activeTab !== "completed"}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {displayed.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}
         </div>

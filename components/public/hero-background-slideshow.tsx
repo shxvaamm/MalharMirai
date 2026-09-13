@@ -3,38 +3,40 @@
 import * as React from "react";
 import Image from "next/image";
 import { useHeroSlides } from "@/lib/hooks/use-hero-slides";
+import { HeroSlide } from "@/lib/mock-data";
 
 interface HeroBackgroundSlideshowProps {
   intervalMs?: number;
   opacityClassName?: string;
+  /** Server-fetched slides passed from the layout Server Component.
+   *  Eliminates the client-side fetch waterfall on first render. */
+  initialSlides?: HeroSlide[];
 }
 
 export function HeroBackgroundSlideshow({
   intervalMs = 4500,
   opacityClassName = "opacity-70",
+  initialSlides,
 }: HeroBackgroundSlideshowProps) {
-  const { activeSlides } = useHeroSlides();
+  // Pass initialSlides into the hook so it seeds state with the server-provided
+  // admin photos immediately — no flash of dummy/default slides on first render.
+  const { activeSlides } = useHeroSlides(initialSlides);
   const [currentIndex, setCurrentIndex] = React.useState(0);
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Auto-advance slides with smooth cross-fade intervals
   React.useEffect(() => {
-    if (!activeSlides || activeSlides.length <= 1) return;
+    if (activeSlides.length <= 1) return;
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [activeSlides, intervalMs]);
+  }, [activeSlides.length, intervalMs]);
 
-  if (!mounted || !activeSlides || activeSlides.length === 0) {
-    return null;
-  }
+  // Always render the container — it holds the dark overlay that the whole site needs.
+  // When activeSlides is empty (server gave [] and client fetch is still in-flight),
+  // the image layer is empty and only the dark tint renders — no stock/dummy image.
 
   return (
     /*
@@ -90,6 +92,12 @@ export function HeroBackgroundSlideshow({
       >
         {activeSlides.map((slide, index) => {
           const isActive = index === currentIndex;
+          // Priority-load slide 0 (above the fold).
+          // Eagerly load slides 1-2 so they're ready before the first transition.
+          // The rest lazy-load to avoid wasting bandwidth.
+          const isPriority = index === 0;
+          const loadingAttr = index <= 2 ? "eager" : "lazy";
+
           return (
             <div
               key={slide.id}
@@ -116,10 +124,10 @@ export function HeroBackgroundSlideshow({
                   pointerEvents: "none",
                   userSelect: "none",
                 }}
-                loading={index === 0 ? "eager" : "lazy"}
-                priority={index === 0}
+                loading={loadingAttr}
+                priority={isPriority}
                 sizes="100vw"
-                unoptimized
+                quality={75}
               />
             </div>
           );
@@ -142,8 +150,18 @@ export function HeroBackgroundSlideshow({
 }
 
 
-export function HeroSlideIndicators() {
-  const { activeSlides } = useHeroSlides();
+// ── HeroSlideIndicators ────────────────────────────────────────────────────────
+// Kept separate so the homepage can render dots independently of the background.
+// Accepts the same initialSlides prop for consistency so both components share
+// the same initial data and stay in sync.
+
+interface HeroSlideIndicatorsProps {
+  initialSlides?: HeroSlide[];
+}
+
+export function HeroSlideIndicators({ initialSlides }: HeroSlideIndicatorsProps = {}) {
+  // Pass initialSlides into the hook so indicators start in sync with the background.
+  const { activeSlides } = useHeroSlides(initialSlides);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [mounted, setMounted] = React.useState(false);
 
@@ -152,16 +170,17 @@ export function HeroSlideIndicators() {
   }, []);
 
   React.useEffect(() => {
-    if (!activeSlides || activeSlides.length <= 1) return;
+    if (activeSlides.length <= 1) return;
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
     }, 4500);
 
     return () => clearInterval(timer);
-  }, [activeSlides]);
+  }, [activeSlides.length]);
 
-  if (!mounted || !activeSlides || activeSlides.length <= 1) {
+  // Only hide dots on server / pre-mount to avoid hydration mismatch for indicators
+  if (!mounted || activeSlides.length <= 1) {
     return null;
   }
 

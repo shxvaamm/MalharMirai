@@ -7,6 +7,7 @@ import { DepartmentsShowcase } from "@/components/public/departments-showcase";
 import { EventsShowcase } from "@/components/public/events-showcase";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
 import { createClient } from "@/lib/supabase/server";
+import { STAT_FALLBACKS } from "@/lib/mock-data";
 
 // Revalidate every 60s — stats stay fresh without a full rebuild
 export const revalidate = 60;
@@ -18,17 +19,17 @@ async function getStats(): Promise<{ activeMembers: string; eventsOrganised: str
       .select("key,value")
       .in("key", ["public_active_members", "public_events_organised"]);
 
-    if (!data) return { activeMembers: "212+", eventsOrganised: "100+" };
+    if (!data) return { activeMembers: STAT_FALLBACKS.activeMembers, eventsOrganised: STAT_FALLBACKS.eventsOrganised };
 
     const members = data.find((d: any) => d.key === "public_active_members")?.value;
     const events  = data.find((d: any) => d.key === "public_events_organised")?.value;
 
     return {
-      activeMembers:   members ? (String(members).includes("+") ? String(members) : `${members}+`) : "212+",
-      eventsOrganised: events  ? (String(events).includes("+")  ? String(events)  : `${events}+`)  : "100+",
+      activeMembers:   members ? (String(members).includes("+") ? String(members) : `${members}+`) : STAT_FALLBACKS.activeMembers,
+      eventsOrganised: events  ? (String(events).includes("+")  ? String(events)  : `${events}+`)  : STAT_FALLBACKS.eventsOrganised,
     };
   } catch {
-    return { activeMembers: "212+", eventsOrganised: "100+" };
+    return { activeMembers: STAT_FALLBACKS.activeMembers, eventsOrganised: STAT_FALLBACKS.eventsOrganised };
   }
 }
 
@@ -165,14 +166,8 @@ export default async function HomePage() {
               href="/leadership"
               className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-xs sm:text-sm font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-white shadow-sm transition-all duration-200 active:scale-[0.97]"
             >
-              <span>Core Committee</span>
+              <span>Meet the Team</span>
               <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/members"
-              className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-xs sm:text-sm font-medium text-neutral-300 bg-white/[0.03] border border-white/10 hover:border-white/20 hover:text-white transition-all duration-200"
-            >
-              <span>All Members</span>
             </Link>
           </div>
         </div>

@@ -1,46 +1,51 @@
-"use client";
-
-import * as React from "react";
+// Server Component — stats SSR'd at request time, no client-side waterfall
 import Image from "next/image";
 import Link from "next/link";
 import { Target, Compass, Heart, Users, Calendar, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
-import { SOCIETY_INFO } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/server";
+import { SOCIETY_INFO, STAT_FALLBACKS } from "@/lib/mock-data";
 
-export default function AboutPage() {
-  const [activeMembers, setActiveMembers] = React.useState<string>("");
-  const [eventsOrganised, setEventsOrganised] = React.useState<string>("");
+// Revalidate every 60s — keeps stats fresh without a full rebuild
+export const revalidate = 60;
 
-  React.useEffect(() => {
-    async function fetchStats() {
-      try {
-        const supabase = createClient();
-        const { data } = await (supabase.from("site_settings") as any).select("*");
-        if (data) {
-          const members = data.find((item: any) => item.key === "public_active_members")?.value;
-          const events = data.find((item: any) => item.key === "public_events_organised")?.value;
-          if (members) setActiveMembers(String(members).includes("+") ? String(members) : `${members}+`);
-          if (events) setEventsOrganised(String(events).includes("+") ? String(events) : `${events}+`);
-        }
-      } catch (err) {
-        console.warn("fetchStats error on about page:", err);
-      }
-    }
-    fetchStats();
-  }, []);
+async function getStats(): Promise<{ activeMembers: string; eventsOrganised: string }> {
+  try {
+    const supabase = await createClient();
+    const { data } = await (supabase.from("site_settings") as any)
+      .select("key,value")
+      .in("key", ["public_active_members", "public_events_organised"]);
+
+    if (!data) return { activeMembers: STAT_FALLBACKS.activeMembers, eventsOrganised: STAT_FALLBACKS.eventsOrganised };
+
+    const members = data.find((d: any) => d.key === "public_active_members")?.value;
+    const events  = data.find((d: any) => d.key === "public_events_organised")?.value;
+
+    return {
+      activeMembers:   members ? (String(members).includes("+") ? String(members) : `${members}+`) : STAT_FALLBACKS.activeMembers,
+      eventsOrganised: events  ? (String(events).includes("+")  ? String(events)  : `${events}+`)  : STAT_FALLBACKS.eventsOrganised,
+    };
+  } catch {
+    return { activeMembers: STAT_FALLBACKS.activeMembers, eventsOrganised: STAT_FALLBACKS.eventsOrganised };
+  }
+}
+
+export default async function AboutPage() {
+  const { activeMembers, eventsOrganised } = await getStats();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
       {/* Page Header */}
       <div className="text-center space-y-4 max-w-3xl mx-auto">
         <div className="flex items-center justify-center gap-2 mb-2">
+          {/* sizes="64px" — fixes the w=3840 oversized request that occurred without this prop */}
           <div className="relative h-16 w-16 rounded-full overflow-hidden border border-white/15 shadow-md bg-neutral-900">
             <Image
               src="/images/malhar-logo.png"
               alt="MALHAR Logo"
               fill
+              sizes="64px"
               className="object-cover brightness-105"
             />
           </div>
@@ -54,46 +59,40 @@ export default function AboutPage() {
         </p>
       </div>
 
-      {/* Core Dynamic Statistics directly from Supabase (ONLY Active Members & Events Organised) */}
+      {/* Core Statistics — server-rendered, zero flash */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
         <div className="glass-card p-6 sm:p-8 rounded-3xl border border-white/[0.06] text-center shadow-lg bg-[#0D0D0D]/75">
           <div className="flex items-center justify-center gap-2 mb-1">
             <Users className="h-6 w-6 text-neutral-400" />
-            <div
-              suppressHydrationWarning
-              className="text-4xl sm:text-5xl font-extrabold text-neutral-100 font-mono tracking-tight"
-            >
-              {activeMembers || "7+"}
+            <div className="text-4xl sm:text-5xl font-extrabold text-neutral-100 font-mono tracking-tight">
+              {activeMembers}
             </div>
           </div>
           <div className="text-xs uppercase tracking-wider font-semibold text-neutral-400 mt-2">
             Active Members
           </div>
           <div className="text-[11px] text-neutral-500 mt-1">
-            Coordinators & contributors
+            Coordinators &amp; contributors across 5 departments
           </div>
         </div>
 
         <div className="glass-card p-6 sm:p-8 rounded-3xl border border-white/[0.06] text-center shadow-lg bg-[#0D0D0D]/75">
           <div className="flex items-center justify-center gap-2 mb-1">
             <Calendar className="h-6 w-6 text-neutral-400" />
-            <div
-              suppressHydrationWarning
-              className="text-4xl sm:text-5xl font-extrabold text-neutral-100 font-mono tracking-tight"
-            >
-              {eventsOrganised || "8+"}
+            <div className="text-4xl sm:text-5xl font-extrabold text-neutral-100 font-mono tracking-tight">
+              {eventsOrganised}
             </div>
           </div>
           <div className="text-xs uppercase tracking-wider font-semibold text-neutral-400 mt-2">
             Events Organised
           </div>
           <div className="text-[11px] text-neutral-500 mt-1">
-            Fests, showcases, workshops & orientation galas
+            Fests, showcases, workshops &amp; orientation galas
           </div>
         </div>
       </div>
 
-      {/* Mission & Vision & Values Cards */}
+      {/* Mission, Vision & Values */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="glass-card border-white/[0.06] hover:border-white/20 rounded-3xl transition-all bg-[#0D0D0D]/75">
           <CardHeader>
@@ -141,7 +140,6 @@ export default function AboutPage() {
           </Link>
         </Button>
       </div>
-
     </div>
   );
 }

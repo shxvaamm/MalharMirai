@@ -15,7 +15,7 @@ export function PublicFooter() {
                   src="/images/malhar-logo.png"
                   alt="MALHAR Society Logo"
                   fill
-                  unoptimized
+                  sizes="40px"
                   draggable={false}
                   className="object-cover brightness-105 pointer-events-none select-none"
                 />
@@ -26,7 +26,7 @@ export function PublicFooter() {
                     src="/images/malhar-wordmark.png"
                     alt="MALHAR"
                     fill
-                    unoptimized
+                    sizes="112px"
                     draggable={false}
                     className="object-contain object-left brightness-110 pointer-events-none select-none"
                   />
@@ -55,37 +55,32 @@ export function PublicFooter() {
               </li>
               <li>
                 <Link href="/about" className="hover:text-neutral-200 transition-colors">
-                  About Society & Heritage
-                </Link>
-              </li>
-              <li>
-                <Link href="/members" className="hover:text-neutral-200 transition-colors">
-                  Members Directory
+                  About
                 </Link>
               </li>
               <li>
                 <Link href="/leadership" className="hover:text-neutral-200 transition-colors">
-                  Core Committee
+                  Team
                 </Link>
               </li>
               <li>
                 <Link href="/events" className="hover:text-neutral-200 transition-colors">
-                  Upcoming Events & Fests
+                  Events
                 </Link>
               </li>
               <li>
                 <Link href="/gallery" className="hover:text-neutral-200 transition-colors">
-                  Media & Visual Gallery
+                  Gallery
                 </Link>
               </li>
               <li>
                 <Link href="/announcements" className="hover:text-neutral-200 transition-colors">
-                  Official Announcements
+                  Announcements
                 </Link>
               </li>
               <li>
                 <Link href="/contact" className="hover:text-neutral-200 transition-colors">
-                  Contact Coordinators
+                  Contact
                 </Link>
               </li>
             </ul>

@@ -76,13 +76,20 @@ export const SOCIETY_INFO = {
   shortName: "MALHAR",
   tagline: "The Cultural Society of Mirai School of Technology",
   founded: "Started by the 2025–29 batch",
-  aboutText: "Malhar is the cultural society of Mirai School of Technology, started by the 2025–29 batch.",
+  aboutText: "Malhar is the cultural society of Mirai School of Technology, started by the 2025–29 batch. From dance and singing to management and tech, we give students the stage to build skills and showcase their talent.",
   college: "Mirai School of Technology",
   contact: {
     email: "malharmirai01@gmail.com",
     instagram: "https://www.instagram.com/malhar_mirai.hiet/",
     location: "Mirai School of Technology Campus, Student Center",
   },
+};
+
+/** Single source of truth for public-facing stat fallbacks.
+ *  Update these when the Supabase site_settings values are confirmed. */
+export const STAT_FALLBACKS = {
+  activeMembers: "212+",
+  eventsOrganised: "100+",
 };
 
 export const DEFAULT_CLUB_STATS: ClubStats = {

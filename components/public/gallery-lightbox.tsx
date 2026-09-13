@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { GalleryMedia, MOCK_GALLERY } from "@/lib/mock-data";
+import { GalleryMedia } from "@/lib/mock-data";
 
 interface GalleryLightboxProps {
   initialMedia: GalleryMedia[];
@@ -27,7 +27,7 @@ export function GalleryLightbox({
   const [activeMediaIndex, setActiveMediaIndex] = React.useState<number | null>(null);
 
   const filteredMedia = React.useMemo(() => {
-    return Array.isArray(initialMedia) && initialMedia.length > 0 ? initialMedia : MOCK_GALLERY;
+    return Array.isArray(initialMedia) ? initialMedia : [];
   }, [initialMedia]);
 
   const activeItem = activeMediaIndex !== null ? filteredMedia[activeMediaIndex] : null;
@@ -81,17 +81,7 @@ export function GalleryLightbox({
 
   return (
     <div className="space-y-8">
-      {/* Empty State */}
-      {filteredMedia.length === 0 ? (
-        <div className="p-16 text-center rounded-3xl glass-panel border border-white/[0.06] space-y-3 bg-[#0D0D0D]">
-          <ImageIcon className="h-12 w-12 mx-auto text-neutral-600" />
-          <h3 className="text-base font-bold text-neutral-100">No Photos Found</h3>
-          <p className="text-xs text-neutral-400 max-w-sm mx-auto">
-            No gallery entries are currently published under this category filter.
-          </p>
-        </div>
-      ) : (
-        /* Subtle Responsive Masonry Grid */
+      {filteredMedia.length > 0 && (
         <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5 [column-fill:_balance]">
           {filteredMedia.map((item: GalleryMedia, index: number) => {
             const aspectClass = getAspectClass(index);
@@ -154,8 +144,6 @@ export function GalleryLightbox({
           })}
         </div>
       )}
-
-
       {/* Lightbox Modal */}
       {activeItem && (
         <div

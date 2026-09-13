@@ -15,7 +15,6 @@ import {
   Info,
   Shield,
   Users,
-  Crown,
   LayoutDashboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,8 +25,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 const navLinks = [
   { name: "Home", href: "/", icon: Sparkles },
   { name: "About", href: "/about", icon: Info },
-  { name: "Members", href: "/members", icon: Users },
-  { name: "Core", href: "/leadership", icon: Crown },
+  { name: "Team", href: "/leadership", icon: Users },
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Gallery", href: "/gallery", icon: ImageIcon },
   { name: "Announcements", href: "/announcements", icon: Bell },
@@ -54,7 +52,7 @@ export function PublicNavbar() {
               src="/images/malhar-wordmark.png"
               alt="MALHAR"
               fill
-              unoptimized
+              sizes="160px"
               draggable={false}
               className="object-contain object-left group-hover:brightness-110 transition-all drop-shadow-[0_2px_10px_rgba(255,255,255,0.08)] pointer-events-none select-none"
               priority
@@ -103,9 +101,9 @@ export function PublicNavbar() {
             <Link
               href="/login"
               id="navbar-login-btn"
-              className="hidden sm:inline-flex items-center justify-center rounded-full px-5 py-2 text-xs font-semibold bg-neutral-200 text-neutral-950 hover:bg-neutral-300 shadow-sm active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+              className="hidden sm:inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs font-medium text-neutral-400 hover:text-neutral-200 border border-white/10 hover:border-white/20 transition-all duration-200 whitespace-nowrap"
             >
-              <span>Login</span>
+              <span>Member Login</span>
             </Link>
           )}
 
@@ -116,10 +114,10 @@ export function PublicNavbar() {
               alt="Mirai School of Technology"
               width={120}
               height={26}
+              sizes="120px"
               draggable={false}
               className="h-6 w-auto object-contain brightness-110 opacity-80 hover:opacity-100 transition-opacity pointer-events-none select-none"
               priority
-              unoptimized
             />
           </div>
 

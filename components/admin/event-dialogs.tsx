@@ -402,6 +402,8 @@ export function EditEventDialog({
   const [venue, setVenue] = React.useState("");
   const [capacity, setCapacity] = React.useState("400");
   const [status, setStatus] = React.useState<"upcoming" | "ongoing" | "completed">("upcoming");
+  const [dateTime, setDateTime] = React.useState("");
+  const [deadline, setDeadline] = React.useState("");
   const [posterUrl, setPosterUrl] = React.useState("");
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -421,6 +423,10 @@ export function EditEventDialog({
       setCapacity(String(event.max_capacity) || "400");
       setStatus(event.status || "upcoming");
       setPosterUrl(event.poster_url || "");
+      // Format ISO string to datetime-local input value (YYYY-MM-DDTHH:mm)
+      const toLocal = (iso: string) => iso ? iso.slice(0, 16) : "";
+      setDateTime(toLocal(event.date_time || ""));
+      setDeadline(toLocal(event.registration_deadline || ""));
       setSelectedFile(null);
       setFilePreview(null);
       setValidationError(null);
@@ -479,6 +485,8 @@ export function EditEventDialog({
       poster_url: finalPosterUrl,
       max_capacity: parseInt(capacity) || 200,
       status,
+      ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
+      ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
     });
     setLoading(false);
 
@@ -492,6 +500,8 @@ export function EditEventDialog({
         poster_url: finalPosterUrl,
         max_capacity: parseInt(capacity) || 200,
         status,
+        ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
+        ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
       });
       onOpenChange(false);
     } else {
@@ -560,6 +570,29 @@ export function EditEventDialog({
             <div>
               <label className="text-xs font-semibold block mb-1 text-neutral-300">Max Capacity</label>
               <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} required disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">Date &amp; Time</label>
+              <Input
+                type="datetime-local"
+                value={dateTime}
+                onChange={(e) => setDateTime(e.target.value)}
+                disabled={loading}
+                className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">Registration Deadline</label>
+              <Input
+                type="datetime-local"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                disabled={loading}
+                className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
+              />
             </div>
           </div>
 

@@ -1,140 +1,136 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, MapPin, Users, ArrowRight, Sparkles, Clock } from "lucide-react";
+import { Calendar, MapPin, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { CountdownTimer } from "@/components/public/countdown-timer";
 import { EventRegistrationModal } from "@/components/public/event-registration-modal";
 import { ClubEvent } from "@/lib/mock-data";
 
 interface EventCardProps {
   event: ClubEvent;
-  showCountdown?: boolean;
 }
 
-export function EventCard({ event, showCountdown = true }: EventCardProps) {
-  const registeredCount = event.registered_count || 0;
-  const maxCapacity = event.max_capacity || 300;
-  const capacityPercent = Math.min(
-    100,
-    Math.round((registeredCount / maxCapacity) * 100)
-  );
+function formatEventDate(dateString: string) {
+  const d = new Date(dateString);
+  return {
+    date: d.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    time: d.toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }),
+  };
+}
 
-  const hasUpcomingCountdown =
-    showCountdown &&
-    event.status === "upcoming" &&
-    new Date(event.date_time).getTime() > Date.now();
+export function EventCard({ event }: EventCardProps) {
+  const isPast =
+    event.status === "completed" ||
+    new Date(event.date_time).getTime() < Date.now();
+
+  const isDeadlinePassed = event.registration_deadline
+    ? new Date(event.registration_deadline).getTime() < Date.now()
+    : false;
+
+  const isClosed = isPast || isDeadlinePassed;
+
+  const { date, time } = formatEventDate(event.date_time);
+
+  // Status chip styling
+  const statusChip = {
+    upcoming: "border border-white/30 text-neutral-200 bg-transparent",
+    ongoing: "bg-white text-neutral-950 border-transparent font-bold",
+    completed: "bg-neutral-800 text-neutral-400 border-transparent",
+  }[event.status] ?? "border border-white/20 text-neutral-300 bg-transparent";
 
   return (
-    <Card className="glass-card border border-white/[0.06] hover:border-white/20 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 shadow-xl group bg-[#0D0D0D]/90 rounded-3xl overflow-hidden">
-      <div>
-        {/* Poster Header Section: Tall, centered, object-contain */}
-        <div className="relative h-72 sm:h-80 w-full overflow-hidden rounded-t-3xl bg-neutral-950 flex items-center justify-center p-2 border-b border-white/[0.06]">
-          {/* Ambient blurred backdrop for seamless fit */}
-          {event.poster_url && (
+    <article className="group flex flex-col bg-[#0D0D0D]/85 border border-white/[0.06] hover:border-white/[0.15] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 shadow-lg">
+
+      {/* Poster — clean crop, no blurred backdrop */}
+      <Link href={`/events/${event.id}`} className="block shrink-0">
+        <div className="relative aspect-video w-full overflow-hidden bg-neutral-900">
+          {event.poster_url ? (
             <img
               src={event.poster_url}
-              alt=""
-              aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover blur-2xl opacity-20 scale-110 pointer-events-none"
+              alt={event.title}
+              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+              loading="lazy"
             />
-          )}
-
-          {/* Fully visible, uncropped poster */}
-          <img
-            src={event.poster_url}
-            alt={event.title}
-            className="relative z-10 max-h-full max-w-full object-contain object-center rounded-2xl transition-transform duration-500 group-hover:scale-[1.02]"
-            loading="lazy"
-          />
-        </div>
-
-        {/* Badges & Status Strip (Positioned clearly below the poster, preventing any text overlap) */}
-        <div className="px-5 pt-4 flex items-center justify-between gap-2">
-          <Badge variant={event.status as "upcoming" | "ongoing" | "completed"} className="capitalize text-xs font-semibold">
-            {event.status}
-          </Badge>
-          <span className="text-[11px] font-medium text-neutral-300 bg-white/[0.04] px-2.5 py-0.5 rounded-full border border-white/10">
-            {event.category}
-          </span>
-        </div>
-
-        {/* Optional Live Countdown Bar (Cleanly separated from poster) */}
-        {hasUpcomingCountdown && (
-          <div className="px-5 pt-2.5">
-            <div className="flex items-center gap-2 p-2 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-              <Clock className="h-3.5 w-3.5 text-neutral-400 shrink-0 ml-1" />
-              <CountdownTimer targetDate={event.date_time} size="sm" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-neutral-700">
+              <Calendar className="h-8 w-8" />
             </div>
+          )}
+          {/* Subtle top gradient for badge legibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent pointer-events-none" />
+
+          {/* Status + Category chips */}
+          <div className="absolute top-3 left-3 flex items-center gap-2">
+            <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full capitalize backdrop-blur-md ${statusChip}`}>
+              {event.status === "completed" ? "Past" : event.status}
+            </span>
+            {event.category && (
+              <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-black/70 border border-white/10 text-neutral-300 backdrop-blur-md capitalize">
+                {event.category}
+              </span>
+            )}
           </div>
+        </div>
+      </Link>
+
+      {/* Card body */}
+      <div className="flex flex-col flex-1 p-4 gap-3">
+
+        {/* Title */}
+        <Link href={`/events/${event.id}`}>
+          <h3 className="text-base font-bold text-neutral-100 leading-snug line-clamp-2 group-hover:text-neutral-300 transition-colors">
+            {event.title}
+          </h3>
+        </Link>
+
+        {/* Meta: date + venue */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-[12px] text-neutral-400">
+            <Calendar className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+            <span>{date} &middot; {time}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[12px] text-neutral-400">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+            <span className="truncate">{event.venue}</span>
+          </div>
+        </div>
+
+        {/* Short description */}
+        {event.description && (
+          <p className="text-[12px] text-neutral-500 leading-relaxed line-clamp-2">
+            {event.description}
+          </p>
         )}
 
-        <CardHeader className="pt-3 pb-2 px-5">
-          <CardTitle className="text-lg sm:text-xl font-bold leading-snug text-neutral-100 group-hover:text-neutral-200 transition-colors">
-            <Link href={`/events/${event.id}`}>{event.title}</Link>
-          </CardTitle>
-          <CardDescription className="text-xs text-neutral-400 line-clamp-2 mt-1 leading-relaxed">
-            {event.description}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-3 pt-1 px-5 text-xs text-neutral-400">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
-            <span className="text-neutral-300 font-medium">
-              {new Date(event.date_time).toLocaleDateString("en-IN", {
-                weekday: "short",
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+        {/* CTA row — pushes to bottom */}
+        <div className="mt-auto pt-2 border-t border-white/[0.06] flex items-center gap-2">
+          {!isClosed ? (
+            <div className="flex-1">
+              <EventRegistrationModal event={event} />
+            </div>
+          ) : (
+            <span className="flex-1 text-center text-[11px] text-neutral-600 font-medium py-2">
+              {event.status === "completed" ? "Event ended" : "Registration closed"}
             </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
-            <span className="truncate text-neutral-300">{event.venue}</span>
-          </div>
-
-          {/* Dynamic Registration Progress Bar */}
-          <div className="pt-1 space-y-1">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-neutral-400 flex items-center gap-1">
-                <Users className="h-3 w-3 text-neutral-400" /> Slots Booked:
-              </span>
-              <span className="font-semibold text-neutral-200 font-mono">
-                {registeredCount} / {maxCapacity} ({capacityPercent}%)
-              </span>
-            </div>
-            <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  capacityPercent >= 90
-                    ? "bg-rose-500"
-                    : "bg-[#E5E5E5]"
-                }`}
-                style={{ width: `${capacityPercent}%` }}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </div>
-
-      <CardFooter className="pt-3 border-t border-white/[0.06] flex items-center gap-2 p-5">
-        <Button asChild variant="outline" size="sm" className="flex-1 text-xs rounded-full border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:border-white/20">
-          <Link href={`/events/${event.id}`} className="flex items-center justify-center gap-1">
+          )}
+          <Link
+            href={`/events/${event.id}`}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-400 hover:text-neutral-200 transition-colors shrink-0 px-3 py-2 rounded-xl hover:bg-white/[0.04]"
+          >
             <span>Details</span>
-            <ArrowRight className="h-3.5 w-3.5" />
+            <ArrowRight className="h-3 w-3" />
           </Link>
-        </Button>
-        <div className="flex-1">
-          <EventRegistrationModal event={event} />
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </article>
   );
 }
