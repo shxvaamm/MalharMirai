@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, Radio, Clock } from "lucide-react";
 import { EventCard } from "@/components/public/event-card";
 import { EmptyState } from "@/components/public/empty-state";
 import { useEvents } from "@/lib/hooks/use-events";
 import { ClubEvent } from "@/lib/mock-data";
+import { STAGGER_CONTAINER, FADE_UP, DURATION, EASE_OUT, VIEWPORT_ONCE } from "@/lib/motion";
 
 // ─── Status ordering ─────────────────────────────────────────────────────────
 const STATUS_ORDER: Record<string, number> = { ongoing: 0, upcoming: 1, completed: 2 };
@@ -84,9 +86,15 @@ export default function EventsPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="text-center space-y-3 max-w-2xl mx-auto">
+      <motion.div
+        className="text-center space-y-3 max-w-2xl mx-auto"
+        variants={FADE_UP}
+        initial="hidden"
+        animate="visible"
+        transition={{ duration: DURATION.base, ease: EASE_OUT }}
+      >
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-neutral-100">
-          Events &amp;{" "}
+          Events &{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">
             Showcases
           </span>
@@ -94,10 +102,16 @@ export default function EventsPage() {
         <p className="text-sm text-neutral-400 leading-relaxed">
           Competitions, stage plays, acoustic nights, and cultural showcases at Mirai School of Technology.
         </p>
-      </div>
+      </motion.div>
 
-      {/* ── Status Tabs ────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-2 flex-wrap">
+      {/* ── Status Tabs — layoutId sliding active indicator ── */}
+      <motion.div
+        className="flex items-center justify-center gap-2 flex-wrap"
+        variants={FADE_UP}
+        initial="hidden"
+        animate="visible"
+        transition={{ duration: DURATION.base, ease: EASE_OUT, delay: 0.12 }}
+      >
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.value;
@@ -107,23 +121,35 @@ export default function EventsPage() {
               key={tab.value}
               type="button"
               onClick={() => setActiveTab(tab.value)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${
+              className={`relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-colors duration-200 ${
                 isActive
-                  ? "bg-neutral-200 text-neutral-950 font-semibold shadow-sm"
+                  ? "text-neutral-950 font-semibold"
                   : "bg-white/[0.03] border border-white/10 text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200 hover:border-white/20"
               }`}
             >
-              {Icon && <Icon className="h-3 w-3" />}
-              <span>{tab.label}</span>
-              {count > 0 && (
-                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${isActive ? "bg-neutral-950/20" : "bg-white/[0.06]"}`}>
-                  {count}
-                </span>
+              {/* Sliding active pill via layoutId */}
+              {isActive && (
+                <motion.span
+                  layoutId="events-tab-pill"
+                  className="absolute inset-0 rounded-full bg-neutral-200"
+                  transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                />
               )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                {Icon && <Icon className="h-3 w-3" />}
+                <span>{tab.label}</span>
+                {count > 0 && (
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                    isActive ? "bg-neutral-950/20" : "bg-white/[0.06]"
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </span>
             </button>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
       {loading && allEvents.length === 0 ? (
@@ -136,11 +162,27 @@ export default function EventsPage() {
           showInstagramCta={activeTab !== "completed"}
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {displayed.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+            variants={STAGGER_CONTAINER}
+            initial="hidden"
+            animate="visible"
+            exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            viewport={VIEWPORT_ONCE}
+          >
+            {displayed.map((event) => (
+              <motion.div
+                key={event.id}
+                variants={FADE_UP}
+                transition={{ duration: DURATION.base, ease: EASE_OUT }}
+              >
+                <EventCard event={event} />
+              </motion.div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
       )}
     </div>
   );

@@ -98,6 +98,25 @@ h1, h2, h3, h4, h5, h6 {
   color: #EDEDED;
 }
 
+/* ── Monospace accent font — JetBrains Mono
+   Used for: eyebrow labels, stat numbers, tab counts, footer details.
+   font-feature-settings "tnum" enables tabular (fixed-width) numerals
+   so numbers don't cause layout shift when they animate (counter effect). */
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Eyebrow label typography — small caps, wide tracking, mono */
+.text-eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.625rem;      /* 10px */
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-feature-settings: "tnum" 1;
+}
+
 /* ══════════════════════════════════════════════════════════════════
    MALHAR — Premium Animation System
    ══════════════════════════════════════════════════════════════════ */

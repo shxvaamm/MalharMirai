@@ -5,6 +5,7 @@ import { Image as ImageIcon } from "lucide-react";
 import { GalleryGrid } from "@/components/public/gallery-grid";
 import { EmptyState } from "@/components/public/empty-state";
 import { useGallery } from "@/lib/hooks/use-gallery";
+import { ScrollReveal } from "@/components/public/scroll-reveal";
 
 function GallerySkeleton() {
   return (
@@ -26,7 +27,7 @@ export default function GalleryPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
 
       {/* Header */}
-      <div className="text-center space-y-3 max-w-xl mx-auto">
+      <ScrollReveal variant="reveal" className="text-center space-y-3 max-w-xl mx-auto">
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-neutral-100">
           Our{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">
@@ -36,7 +37,7 @@ export default function GalleryPage() {
         <p className="text-sm text-neutral-400">
           Photos from our events, showcases, and cultural moments at Mirai.
         </p>
-      </div>
+      </ScrollReveal>
 
       {/* Content */}
       {loading ? (

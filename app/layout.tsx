@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { ToastProvider } from "@/components/ui/toast";
@@ -8,6 +8,13 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -55,7 +62,7 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className={`${inter.variable} font-sans min-h-screen bg-black text-neutral-100 flex flex-col antialiased selection:bg-white selection:text-black tracking-tight`}
+        className={`${inter.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-black text-neutral-100 flex flex-col antialiased selection:bg-white selection:text-black tracking-tight`}
       >
         <ToastProvider>
           <AuthProvider>

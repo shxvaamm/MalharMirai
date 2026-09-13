@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import {
   Sparkles,
@@ -61,7 +62,7 @@ export function PublicNavbar() {
         </Link>
 
 
-        {/* Desktop Navigation Links - Soft off-white pills */}
+        {/* Desktop Navigation Links — layoutId sliding active pill */}
         <nav className="hidden lg:flex items-center gap-1">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
@@ -72,13 +73,21 @@ export function PublicNavbar() {
                 prefetch={true}
                 id={`nav-link-${link.name.toLowerCase()}`}
                 className={cn(
-                  "relative px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all duration-200 whitespace-nowrap",
+                  "relative px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors duration-150 whitespace-nowrap",
                   isActive
-                    ? "bg-neutral-200 text-neutral-950 font-semibold shadow-sm"
-                    : "text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.05]"
+                    ? "text-neutral-950 font-semibold"
+                    : "text-neutral-400 hover:text-neutral-200"
                 )}
               >
-                <span>{link.name}</span>
+                {/* Sliding background pill — shared element across links */}
+                {isActive && (
+                  <motion.span
+                    layoutId="nav-active-pill"
+                    className="absolute inset-0 rounded-full bg-neutral-200"
+                    transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                  />
+                )}
+                <span className="relative z-10">{link.name}</span>
               </Link>
             );
           })}
@@ -103,7 +112,7 @@ export function PublicNavbar() {
               id="navbar-login-btn"
               className="hidden sm:inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs font-medium text-neutral-400 hover:text-neutral-200 border border-white/10 hover:border-white/20 transition-all duration-200 whitespace-nowrap"
             >
-              <span>Member Login</span>
+              <span>Login</span>
             </Link>
           )}
 

@@ -17,6 +17,14 @@ const config: Config = {
       },
     },
     extend: {
+      // ── Font system ──────────────────────────────────────────────────
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+      },
+      fontSize: {
+        "2xs": ["0.625rem", { lineHeight: "1rem" }], // 10px — eyebrow/label text
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -71,9 +79,11 @@ const config: Config = {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg:   "var(--radius)",
+        md:   "calc(var(--radius) - 2px)",
+        sm:   "calc(var(--radius) - 4px)",
+        "4xl": "2rem",   // Large card radius
+        "5xl": "2.5rem", // Hero stat card radius
       },
       keyframes: {
         "accordion-down": {

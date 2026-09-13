@@ -2,11 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Calendar, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/public/event-card";
 import { EmptyState } from "@/components/public/empty-state";
 import { useEvents } from "@/lib/hooks/use-events";
+import {
+  STAGGER_CONTAINER,
+  FADE_UP,
+  DURATION,
+  EASE_OUT,
+  VIEWPORT_ONCE,
+} from "@/lib/motion";
 
 export function EventsShowcase() {
   const { events, loading, error } = useEvents("all", "upcoming");
@@ -14,7 +22,15 @@ export function EventsShowcase() {
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      {/* Section header — fade up on scroll */}
+      <motion.div
+        className="flex flex-col md:flex-row md:items-end justify-between gap-4"
+        variants={FADE_UP}
+        initial="hidden"
+        whileInView="visible"
+        viewport={VIEWPORT_ONCE}
+        transition={{ duration: DURATION.base, ease: EASE_OUT }}
+      >
         <div>
           <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-neutral-100">
             Upcoming <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">Events</span>
@@ -27,8 +43,7 @@ export function EventsShowcase() {
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
-
-      </div>
+      </motion.div>
 
       {loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -54,12 +69,25 @@ export function EventsShowcase() {
         />
       )}
 
+      {/* Staggered event card grid */}
       {!loading && upcomingEvents.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          variants={STAGGER_CONTAINER}
+          initial="hidden"
+          whileInView="visible"
+          viewport={VIEWPORT_ONCE}
+        >
           {upcomingEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <motion.div
+              key={event.id}
+              variants={FADE_UP}
+              transition={{ duration: DURATION.base, ease: EASE_OUT }}
+            >
+              <EventCard event={event} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </section>
   );

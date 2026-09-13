@@ -1,8 +1,17 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { GalleryMedia } from "@/lib/mock-data";
+import {
+  STAGGER_TIGHT,
+  SCALE_IN,
+  DURATION,
+  EASE_OUT,
+  VIEWPORT_ONCE,
+  useReducedMotion,
+} from "@/lib/motion";
 
 interface GalleryGridProps {
   media: GalleryMedia[];
@@ -11,6 +20,7 @@ interface GalleryGridProps {
 export function GalleryGrid({ media }: GalleryGridProps) {
   const [activeIndex, setActiveIndex] = React.useState<number | null>(null);
   const activeItem = activeIndex !== null ? media[activeIndex] : null;
+  const prefersReducedMotion = useReducedMotion();
 
   const goNext = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -38,13 +48,25 @@ export function GalleryGrid({ media }: GalleryGridProps) {
 
   return (
     <>
-      {/* Uniform grid — same size cards, clean crop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* Staggered photo grid */}
+      <motion.div
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"
+        variants={prefersReducedMotion ? undefined : STAGGER_TIGHT}
+        initial={prefersReducedMotion ? undefined : "hidden"}
+        whileInView={prefersReducedMotion ? undefined : "visible"}
+        viewport={VIEWPORT_ONCE}
+      >
         {media.map((item, index) => (
-          <button
+          <motion.button
             key={item.id}
             type="button"
             onClick={() => setActiveIndex(index)}
+            variants={prefersReducedMotion ? undefined : SCALE_IN}
+            transition={
+              prefersReducedMotion
+                ? undefined
+                : { duration: DURATION.base, ease: EASE_OUT }
+            }
             className="group relative aspect-square w-full overflow-hidden rounded-2xl bg-neutral-900 border border-white/[0.06] hover:border-white/[0.18] transition-all duration-300 cursor-pointer"
             aria-label={item.title || "Gallery photo"}
           >
@@ -71,9 +93,9 @@ export function GalleryGrid({ media }: GalleryGridProps) {
                 </p>
               </div>
             )}
-          </button>
+          </motion.button>
         ))}
-      </div>
+      </motion.div>
 
       {/* Lightbox */}
       {activeItem && (

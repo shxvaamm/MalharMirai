@@ -9,9 +9,50 @@ import {
   CheckCircle2,
   SquareTerminal,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateEmail } from "@/lib/validation/phone-email";
+import { ScrollReveal } from "@/components/public/scroll-reveal";
+import { FADE_UP, DURATION, EASE_OUT } from "@/lib/motion";
+
+const CONTACT_DETAILS = [
+  {
+    icon: Mail,
+    label: "EMAIL US",
+    content: (
+      <a
+        href="mailto:malharmirai01@gmail.com"
+        className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors"
+      >
+        malharmirai01@gmail.com
+      </a>
+    ),
+  },
+  {
+    icon: MapPin,
+    label: "VISIT US",
+    content: (
+      <span className="text-sm font-medium text-neutral-200">
+        mirai hitech, ghaziabad
+      </span>
+    ),
+  },
+  {
+    icon: Instagram,
+    label: "FOLLOW US",
+    content: (
+      <a
+        href="https://www.instagram.com/malhar_mirai.hiet/"
+        target="_blank"
+        rel="noreferrer"
+        className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors"
+      >
+        @malhar_mirai.hiet
+      </a>
+    ),
+  },
+];
 
 export default function ContactPage() {
   const [name, setName] = React.useState("");
@@ -52,86 +93,60 @@ export default function ContactPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
-        {/* Left Column: Heading, Description & Contact Details */}
+
+        {/* ── Left Column ──────────────────────────────────────────── */}
         <div className="lg:col-span-5 space-y-7 sm:space-y-8">
+
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] text-[11px] font-semibold tracking-wider text-neutral-400 uppercase">
-            <SquareTerminal className="h-3.5 w-3.5 text-neutral-400" />
-            <span>CONTACT US</span>
-          </div>
+          <ScrollReveal variant="reveal">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] text-[11px] font-semibold tracking-wider text-neutral-400 uppercase">
+              <SquareTerminal className="h-3.5 w-3.5 text-neutral-400" />
+              <span>CONTACT US</span>
+            </div>
+          </ScrollReveal>
 
-          {/* Headline */}
-          <div className="space-y-4">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-neutral-100 leading-[1.12]">
-              Let&apos;s create <br />
-              <span className="text-[#629584] sm:text-[#6db298]">
-                something great.
-              </span>
-            </h1>
-            <p className="text-sm sm:text-base text-neutral-400 leading-relaxed max-w-md">
-              Have a question about our events? Want to propose a workshop, performance, or discuss a collaboration? Drop us a message and our core team will get back to you shortly.
-            </p>
-          </div>
+          {/* Headline + subtext */}
+          <ScrollReveal variant="reveal" delay={80}>
+            <div className="space-y-4">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-neutral-100 leading-[1.12]">
+                Let&apos;s create <br />
+                <span className="text-[#629584] sm:text-[#6db298]">
+                  something great.
+                </span>
+              </h1>
+              <p className="text-sm sm:text-base text-neutral-400 leading-relaxed max-w-md">
+                Have a question about our events? Want to propose a workshop, performance, or discuss a collaboration? Drop us a message and our core team will get back to you shortly.
+              </p>
+            </div>
+          </ScrollReveal>
 
-          {/* Contact Details List */}
+          {/* Contact detail rows — staggered cascade */}
           <div className="space-y-5 pt-2">
-            {/* Email */}
-            <div className="flex items-center gap-4 group">
-              <div className="h-11 w-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-neutral-400 group-hover:text-neutral-200 group-hover:border-white/20 group-hover:bg-white/[0.06] transition-all shrink-0">
-                <Mail className="h-4 w-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                  EMAIL US
-                </span>
-                <a
-                  href="mailto:malharmirai01@gmail.com"
-                  className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors"
-                >
-                  malharmirai01@gmail.com
-                </a>
-              </div>
-            </div>
-
-            {/* Visit Us */}
-            <div className="flex items-center gap-4 group">
-              <div className="h-11 w-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-neutral-400 group-hover:text-neutral-200 group-hover:border-white/20 group-hover:bg-white/[0.06] transition-all shrink-0">
-                <MapPin className="h-4 w-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                  VISIT US
-                </span>
-                <span className="text-sm font-medium text-neutral-200">
-                  mirai hitech, ghaziabad
-                </span>
-              </div>
-            </div>
-
-            {/* Follow Us */}
-            <div className="flex items-center gap-4 group">
-              <div className="h-11 w-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-neutral-400 group-hover:text-neutral-200 group-hover:border-white/20 group-hover:bg-white/[0.06] transition-all shrink-0">
-                <Instagram className="h-4 w-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-                  FOLLOW US
-                </span>
-                <a
-                  href="https://www.instagram.com/malhar_mirai.hiet/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors"
-                >
-                  @malhar_mirai.hiet
-                </a>
-              </div>
-            </div>
+            {CONTACT_DETAILS.map(({ icon: Icon, label, content }, index) => (
+              <ScrollReveal key={label} variant="reveal" delay={160 + index * 80} threshold={0.1}>
+                <div className="flex items-center gap-4 group">
+                  <div className="h-11 w-11 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-neutral-400 group-hover:text-neutral-200 group-hover:border-white/20 group-hover:bg-white/[0.06] transition-all shrink-0">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                      {label}
+                    </span>
+                    {content}
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
           </div>
         </div>
 
-        {/* Right Column: Contact Form Card */}
-        <div className="lg:col-span-7">
+        {/* ── Right Column: Form Card ───────────────────────────────── */}
+        <ScrollReveal
+          variant="reveal-scale"
+          delay={120}
+          threshold={0.08}
+          className="lg:col-span-7"
+        >
           <div className="rounded-3xl border border-white/[0.08] bg-[#0E1311]/85 backdrop-blur-xl p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
             {/* Top subtle highlight glow */}
             <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-[#629584]/60 to-transparent pointer-events-none" />
@@ -237,7 +252,8 @@ export default function ContactPage() {
               </form>
             )}
           </div>
-        </div>
+        </ScrollReveal>
+
       </div>
     </div>
   );
