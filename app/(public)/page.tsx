@@ -1,11 +1,13 @@
 // Server Component — fetches stats at request time, zero client-side waterfall
 import Link from "next/link";
-import { Calendar, Users, ArrowRight, Compass } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { EmergencyBanner } from "@/components/public/emergency-banner";
 import { HeroSlideIndicators } from "@/components/public/hero-background-slideshow";
 import { DepartmentsShowcase } from "@/components/public/departments-showcase";
 import { EventsShowcase } from "@/components/public/events-showcase";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
+import { HeroHeading } from "@/components/public/hero-heading";
+import { HeroAnimations } from "@/components/public/hero-animations";
 import { createClient } from "@/lib/supabase/server";
 import { STAT_FALLBACKS } from "@/lib/mock-data";
 
@@ -46,92 +48,18 @@ export default async function HomePage() {
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center justify-center w-full">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-white/[0.02] blur-[140px] rounded-full pointer-events-none -z-10" />
 
-          <h1
-            className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-neutral-100 max-w-4xl mx-auto leading-[1.12] drop-shadow-md"
-            style={{ animation: "pageFadeIn 400ms cubic-bezier(0.16,1,0.3,1) both" }}
-          >
-            The Rhythm &amp; Creative Pulse of{" "}
-            <br className="hidden sm:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-400 to-neutral-500">
-              Mirai School of Technology
-            </span>
-          </h1>
+          {/* Staggered word-by-word hero heading — client component */}
+          <HeroHeading
+            prefix="The Rhythm & Creative Pulse of"
+            highlight="Mirai School of Technology"
+            className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-neutral-100 max-w-4xl mx-auto leading-[1.18] sm:leading-[1.15] lg:leading-[1.14] pb-1 drop-shadow-md text-center"
+          />
 
-          <p
-            className="mt-6 text-base sm:text-lg text-neutral-300 max-w-2xl mx-auto leading-relaxed drop-shadow"
-            style={{ animation: "pageFadeIn 400ms 80ms cubic-bezier(0.16,1,0.3,1) both" }}
-          >
-            From dance and singing to management and tech, we give students the stage to build
-            skills and showcase their talent.
-          </p>
-
-          {/* CTAs */}
-          <div
-            className="mt-8 sm:mt-9 flex flex-wrap items-center justify-center gap-3.5"
-            style={{ animation: "pageFadeIn 400ms 160ms cubic-bezier(0.16,1,0.3,1) both" }}
-          >
-            <Link
-              href="/events"
-              className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-white shadow-md active:scale-[0.98] transition-all duration-200 card-lift"
-            >
-              <Calendar className="h-4 w-4" />
-              <span>Explore Upcoming Events</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/about"
-              className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-medium text-neutral-200 bg-black/50 border border-white/15 hover:border-white/30 hover:bg-black/70 transition-all duration-200 backdrop-blur-md shadow-md"
-            >
-              <Compass className="h-4 w-4 text-neutral-400" />
-              <span>About Society</span>
-            </Link>
-          </div>
-
-          {/* Stats — rendered on server, zero flash */}
-          <div
-            className="mt-12 sm:mt-14 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl w-full mx-auto"
-            style={{ animation: "pageFadeIn 400ms 240ms cubic-bezier(0.16,1,0.3,1) both" }}
-          >
-            <Link
-              href="/members"
-              className="p-6 rounded-3xl glass-card border border-white/[0.08] bg-black/60 hover:border-white/20 hover:bg-black/80 text-center transition-all duration-200 shadow-xl group block card-lift backdrop-blur-xl"
-            >
-              <div className="flex items-center justify-center gap-2.5 mb-1">
-                <div className="p-2.5 rounded-2xl bg-white/[0.08] text-neutral-300 group-hover:scale-110 transition-transform duration-200">
-                  <Users className="h-5 w-5" />
-                </div>
-                <div className="text-4xl sm:text-5xl font-extrabold text-neutral-100 font-mono tracking-tight">
-                  {activeMembers}
-                </div>
-              </div>
-              <div className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mt-2 group-hover:text-neutral-200 transition-colors">
-                Active Members
-              </div>
-              <div className="text-[11px] text-neutral-500 mt-0.5">
-                Coordinators &amp; contributors across 5 departments &rarr;
-              </div>
-            </Link>
-
-            <Link
-              href="/events"
-              className="p-6 rounded-3xl glass-card border border-white/[0.08] bg-black/60 hover:border-white/20 hover:bg-black/80 text-center transition-all duration-200 shadow-xl group block card-lift backdrop-blur-xl"
-            >
-              <div className="flex items-center justify-center gap-2.5 mb-1">
-                <div className="p-2.5 rounded-2xl bg-white/[0.08] text-neutral-300 group-hover:scale-110 transition-transform duration-200">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div className="text-4xl sm:text-5xl font-extrabold text-neutral-100 font-mono tracking-tight">
-                  {eventsOrganised}
-                </div>
-              </div>
-              <div className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mt-2 group-hover:text-neutral-200 transition-colors">
-                Events Organised
-              </div>
-              <div className="text-[11px] text-neutral-500 mt-0.5">
-                Fests, showcases, workshops &amp; orientation galas &rarr;
-              </div>
-            </Link>
-          </div>
+          {/* Subtitle, CTAs, and Stats animated via shared Framer Motion client component */}
+          <HeroAnimations
+            activeMembers={activeMembers}
+            eventsOrganised={eventsOrganised}
+          />
 
           {/* Slide Indicators for the Hero Section */}
           <HeroSlideIndicators />

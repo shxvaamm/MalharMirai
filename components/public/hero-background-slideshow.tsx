@@ -135,12 +135,12 @@ export function HeroBackgroundSlideshow({
       </div>
 
       {/* Single uniform dark tint — keeps text readable on all sections.
-          No gradient-to-black so the background stays visible site-wide. */}
+          Provides ~60% black overlay for strong text contrast across light and dark uploaded photos. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0,0,0,0.45)",
+          background: "rgba(0,0,0,0.60)",
           zIndex: 5,
           pointerEvents: "none",
         }}

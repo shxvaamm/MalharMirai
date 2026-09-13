@@ -11,7 +11,7 @@
  * client-side fetch resolves. This prevents any dummy/stock image flash.
  */
 import { createClient } from "@/lib/supabase/server";
-import { HeroSlide } from "@/lib/mock-data";
+import { HeroSlide, DEFAULT_HERO_SLIDES } from "@/lib/mock-data";
 
 export async function fetchHeroSlidesServer(): Promise<HeroSlide[]> {
   try {
@@ -26,6 +26,9 @@ export async function fetchHeroSlidesServer(): Promise<HeroSlide[]> {
       return [];
     }
 
+    // Disallow the rogue stock/dummy slide uploaded to Supabase
+    const DISALLOWED_SLIDE_IDS = new Set(["51041736-2077-4a8b-8957-bbd79d63b298"]);
+
     const slides: HeroSlide[] = data
       .map((d: any) => ({
         id: d.id,
@@ -36,11 +39,14 @@ export async function fetchHeroSlidesServer(): Promise<HeroSlide[]> {
         is_active: d.is_active !== false,
         created_at: d.created_at,
       }))
-      .filter((s: HeroSlide) => s.is_active);
+      .filter((s: HeroSlide) => 
+        s.is_active && 
+        !DISALLOWED_SLIDE_IDS.has(s.id) &&
+        !s.image_url.includes("1789245928283_slide.jpg")
+      );
 
-    // Return whatever active slides exist — even an empty array is fine.
-    // The client hook will handle loading defaults if truly nothing is in DB.
-    return slides;
+    // If active slides exist, return them. If empty, fall back to verified MALHAR slides
+    return slides.length > 0 ? slides : DEFAULT_HERO_SLIDES;
   } catch {
     // On any error (network, auth, etc.), return empty so client takes over.
     return [];

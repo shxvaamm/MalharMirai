@@ -20,15 +20,19 @@ async function fetchSlidesFromDB(): Promise<HeroSlide[] | null> {
     if (error || !data) return null;
     if (data.length === 0) return null;
 
-    return data.map((d: any) => ({
-      id: d.id,
-      image_url: d.image_url,
-      title: d.title || "",
-      caption: d.subtitle || d.caption || "",
-      order: d.sort_order ?? 0,
-      is_active: d.is_active !== false,
-      created_at: d.created_at,
-    }));
+    const DISALLOWED_SLIDE_IDS = new Set(["51041736-2077-4a8b-8957-bbd79d63b298"]);
+
+    return data
+      .map((d: any) => ({
+        id: d.id,
+        image_url: d.image_url,
+        title: d.title || "",
+        caption: d.subtitle || d.caption || "",
+        order: d.sort_order ?? 0,
+        is_active: d.is_active !== false,
+        created_at: d.created_at,
+      }))
+      .filter((s: HeroSlide) => !DISALLOWED_SLIDE_IDS.has(s.id) && !s.image_url?.includes("1789245928283_slide.jpg"));
   } catch {
     return null;
   }
@@ -150,8 +154,9 @@ export function useHeroSlides(initialSlides?: HeroSlide[]) {
   }, []);
 
   const activeSlides = React.useMemo(() => {
+    const DISALLOWED_SLIDE_IDS = new Set(["51041736-2077-4a8b-8957-bbd79d63b298"]);
     return slides
-      .filter((s) => s.is_active)
+      .filter((s) => s.is_active && !DISALLOWED_SLIDE_IDS.has(s.id) && !s.image_url?.includes("1789245928283_slide.jpg"))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [slides]);
 
