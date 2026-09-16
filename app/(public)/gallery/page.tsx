@@ -8,13 +8,25 @@ import { useGallery } from "@/lib/hooks/use-gallery";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
 
 function GallerySkeleton() {
+  const heights = [280, 400, 320, 460, 300, 380, 340, 440, 290, 410, 310, 430];
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-      {Array.from({ length: 12 }).map((_, i) => (
+    <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 sm:gap-4">
+      {heights.map((h, i) => (
         <div
           key={i}
-          className="aspect-square w-full rounded-2xl bg-neutral-900/80 animate-pulse border border-white/[0.04]"
-        />
+          className="break-inside-avoid mb-3 sm:mb-4 rounded-2xl sm:rounded-3xl bg-[#0D0D0D]/90 border border-white/[0.06] overflow-hidden animate-pulse shadow-lg"
+          style={{ animationDelay: `${i * 50}ms` }}
+        >
+          <div
+            className="w-full bg-neutral-900/80"
+            style={{ height: `${h * 0.65}px` }}
+          />
+          <div className="p-3.5 sm:p-4 space-y-2 border-t border-white/[0.04]">
+            <div className="h-3 w-12 bg-neutral-800/80 rounded-full" />
+            <div className="h-4 w-3/4 bg-neutral-800/60 rounded-md" />
+            <div className="h-3 w-1/2 bg-neutral-800/40 rounded-md" />
+          </div>
+        </div>
       ))}
     </div>
   );
