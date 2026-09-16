@@ -109,8 +109,16 @@ export async function fileToOptimizedDataUrl(
 }
 
 /**
- * Uploads a media file to Supabase Storage with automatic instant fallback.
- * Uses a strict 3-second timeout so the UI never hangs or fails.
+ * Uploads a media file to Supabase Storage.
+ *
+ * NOTE: No race timeout — we always wait for the real Supabase public URL.
+ * A Data URL fallback MUST NOT be saved to the database because:
+ *   1. Postgres can truncate very long text values silently
+ *   2. localStorage quota overflows evict the sync cache, making images vanish
+ *   3. Data URLs are not accessible to other users or devices
+ *
+ * If both bucket uploads hard-fail we return success:false so the caller
+ * can surface an actionable error instead of saving a broken URL to the DB.
  */
 export async function uploadMediaFile(
   file: File,
@@ -122,61 +130,41 @@ export async function uploadMediaFile(
     return { success: false, error: validation.error };
   }
 
-  // Pre-generate optimized permanent Data URL so it's always ready immediately
-  let fallbackDataUrl = "";
   try {
-    fallbackDataUrl = await fileToOptimizedDataUrl(file);
-  } catch {
-    // Fallback handled below
-  }
+    const supabase = createClient();
+    const fileExt = file.name.split(".").pop() || "png";
+    const cleanBaseName = file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .toLowerCase();
+    const filePath = `${folder}/${Date.now()}_${cleanBaseName}.${fileExt}`;
 
-  try {
-    const uploadPromise = (async (): Promise<UploadResult> => {
-      const supabase = createClient();
-      const fileExt = file.name.split(".").pop() || "png";
-      const cleanBaseName = file.name
-        .replace(/\.[^/.]+$/, "")
-        .replace(/[^a-zA-Z0-9_-]/g, "_")
-        .toLowerCase();
-      const filePath = `${folder}/${Date.now()}_${cleanBaseName}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, file, {
+        cacheControl: "31536000", // 1 year — immutable upload
+        upsert: true,
+      });
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucketName)
+    if (uploadError) {
+      // Try fallback bucket 'media'
+      const { error: fallbackError } = await supabase.storage
+        .from("media")
         .upload(filePath, file, {
-          cacheControl: "3600",
+          cacheControl: "31536000",
           upsert: true,
         });
 
-      if (uploadError) {
-        // Try fallback bucket 'media'
-        const { data: fallbackData, error: fallbackError } = await supabase.storage
-          .from("media")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: true,
-          });
-
-        if (fallbackError) {
-          return {
-            success: true,
-            url: fallbackDataUrl,
-            path: filePath,
-          };
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("media")
-          .getPublicUrl(filePath);
-
+      if (fallbackError) {
+        // Both buckets failed — return error so the caller does NOT save a broken URL
         return {
-          success: true,
-          url: publicUrlData.publicUrl,
-          path: filePath,
+          success: false,
+          error: `Storage upload failed: ${fallbackError.message}`,
         };
       }
 
       const { data: publicUrlData } = supabase.storage
-        .from(bucketName)
+        .from("media")
         .getPublicUrl(filePath);
 
       return {
@@ -184,25 +172,19 @@ export async function uploadMediaFile(
         url: publicUrlData.publicUrl,
         path: filePath,
       };
-    })();
+    }
 
-    // 2.5-second race timeout for instantaneous response
-    const timeoutPromise = new Promise<UploadResult>((resolve) =>
-      setTimeout(() => {
-        resolve({
-          success: true,
-          url: fallbackDataUrl,
-        });
-      }, 2500)
-    );
+    const { data: publicUrlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(filePath);
 
-    return await Promise.race([uploadPromise, timeoutPromise]);
-  } catch (err: any) {
     return {
       success: true,
-      url: fallbackDataUrl,
-      error: err?.message,
+      url: publicUrlData.publicUrl,
+      path: filePath,
     };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Upload failed." };
   }
 }
 

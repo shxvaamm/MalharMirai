@@ -82,9 +82,16 @@ export function UploadMediaDialog({ open, onOpenChange, onUpload }: UploadMediaD
       const uploadRes = await uploadMediaFile(selectedFile, "gallery");
       setUploadingMedia(false);
 
-      if (uploadRes.success && uploadRes.url) {
-        finalMediaUrl = uploadRes.url;
+      if (!uploadRes.success || !uploadRes.url) {
+        setLoading(false);
+        setValidationError(
+          uploadRes.error ||
+            "Image upload to storage failed. Please check your connection and try again."
+        );
+        return;
       }
+
+      finalMediaUrl = uploadRes.url;
     }
 
     if (!finalMediaUrl) {

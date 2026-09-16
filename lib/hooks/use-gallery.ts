@@ -50,7 +50,7 @@ export function useGallery(categoryFilter?: string) {
         .select("*")
         .order("created_at", { ascending: false });
       const timeoutPromise = new Promise<{ data: null }>((resolve) =>
-        setTimeout(() => resolve({ data: null }), 4000)
+        setTimeout(() => resolve({ data: null }), 15000)
       );
 
       const res = await Promise.race([queryPromise, timeoutPromise]);
