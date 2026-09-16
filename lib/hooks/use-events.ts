@@ -10,6 +10,34 @@ import {
   subscribeSync,
 } from "@/lib/store/sync-store";
 
+// ─── Cache Versioning ────────────────────────────────────────────────────────
+const EVENTS_CACHE_V = "v2-supabase-truth";
+const EVENTS_CACHE_VERSION_KEY = "malhar_events_cache_version";
+
+function isEventsCacheVersionCurrent(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(EVENTS_CACHE_VERSION_KEY) === EVENTS_CACHE_V;
+  } catch {
+    return false;
+  }
+}
+
+function stampEventsCacheVersion(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(EVENTS_CACHE_VERSION_KEY, EVENTS_CACHE_V);
+  } catch {}
+}
+
+function wipeEventsCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEYS.EVENTS);
+    localStorage.setItem(EVENTS_CACHE_VERSION_KEY, EVENTS_CACHE_V);
+  } catch {}
+}
+
 function computeEventsWithLiveRegistrations(eventsList: ClubEvent[]): ClubEvent[] {
   const registrations = getSyncedData<any[]>(STORAGE_KEYS.REGISTRATIONS, []);
   return eventsList.map((ev) => {
@@ -25,22 +53,21 @@ function computeEventsWithLiveRegistrations(eventsList: ClubEvent[]): ClubEvent[
   });
 }
 
-function mapDbEvent(d: any, cachedCurrent: ClubEvent[]): ClubEvent {
-  const match = cachedCurrent.find((c) => c.id === d.id);
+function mapDbEvent(d: any): ClubEvent {
   return {
     id: d.id,
-    title: d.title || match?.title || "Event",
-    description: d.description || match?.description || "",
-    category: d.category || match?.category || "General",
-    date_time: d.date_time || match?.date_time || new Date().toISOString(),
-    venue: d.venue || match?.venue || "",
-    poster_url: d.poster_url || match?.poster_url || MOCK_EVENTS[0]?.poster_url,
-    max_capacity: d.max_capacity || match?.max_capacity || 300,
-    registered_count: d.registered_count ?? match?.registered_count ?? 0,
-    status: d.status || match?.status || "upcoming",
-    registration_deadline: d.registration_deadline || match?.registration_deadline || "",
-    rules: Array.isArray(d.rules) && d.rules.length > 0 ? d.rules : (match?.rules || ["Valid Mirai Student Registration Pass required."]),
-    prizes: Array.isArray(d.prizes) && d.prizes.length > 0 ? d.prizes : (match?.prizes || []),
+    title: d.title || "Event",
+    description: d.description || "",
+    category: d.category || "General",
+    date_time: d.date_time || new Date().toISOString(),
+    venue: d.venue || "",
+    poster_url: d.poster_url || MOCK_EVENTS[0]?.poster_url,
+    max_capacity: d.max_capacity || 300,
+    registered_count: d.registered_count ?? 0,
+    status: d.status || "upcoming",
+    registration_deadline: d.registration_deadline || "",
+    rules: Array.isArray(d.rules) && d.rules.length > 0 ? d.rules : ["Valid Mirai Student Registration Pass required."],
+    prizes: Array.isArray(d.prizes) && d.prizes.length > 0 ? d.prizes : [],
   };
 }
 
@@ -54,11 +81,6 @@ export function useEvents(categoryFilter?: string, statusFilter?: string) {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const cached = getSyncedData<ClubEvent[]>(STORAGE_KEYS.EVENTS, MOCK_EVENTS);
-      if (cached && cached.length > 0) {
-        setAllEvents(computeEventsWithLiveRegistrations(cached));
-      }
-
       const supabase = createClient();
       const queryPromise = (supabase.from("events") as any)
         .select("*")
@@ -67,23 +89,17 @@ export function useEvents(categoryFilter?: string, statusFilter?: string) {
         setTimeout(() => resolve({ data: null }), 4000)
       );
 
-      const { data } = await Promise.race([queryPromise, timeoutPromise]);
+      const res = await Promise.race([queryPromise, timeoutPromise]);
+      if (!res || !("data" in res) || res.data === null) return;
 
-      if (data && data.length > 0) {
-        const cachedCurrent = getSyncedData<ClubEvent[]>(STORAGE_KEYS.EVENTS, MOCK_EVENTS);
-        const remoteFormatted: ClubEvent[] = data.map((d: any) => mapDbEvent(d, cachedCurrent));
+      const remoteFormatted: ClubEvent[] = (res.data || []).map((d: any) => mapDbEvent(d));
+      const computedList = computeEventsWithLiveRegistrations(remoteFormatted);
 
-        // Preserve local events not yet in DB
-        const remoteIds = new Set(remoteFormatted.map((e) => e.id));
-        const mergedList = [...remoteFormatted];
-        for (const localEv of cachedCurrent) {
-          if (!remoteIds.has(localEv.id)) mergedList.push(localEv);
-        }
-
-        const computedList = computeEventsWithLiveRegistrations(mergedList);
-        setAllEvents(computedList);
-        setSyncedData(STORAGE_KEYS.EVENTS, computedList);
-      }
+      // Supabase is the sole source of truth: remoteFormatted directly replaces
+      // local state and cache. Missing from remote always means deleted.
+      setAllEvents(computedList);
+      setSyncedData(STORAGE_KEYS.EVENTS, computedList);
+      stampEventsCacheVersion();
     } catch (err: any) {
       setError(err?.message || null);
     } finally {
@@ -92,9 +108,14 @@ export function useEvents(categoryFilter?: string, statusFilter?: string) {
   }, []);
 
   useEffect(() => {
-    const cached = getSyncedData<ClubEvent[]>(STORAGE_KEYS.EVENTS, MOCK_EVENTS);
-    if (cached && cached.length > 0) {
-      setAllEvents(computeEventsWithLiveRegistrations(cached));
+    if (!isEventsCacheVersionCurrent()) {
+      wipeEventsCache();
+      setAllEvents(computeEventsWithLiveRegistrations(MOCK_EVENTS));
+    } else {
+      const cached = getSyncedData<ClubEvent[]>(STORAGE_KEYS.EVENTS, MOCK_EVENTS);
+      if (cached && cached.length > 0) {
+        setAllEvents(computeEventsWithLiveRegistrations(cached));
+      }
     }
     fetchEvents();
   }, [fetchEvents]);
@@ -171,8 +192,10 @@ export function useEventById(id: string) {
       if (data) {
         setAllEvents((prev) => {
           const others = prev.filter((e) => e.id !== id);
-          return [mapDbEvent(data, prev), ...others];
+          return [mapDbEvent(data), ...others];
         });
+      } else {
+        setAllEvents((prev) => prev.filter((e) => e.id !== id));
       }
     } catch {}
   }, [id]);

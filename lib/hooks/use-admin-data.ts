@@ -133,7 +133,7 @@ export function useAdminData() {
           { data: heroData },
         ] = await Promise.race([queriesPromise, timeoutPromise]);
 
-        if (evData && evData.length > 0) {
+        if (evData && Array.isArray(evData)) {
           const mappedEvents = evData.map((d: any) => ({
             id: d.id,
             title: d.title || "",
@@ -153,7 +153,7 @@ export function useAdminData() {
           setSyncedData(STORAGE_KEYS.EVENTS, mappedEvents);
         }
 
-        if (deptData && deptData.length > 0) {
+        if (deptData && Array.isArray(deptData) && deptData.length > 0) {
           const merged = OFFICIAL_DEPARTMENTS.map((official) => {
             const match = deptData.find(
               (d: any) =>
@@ -177,7 +177,7 @@ export function useAdminData() {
         }
 
 
-        if (clubMembersData && clubMembersData.length > 0) {
+        if (clubMembersData && Array.isArray(clubMembersData)) {
           const cached = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
           const mapRow = (d: any, cachedMatch?: ClubMember): ClubMember => {
             const initials = d.full_name
@@ -220,7 +220,7 @@ export function useAdminData() {
         }
 
 
-        if (annData && annData.length > 0) {
+        if (annData && Array.isArray(annData)) {
           const mappedAnns = annData.map((d: any) => ({
             id: d.id,
             title: d.title,
@@ -233,7 +233,7 @@ export function useAdminData() {
           setSyncedData(STORAGE_KEYS.ANNOUNCEMENTS, mappedAnns);
         }
 
-        if (galData && galData.length > 0) {
+        if (galData && Array.isArray(galData)) {
           const mappedGal = galData.map((d: any) => ({
             id: d.id,
             title: d.title,

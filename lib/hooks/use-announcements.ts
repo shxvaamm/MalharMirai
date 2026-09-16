@@ -10,6 +10,34 @@ import {
   subscribeSync,
 } from "@/lib/store/sync-store";
 
+// ─── Cache Versioning ────────────────────────────────────────────────────────
+const ANNOUNCEMENTS_CACHE_V = "v2-supabase-truth";
+const ANNOUNCEMENTS_CACHE_VERSION_KEY = "malhar_announcements_cache_version";
+
+function isCacheVersionCurrent(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(ANNOUNCEMENTS_CACHE_VERSION_KEY) === ANNOUNCEMENTS_CACHE_V;
+  } catch {
+    return false;
+  }
+}
+
+function stampCacheVersion(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ANNOUNCEMENTS_CACHE_VERSION_KEY, ANNOUNCEMENTS_CACHE_V);
+  } catch {}
+}
+
+function wipeAnnouncementsCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEYS.ANNOUNCEMENTS);
+    localStorage.setItem(ANNOUNCEMENTS_CACHE_VERSION_KEY, ANNOUNCEMENTS_CACHE_V);
+  } catch {}
+}
+
 export function useAnnouncements(priorityFilter?: string) {
   const [allAnnouncements, setAllAnnouncements] = useState<Announcement[]>(MOCK_ANNOUNCEMENTS);
   const [loading, setLoading] = useState(false);
@@ -17,9 +45,6 @@ export function useAnnouncements(priorityFilter?: string) {
 
   const fetchAnnouncements = useCallback(async () => {
     try {
-      const cached = getSyncedData<Announcement[]>(STORAGE_KEYS.ANNOUNCEMENTS, MOCK_ANNOUNCEMENTS);
-      if (cached && cached.length > 0) setAllAnnouncements(cached);
-
       const supabase = createClient();
       const queryPromise = (supabase.from("announcements") as any)
         .select("*")
@@ -28,46 +53,46 @@ export function useAnnouncements(priorityFilter?: string) {
         setTimeout(() => resolve({ data: null }), 4000)
       );
 
-      const { data } = await Promise.race([queryPromise, timeoutPromise]);
+      const res = await Promise.race([queryPromise, timeoutPromise]);
+      if (!res || !("data" in res) || res.data === null) return;
 
-      if (data && data.length > 0) {
-        const cachedCurrent = getSyncedData<Announcement[]>(STORAGE_KEYS.ANNOUNCEMENTS, MOCK_ANNOUNCEMENTS);
-        const remoteList: Announcement[] = data.map((d: any) => ({
-          id: d.id,
-          title: d.title,
-          content: d.content,
-          priority: d.priority || "normal",
-          is_emergency: !!d.is_emergency,
-          created_at: d.created_at,
-          category: d.priority === "urgent" ? "Urgent Update" : "General Circular",
-        }));
+      const remoteList: Announcement[] = (res.data || []).map((d: any) => ({
+        id: d.id,
+        title: d.title,
+        content: d.content,
+        priority: d.priority || "normal",
+        is_emergency: !!d.is_emergency,
+        created_at: d.created_at,
+        category: d.priority === "urgent" ? "Urgent Update" : "General Circular",
+      }));
 
-        const remoteIds = new Set(remoteList.map((a) => a.id));
-        const merged = [...remoteList];
-        for (const localA of cachedCurrent) {
-          if (!remoteIds.has(localA.id)) merged.push(localA);
-        }
-
-        setAllAnnouncements(merged);
-        setSyncedData(STORAGE_KEYS.ANNOUNCEMENTS, merged);
-      }
+      // Supabase is the sole source of truth: remoteList directly replaces local
+      // state and cache. Missing from remote always means deleted.
+      setAllAnnouncements(remoteList);
+      setSyncedData(STORAGE_KEYS.ANNOUNCEMENTS, remoteList);
+      stampCacheVersion();
     } catch {
-      // Keep cached announcements
+      // Keep cached announcements on network failure
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const cached = getSyncedData<Announcement[]>(STORAGE_KEYS.ANNOUNCEMENTS, MOCK_ANNOUNCEMENTS);
-    if (cached && cached.length > 0) setAllAnnouncements(cached);
+    if (!isCacheVersionCurrent()) {
+      wipeAnnouncementsCache();
+      setAllAnnouncements(MOCK_ANNOUNCEMENTS);
+    } else {
+      const cached = getSyncedData<Announcement[]>(STORAGE_KEYS.ANNOUNCEMENTS, MOCK_ANNOUNCEMENTS);
+      if (cached && cached.length > 0) setAllAnnouncements(cached);
+    }
     fetchAnnouncements();
   }, [fetchAnnouncements]);
 
   // Same-browser sync
   useEffect(() => {
     return subscribeSync<Announcement[]>(STORAGE_KEYS.ANNOUNCEMENTS, MOCK_ANNOUNCEMENTS, (updated) => {
-      setAllAnnouncements(updated);
+      setAllAnnouncements(Array.isArray(updated) ? updated : MOCK_ANNOUNCEMENTS);
     });
   }, []);
 
