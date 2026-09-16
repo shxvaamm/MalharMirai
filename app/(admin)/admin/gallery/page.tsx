@@ -20,14 +20,63 @@ import { UploadMediaDialog } from "@/components/admin/gallery-dialogs";
 import { DeleteConfirmDialog } from "@/components/admin/member-dialogs";
 import { deleteGalleryMediaAction } from "@/lib/actions/gallery";
 import { GalleryMedia } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AdminGalleryPage() {
-  const { gallery, addGalleryMediaToState, deleteGalleryMedia } = useAdminData();
+  const { gallery, addGalleryMedia, deleteGalleryMedia } = useAdminData();
   const { toast } = useToast();
 
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<GalleryMedia | null>(null);
+  const [syncing, setSyncing] = React.useState(false);
+
+  const syncStorageMedia = async () => {
+    setSyncing(true);
+    try {
+      const supabase = createClient();
+      const { data: storageFiles, error } = await supabase.storage.from("media").list("gallery");
+      if (error || !storageFiles || storageFiles.length === 0) {
+        toast({ title: "Storage Check", description: "No unlinked photos found in storage.", type: "info" });
+        return;
+      }
+
+      const existingUrls = new Set(gallery.map((g) => g.media_url));
+      let addedCount = 0;
+
+      for (const file of storageFiles) {
+        if (!file.name || file.name.startsWith(".")) continue;
+        const { data: urlData } = supabase.storage.from("media").getPublicUrl(`gallery/${file.name}`);
+        const publicUrl = urlData?.publicUrl;
+        if (!publicUrl || existingUrls.has(publicUrl)) continue;
+
+        const cleanTitle = file.name
+          .replace(/^\d+_/, "")
+          .replace(/\.[^/.]+$/, "")
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+        await addGalleryMedia(
+          cleanTitle || "Gallery Showcase",
+          publicUrl,
+          "previous_events",
+          "image"
+        );
+        existingUrls.add(publicUrl);
+        addedCount++;
+      }
+
+      if (addedCount > 0) {
+        toast({ title: "Sync Complete", description: `Added ${addedCount} photo(s) from storage to the gallery.` });
+      } else {
+        toast({ title: "All Synced", description: "All storage photos are already recorded in the gallery." });
+      }
+    } catch (err: any) {
+      toast({ title: "Sync Notice", description: err?.message || "Storage sync failed", type: "warning" });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filteredMedia = gallery.filter((item) => {
     return categoryFilter === "all" || item.category === categoryFilter;
@@ -46,15 +95,28 @@ export default function AdminGalleryPage() {
           </p>
         </div>
 
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => setUploadOpen(true)}
-          className="flex items-center gap-1.5 shadow-sm rounded-full font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-[#D4D4D4]"
-        >
-          <UploadCloud className="h-4 w-4" />
-          <span>Add Media</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={syncStorageMedia}
+            disabled={syncing}
+            className="flex items-center gap-1.5 rounded-full border-white/10 text-neutral-300 hover:text-white"
+          >
+            <Sparkles className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+            <span>{syncing ? "Syncing..." : "Sync Storage Photos"}</span>
+          </Button>
+
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setUploadOpen(true)}
+            className="flex items-center gap-1.5 shadow-sm rounded-full font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-[#D4D4D4]"
+          >
+            <UploadCloud className="h-4 w-4" />
+            <span>Add Media</span>
+          </Button>
+        </div>
       </div>
 
       {/* Category Filter Tabs */}
@@ -131,17 +193,8 @@ export default function AdminGalleryPage() {
       <UploadMediaDialog
         open={uploadOpen}
         onOpenChange={setUploadOpen}
-        onUpload={async (title, url, category, type, id) => {
-          addGalleryMediaToState({
-            id: id || `gal-${Date.now()}`,
-            title,
-            media_url: url,
-            category,
-            media_type: type,
-            date: "Fest 2026",
-            event_title: "Mirai Cultural Showcase",
-            thumbnail_color: "from-sky-600/30 via-blue-600/20 to-slate-950",
-          });
+        onUpload={async (title, url, category, type) => {
+          await addGalleryMedia(title, url, category, type);
           toast({ title: "Media Added", description: `"${title}" has been published to the gallery.` });
         }}
       />

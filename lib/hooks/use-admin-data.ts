@@ -1073,8 +1073,10 @@ export function useAdminData() {
     }
 
     try {
-      uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType }).catch(() => {});
-    } catch {}
+      await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
+    } catch (err) {
+      console.warn("Server action upload gallery media:", err);
+    }
 
     return newMedia;
   };

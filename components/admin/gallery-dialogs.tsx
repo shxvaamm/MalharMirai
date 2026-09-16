@@ -23,8 +23,7 @@ interface UploadMediaDialogProps {
     title: string,
     mediaUrl: string,
     category: "previous_events" | "workshops" | "general",
-    mediaType: "image" | "video",
-    id?: string
+    mediaType: "image" | "video"
   ) => Promise<any>;
 }
 
@@ -100,20 +99,18 @@ export function UploadMediaDialog({ open, onOpenChange, onUpload }: UploadMediaD
       return;
     }
 
-    const actionRes = await uploadGalleryMediaAction({
-      title: title.trim(),
-      media_url: finalMediaUrl,
-      category,
-      media_type: mediaType,
-    });
-
-    if (onUpload) {
-      await onUpload(title.trim(), finalMediaUrl, category, mediaType, actionRes?.data?.id);
+    try {
+      if (onUpload) {
+        await onUpload(title.trim(), finalMediaUrl, category, mediaType);
+      }
+      setLoading(false);
+      onOpenChange(false);
+      setTitle("");
+      handleRemoveMedia();
+    } catch (err: any) {
+      setLoading(false);
+      setValidationError(err?.message || "Failed to publish media.");
     }
-    setLoading(false);
-    onOpenChange(false);
-    setTitle("");
-    handleRemoveMedia();
   };
 
   return (
