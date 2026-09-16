@@ -84,6 +84,9 @@
   - Added ultra-fast shared helper `getLivePublicStats()` (`lib/queries/stats.ts`) utilizing HTTP `HEAD` exact count aggregation against `club_members` and `events`.
   - Replaced legacy `site_settings` SQL queries on public Home (`/`) and About (`/about`) with `getLivePublicStats()`, ensuring public stats always match database truth with zero manual sync.
   - Removed obsolete `updateClubStatsAction()` server action.
+- [2026-09-16] Fixed Disappearing Gallery Media Bug:
+  - Root Cause: Admin Gallery page was calling `addGalleryMediaToState` (pure local state) instead of `addGalleryMedia` (which performs client Supabase insert + server action). Meanwhile, `uploadGalleryMediaAction` strictly used `createAdminClient()`, which lacked `SUPABASE_SERVICE_ROLE_KEY` and failed silently while `UploadMediaDialog` ignored action results. When `fetchGallery()` re-fetched `gallery` table from Supabase, the empty table wiped local state and cache.
+  - Fix: Fixed `verifyGalleryPermission()` to accept HMAC admin sessions and dev environments. Enabled dual client write in `uploadGalleryMediaAction` (SSR session client with cookies first, followed by admin client). Connected `AdminGalleryPage` to `addGalleryMedia` from `useAdminData()`. Added a "Sync Storage Photos" button on the Admin Gallery page to automatically register existing photos already in the Supabase Storage `media/gallery` bucket.
 
 ## DO NOT DO (explicit guardrails)
 - **DO NOT** auto-add logged-in/signed-up users to the public Members list — Members are ONLY added manually via the admin console (`club_members` table). Never read from `public.profiles` for public team display.
