@@ -52,7 +52,7 @@ export default function AdminRegistrationsPage() {
     : (selectedEvent?.max_capacity || 300);
   const currentCount = selectedEventId === "all" 
     ? registrations.length 
-    : (selectedEvent?.registered_count || 0);
+    : registrations.filter((r) => r.event_id === selectedEventId).length;
 
   const handleExport = () => {
     exportRegistrationsCSV(selectedEventId);
@@ -193,7 +193,7 @@ export default function AdminRegistrationsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-neutral-300">
-                    {reg.department} / {reg.year}
+                    {reg.department || "General"} {reg.year ? `/ ${reg.year}` : ""}
                   </TableCell>
                   <TableCell className="text-xs text-neutral-400">
                     {reg.student_email}

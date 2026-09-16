@@ -5,6 +5,7 @@ import { Calendar, MapPin, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EventRegistrationModal } from "@/components/public/event-registration-modal";
 import { ClubEvent } from "@/lib/mock-data";
+import { getEffectiveEventStatus } from "@/lib/utils";
 
 interface EventCardProps {
   event: ClubEvent;
@@ -28,9 +29,8 @@ function formatEventDate(dateString: string) {
 }
 
 export function EventCard({ event }: EventCardProps) {
-  const isPast =
-    event.status === "completed" ||
-    new Date(event.date_time).getTime() < Date.now();
+  const effectiveStatus = getEffectiveEventStatus(event);
+  const isPast = effectiveStatus === "completed";
 
   const isDeadlinePassed = event.registration_deadline
     ? new Date(event.registration_deadline).getTime() < Date.now()
@@ -45,7 +45,7 @@ export function EventCard({ event }: EventCardProps) {
     upcoming: "border border-white/30 text-neutral-200 bg-transparent",
     ongoing: "bg-white text-neutral-950 border-transparent font-bold",
     completed: "bg-neutral-800 text-neutral-400 border-transparent",
-  }[event.status] ?? "border border-white/20 text-neutral-300 bg-transparent";
+  }[effectiveStatus] ?? "border border-white/20 text-neutral-300 bg-transparent";
 
   return (
     <article className="group flex flex-col bg-[#0D0D0D]/85 border border-white/[0.06] hover:border-white/[0.15] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 shadow-lg">
@@ -71,7 +71,7 @@ export function EventCard({ event }: EventCardProps) {
           {/* Status + Category chips */}
           <div className="absolute top-3 left-3 flex items-center gap-2">
             <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full capitalize backdrop-blur-md ${statusChip}`}>
-              {event.status === "completed" ? "Past" : event.status}
+              {effectiveStatus === "completed" ? "Past" : effectiveStatus}
             </span>
             {event.category && (
               <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-black/70 border border-white/10 text-neutral-300 backdrop-blur-md capitalize">
@@ -119,7 +119,9 @@ export function EventCard({ event }: EventCardProps) {
             </div>
           ) : (
             <span className="flex-1 text-center text-[11px] text-neutral-600 font-medium py-2">
-              {event.status === "completed" ? "Event ended" : "Registration closed"}
+              {effectiveStatus === "completed" && new Date(event.date_time).getTime() < Date.now()
+                ? "Event ended"
+                : "Registration closed"}
             </span>
           )}
           <Link

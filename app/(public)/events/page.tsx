@@ -8,14 +8,17 @@ import { EmptyState } from "@/components/public/empty-state";
 import { useEvents } from "@/lib/hooks/use-events";
 import { ClubEvent } from "@/lib/mock-data";
 import { STAGGER_CONTAINER, FADE_UP, DURATION, EASE_OUT, VIEWPORT_ONCE } from "@/lib/motion";
+import { getEffectiveEventStatus } from "@/lib/utils";
 
 // ─── Status ordering ─────────────────────────────────────────────────────────
 const STATUS_ORDER: Record<string, number> = { ongoing: 0, upcoming: 1, completed: 2 };
 
 function sortEvents(events: ClubEvent[]): ClubEvent[] {
   return [...events].sort((a, b) => {
-    const sa = STATUS_ORDER[a.status] ?? 99;
-    const sb = STATUS_ORDER[b.status] ?? 99;
+    const statusA = getEffectiveEventStatus(a);
+    const statusB = getEffectiveEventStatus(b);
+    const sa = STATUS_ORDER[statusA] ?? 99;
+    const sb = STATUS_ORDER[statusB] ?? 99;
     if (sa !== sb) return sa - sb;
     // Within the same status, sort ascending by date
     return new Date(a.date_time).getTime() - new Date(b.date_time).getTime();
@@ -64,15 +67,15 @@ export default function EventsPage() {
   // Filtered by tab
   const displayed = React.useMemo(() => {
     if (activeTab === "all") return sorted;
-    return sorted.filter((e) => e.status === activeTab);
+    return sorted.filter((e) => getEffectiveEventStatus(e) === activeTab);
   }, [sorted, activeTab]);
 
   // Count per tab for badge hints
   const counts = React.useMemo(() => ({
     all:       allEvents.length,
-    ongoing:   allEvents.filter((e) => e.status === "ongoing").length,
-    upcoming:  allEvents.filter((e) => e.status === "upcoming").length,
-    completed: allEvents.filter((e) => e.status === "completed").length,
+    ongoing:   allEvents.filter((e) => getEffectiveEventStatus(e) === "ongoing").length,
+    upcoming:  allEvents.filter((e) => getEffectiveEventStatus(e) === "upcoming").length,
+    completed: allEvents.filter((e) => getEffectiveEventStatus(e) === "completed").length,
   }), [allEvents]);
 
   const emptyMessages: Record<TabValue, { headline: string; subtext: string }> = {

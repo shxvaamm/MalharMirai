@@ -15,10 +15,14 @@ import {
   EASE_OUT,
   VIEWPORT_ONCE,
 } from "@/lib/motion";
+import { getEffectiveEventStatus } from "@/lib/utils";
 
 export function EventsShowcase() {
   const { events, loading, error } = useEvents("all", "upcoming");
-  const upcomingEvents = events.slice(0, 3);
+  const upcomingEvents = events
+    .filter((e) => getEffectiveEventStatus(e) === "upcoming")
+    .slice(0, 3);
+
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-8">

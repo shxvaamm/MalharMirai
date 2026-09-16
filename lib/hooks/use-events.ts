@@ -9,6 +9,7 @@ import {
   STORAGE_KEYS,
   subscribeSync,
 } from "@/lib/store/sync-store";
+import { getEffectiveEventStatus } from "@/lib/utils";
 
 // ─── Cache Versioning ────────────────────────────────────────────────────────
 const EVENTS_CACHE_V = "v2-supabase-truth";
@@ -168,7 +169,8 @@ export function useEvents(categoryFilter?: string, statusFilter?: string) {
   }, [fetchEvents]);
 
   const events = allEvents.filter((e) => {
-    const matchStatus = !statusFilter || statusFilter === "all" || e.status === statusFilter;
+    const effectiveStatus = getEffectiveEventStatus(e);
+    const matchStatus = !statusFilter || statusFilter === "all" || effectiveStatus === statusFilter;
     const matchCategory =
       !categoryFilter ||
       categoryFilter === "all" ||

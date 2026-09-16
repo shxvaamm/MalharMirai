@@ -161,15 +161,27 @@ export interface Database {
           event_id: string;
           student_name: string;
           student_email: string;
-          student_phone: string;
-          registered_at: string;
+          student_phone?: string | null;
+          user_id?: string | null;
+          college_id?: string | null;
+          department?: string | null;
+          year_of_study?: string | null;
+          status?: string;
+          created_at: string;
+          registered_at?: string;
         };
         Insert: {
           id?: string;
           event_id: string;
           student_name: string;
           student_email: string;
-          student_phone: string;
+          student_phone?: string | null;
+          user_id?: string | null;
+          college_id?: string | null;
+          department?: string | null;
+          year_of_study?: string | null;
+          status?: string;
+          created_at?: string;
           registered_at?: string;
         };
         Update: {
@@ -177,7 +189,13 @@ export interface Database {
           event_id?: string;
           student_name?: string;
           student_email?: string;
-          student_phone?: string;
+          student_phone?: string | null;
+          user_id?: string | null;
+          college_id?: string | null;
+          department?: string | null;
+          year_of_study?: string | null;
+          status?: string;
+          created_at?: string;
           registered_at?: string;
         };
       };

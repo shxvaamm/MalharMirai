@@ -7,9 +7,10 @@ export interface EventRegistrationInput {
   eventId: string;
   studentName: string;
   studentEmail: string;
-  studentPhone: string;
-  department?: string;
-  year?: string;
+  studentPhone?: string | null;
+  userId?: string | null;
+  department?: string | null;
+  year?: string | null;
 }
 
 export interface ActionResult<T = any> {
@@ -24,6 +25,37 @@ function isValidUUID(str: string): boolean {
 }
 
 /**
+ * Server Action: Check if a user is already registered for an event
+ */
+export async function checkUserRegistrationStatusAction(
+  eventId: string,
+  email?: string | null,
+  userId?: string | null
+): Promise<{ registered: boolean }> {
+  if (!eventId || (!email && !userId)) return { registered: false };
+  try {
+    const supabase = createAdminClient();
+    let query = (supabase.from("registrations") as any)
+      .select("id")
+      .eq("event_id", eventId);
+
+    const cleanEmail = email?.trim().toLowerCase();
+    if (cleanEmail && userId) {
+      query = query.or(`student_email.ilike.${cleanEmail},user_id.eq.${userId}`);
+    } else if (cleanEmail) {
+      query = query.ilike("student_email", cleanEmail);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data } = await query.limit(1);
+    return { registered: !!(data && data.length > 0) };
+  } catch {
+    return { registered: false };
+  }
+}
+
+/**
  * Server Action: Public student registration for a cultural event.
  */
 export async function registerForEventAction(
@@ -31,8 +63,9 @@ export async function registerForEventAction(
 ): Promise<ActionResult> {
   const eventId = input.eventId?.trim();
   const studentName = input.studentName?.trim();
-  const studentEmail = input.studentEmail?.trim();
-  const studentPhone = input.studentPhone?.trim();
+  const studentEmail = input.studentEmail?.trim().toLowerCase();
+  const studentPhone = input.studentPhone?.trim() || null;
+  const userId = input.userId?.trim() || null;
 
   if (!eventId) return { success: false, error: "Event ID is required." };
   if (!studentName || studentName.length < 2) return { success: false, error: "Full name is required." };
@@ -53,7 +86,13 @@ export async function registerForEventAction(
       id: newId,
       student_name: studentName,
       student_email: studentEmail,
-      student_phone: studentPhone || "+91 98765 43210",
+      student_phone: studentPhone,
+      user_id: userId,
+      department: null,
+      year_of_study: null,
+      college_id: null,
+      status: "confirmed",
+      created_at: new Date().toISOString(),
     };
 
     if (isValidUUID(eventId)) {
@@ -100,6 +139,13 @@ export async function registerForEventAction(
       .single();
 
     if (error) {
+      if (
+        error.code === "23505" ||
+        error.message?.toLowerCase().includes("unique") ||
+        error.message?.toLowerCase().includes("duplicate")
+      ) {
+        return { success: false, error: "You're already registered for this event." };
+      }
       if (error.code === "23503" || error.code === "22P02") {
         return { success: true, data: { id: newId, ...insertPayload } };
       }

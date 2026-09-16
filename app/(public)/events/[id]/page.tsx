@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import {
   Calendar,
   MapPin,
-  Users,
   Clock,
   ArrowLeft,
   Trophy,
@@ -14,6 +13,7 @@ import {
   Phone,
   Sparkles,
   CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CountdownTimer } from "@/components/public/countdown-timer";
 import { EventRegistrationModal } from "@/components/public/event-registration-modal";
 import { useEventById } from "@/lib/hooks/use-events";
+import { getEffectiveEventStatus } from "@/lib/utils";
 
 export default function EventDetailPage({
   params,
@@ -30,14 +31,26 @@ export default function EventDetailPage({
   const eventId = params?.id || "event-1";
   const { event, loading } = useEventById(eventId);
 
-  if (!event) {
+  if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
-        <h2 className="text-2xl font-bold text-white">Event Not Found</h2>
-        <p className="text-neutral-400 text-sm">
-          The requested event could not be located.
+        <div className="h-8 w-48 bg-neutral-800 rounded animate-pulse mx-auto" />
+        <div className="h-64 w-full bg-neutral-900 rounded-3xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-4">
+        <div className="p-4 rounded-full bg-neutral-800/80 text-neutral-400 w-fit mx-auto">
+          <AlertCircle className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold text-neutral-100">Event Not Found</h2>
+        <p className="text-xs text-neutral-400">
+          The requested cultural showcase might have concluded, been rescheduled, or moved.
         </p>
-        <Button asChild variant="outline" className="rounded-full border-white/15 text-white">
+        <Button asChild variant="outline" size="sm" className="rounded-full text-xs">
           <Link href="/events">Return to Events Hub</Link>
         </Button>
       </div>
@@ -46,11 +59,9 @@ export default function EventDetailPage({
 
   const registered = event.registered_count || 0;
   const maxCap = event.max_capacity || 300;
-  const capacityPercent = Math.min(100, Math.round((registered / maxCap) * 100));
 
-  const isPast =
-    event.status === "completed" ||
-    new Date(event.date_time).getTime() < Date.now();
+  const effectiveStatus = getEffectiveEventStatus(event);
+  const isPast = effectiveStatus === "completed";
   const isFull = registered >= maxCap;
   const isDeadlinePassed = event.registration_deadline
     ? new Date(event.registration_deadline).getTime() < Date.now()
@@ -71,8 +82,8 @@ export default function EventDetailPage({
       {/* Title & Badges Header */}
       <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <Badge variant={event.status as "upcoming" | "ongoing" | "completed"} className="capitalize text-xs">
-            {event.status}
+          <Badge variant={effectiveStatus as "upcoming" | "ongoing" | "completed"} className="capitalize text-xs">
+            {effectiveStatus === "completed" ? "Past" : effectiveStatus}
           </Badge>
           <span className="text-xs font-medium text-neutral-300 bg-white/[0.04] px-3 py-1 rounded-full border border-white/10">
             {event.category}
@@ -129,29 +140,6 @@ export default function EventDetailPage({
                 ? "Max capacity reached. Registration is closed."
                 : "Instant digital entry confirmation provided."}
             </p>
-          </div>
-        </div>
-
-        {/* Capacity Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-medium text-neutral-300 flex items-center gap-1.5">
-              <Users className="h-4 w-4 text-neutral-400" />
-              Registration Capacity:
-            </span>
-            <span className="font-mono font-bold text-neutral-200">
-              {registered} / {maxCap} Seats Filled ({capacityPercent}%)
-            </span>
-          </div>
-          <div className="w-full h-3 bg-neutral-800 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${
-                capacityPercent >= 90
-                  ? "bg-rose-500"
-                  : "bg-[#E5E5E5]"
-              }`}
-              style={{ width: `${capacityPercent}%` }}
-            />
           </div>
         </div>
       </div>
