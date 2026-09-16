@@ -1,31 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
-import { Bell, AlertTriangle, Calendar, Search, ShieldAlert, Sparkles } from "lucide-react";
+import { Bell, AlertTriangle, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnnouncements } from "@/lib/hooks/use-announcements";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
-import { FADE_UP, DURATION, EASE_OUT, VIEWPORT_ONCE } from "@/lib/motion";
 
 export default function AnnouncementsPage() {
-  const [priorityFilter, setPriorityFilter] = React.useState<string>("all");
-  const [searchQuery, setSearchQuery] = React.useState<string>("");
-
-  const { announcements, loading } = useAnnouncements(priorityFilter);
-
-  const filteredAnnouncements = React.useMemo(() => {
-    if (!searchQuery.trim()) return announcements;
-    const q = searchQuery.toLowerCase();
-    return announcements.filter(
-      (a) => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q)
-    );
-  }, [announcements, searchQuery]);
+  const { announcements, loading } = useAnnouncements();
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 sm:space-y-10">
       {/* Header */}
       <ScrollReveal variant="reveal" className="text-center space-y-4 max-w-3xl mx-auto">
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-neutral-100">
@@ -36,45 +22,9 @@ export default function AnnouncementsPage() {
         </p>
       </ScrollReveal>
 
-      {/* Filter & Search */}
-      <ScrollReveal variant="reveal" delay={100} className="glass-panel p-4 sm:p-6 rounded-3xl border border-white/[0.06] max-w-4xl mx-auto space-y-4 bg-[#0D0D0D]">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" />
-            <Input
-              placeholder="Search circulars & notices..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 bg-black/60 border-white/10 text-sm rounded-full text-neutral-200 placeholder:text-neutral-500"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              { label: "All Notices", value: "all" },
-              { label: "Urgent", value: "urgent" },
-              { label: "Normal", value: "normal" },
-            ].map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setPriorityFilter(tab.value)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-                  priorityFilter === tab.value
-                    ? "bg-neutral-200 text-neutral-950 font-bold shadow-sm"
-                    : "bg-white/[0.04] border border-white/[0.08] text-neutral-400 hover:bg-white/[0.08] hover:text-neutral-200"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </ScrollReveal>
-
       {/* Notices Feed */}
       <div className="space-y-4 max-w-4xl mx-auto">
-        {filteredAnnouncements.map((item, index) => (
+        {announcements.map((item, index) => (
           <ScrollReveal
             key={item.id}
             variant="reveal"
@@ -127,13 +77,12 @@ export default function AnnouncementsPage() {
           </ScrollReveal>
         ))}
 
-
-        {filteredAnnouncements.length === 0 && !loading && (
+        {announcements.length === 0 && !loading && (
           <ScrollReveal variant="reveal" threshold={0.1}>
             <div className="glass-panel p-12 rounded-2xl text-center space-y-2 border border-white/[0.08] bg-[#0A0A0A]">
               <Bell className="mx-auto h-8 w-8 text-neutral-500" />
               <h4 className="text-base font-bold text-white">No Circulars Found</h4>
-              <p className="text-xs text-neutral-400">No active circulars match your query.</p>
+              <p className="text-xs text-neutral-400">No circulars or official announcements have been published yet.</p>
             </div>
           </ScrollReveal>
         )}
