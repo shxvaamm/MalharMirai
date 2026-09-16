@@ -78,6 +78,12 @@
   - Phase 3 (Consolidate Public Stats): Consolidated dynamic public stats ("Active Members", "Events Organised") to `/admin/settings` as the sole editable home (with auto-fill from live DB). Converted Dashboard, Events page, and Members page metric control cards into pure read-only indicators linking to Settings.
   - Phase 4 (Consolidate Registration Tracking): Simplified Dashboard's 5-event capacity bar widget into a concise read-only "Registration Overview" card linking to canonical `/admin/registrations`. Sourced confirmed registrations strictly from `registrations.length` (live Supabase table) with zero fallback to drifting `registered_count`. Preserved contextual per-event manifest dialog on `/admin/events`.
   - Phase 5 (Consolidate Society Identity Metadata): Settings is the sole editing home for society metadata (`name`, `shortName`, `college`, `batch`, `aboutText`, `email`, `instagram`, `location`). Dashboard's "Society Identification" widget is a pure read-only display reactively wired to shared `societyInfo` in `useAdminData()`.
+- [2026-09-16] Live Auto-Computed Public Stats Overhaul:
+  - Removed manually-editable "Dynamic Public Statistics" card from `/admin/settings` and "PUBLIC LIVE STATS" card from `/admin`.
+  - Added live auto-computed KPI cards driven by real data inside `/admin/members` (`activeMembersCount` / `members.length`) and `/admin/events` (`eventsOrganisedCount` / `events.length`).
+  - Added ultra-fast shared helper `getLivePublicStats()` (`lib/queries/stats.ts`) utilizing HTTP `HEAD` exact count aggregation against `club_members` and `events`.
+  - Replaced legacy `site_settings` SQL queries on public Home (`/`) and About (`/about`) with `getLivePublicStats()`, ensuring public stats always match database truth with zero manual sync.
+  - Removed obsolete `updateClubStatsAction()` server action.
 
 ## DO NOT DO (explicit guardrails)
 - **DO NOT** auto-add logged-in/signed-up users to the public Members list — Members are ONLY added manually via the admin console (`club_members` table). Never read from `public.profiles` for public team display.

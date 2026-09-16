@@ -46,6 +46,7 @@ export default function AdminEventsPage() {
     deleteEvent,
     exportRegistrationsCSV,
     loading,
+    eventsOrganisedCount,
   } = useAdminData();
   const { toast } = useToast();
 
@@ -116,6 +117,60 @@ export default function AdminEventsPage() {
           <Plus className="h-4 w-4" />
           <span>Create Event</span>
         </Button>
+      </div>
+
+      {/* Live Event Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Events Organised
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-neutral-400" />
+          </CardHeader>
+          <CardContent className="p-0 pt-3">
+            <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
+              {eventsOrganisedCount ?? events.length}
+            </div>
+            <p className="text-[11px] text-neutral-400 font-medium mt-1">
+              Live count synced across public website
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Upcoming Showcases
+            </CardTitle>
+            <Clock className="h-4 w-4 text-neutral-400" />
+          </CardHeader>
+          <CardContent className="p-0 pt-3">
+            <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
+              {events.filter((e) => getEffectiveEventStatus(e) === "upcoming").length}
+            </div>
+            <p className="text-[11px] text-neutral-400 font-medium mt-1">
+              Currently accepting registrations
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Total Quota Allocated
+            </CardTitle>
+            <Users className="h-4 w-4 text-neutral-400" />
+          </CardHeader>
+          <CardContent className="p-0 pt-3">
+            <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
+              {events.reduce((acc, e) => acc + (e.max_capacity || 0), 0).toLocaleString()}
+            </div>
+            <p className="text-[11px] text-neutral-400 font-medium mt-1">
+              Campus attendee capacity
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Table Card */}

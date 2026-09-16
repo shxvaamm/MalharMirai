@@ -25,7 +25,6 @@ export default function AdminDashboardPage() {
     departments,
     announcements,
     registrations,
-    stats,
     societyInfo,
   } = useAdminData();
 
@@ -50,7 +49,7 @@ export default function AdminDashboardPage() {
             Executive <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">Dashboard</span>
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-            Real-time analytics, dynamic stats synchronization, and event registration tracking.
+            Real-time analytics, event registration tracking, and society operations.
           </p>
         </div>
 
@@ -93,50 +92,6 @@ export default function AdminDashboardPage() {
           </Button>
         </div>
       </div>
-
-      {/* Dynamic Stats Live Overview Banner (Read-Only; managed in Settings) */}
-      <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 p-6 rounded-3xl relative overflow-hidden shadow-xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Public Live Stats</span>
-              <Badge variant="upcoming" className="text-[10px]">Real-Time Synced</Badge>
-            </div>
-            <p className="text-xs text-neutral-400 max-w-xl leading-relaxed">
-              Official metrics displayed across the public website. To update these numbers or auto-fill from the live database, visit Portal &amp; Society Settings.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-4 px-4 py-2.5 bg-black/60 rounded-2xl border border-white/10">
-              <div>
-                <div className="text-[10px] text-neutral-400 uppercase font-semibold tracking-wider">Active Members</div>
-                <div className="text-lg font-bold text-neutral-100 font-mono">
-                  {stats?.activeMembers !== undefined ? stats.activeMembers : 7}+
-                </div>
-              </div>
-              <div className="h-8 w-px bg-white/10" />
-              <div>
-                <div className="text-[10px] text-neutral-400 uppercase font-semibold tracking-wider">Events Organised</div>
-                <div className="text-lg font-bold text-neutral-100 font-mono">
-                  {stats?.eventsOrganised !== undefined ? stats.eventsOrganised : 8}+
-                </div>
-              </div>
-            </div>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="border-white/10 bg-white/[0.03] text-neutral-300 hover:text-white hover:bg-white/[0.07] rounded-full text-xs font-medium"
-            >
-              <Link href="/admin/settings" className="flex items-center gap-1.5">
-                <span>Manage in Settings</span>
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </Card>
 
       {/* Analytics KPI Overview Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

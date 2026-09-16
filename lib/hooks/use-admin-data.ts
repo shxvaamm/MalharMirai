@@ -28,7 +28,6 @@ import {
   STORAGE_KEYS,
   SYNC_EVENT_NAME,
 } from "@/lib/store/sync-store";
-import { updateClubStatsAction } from "@/lib/actions/stats";
 import { createMemberAction, updateMemberAction, deleteMemberAction } from "@/lib/actions/members";
 import { createEventAction, updateEventAction, deleteEventAction } from "@/lib/actions/events";
 import { createDepartmentAction, updateDepartmentAction, deleteDepartmentAction } from "@/lib/actions/departments";
@@ -454,11 +453,6 @@ export function useAdminData() {
     } catch (e) {
       console.warn("Stats updated in local resilient state");
     }
-
-    // 2. Revalidate server pages so fresh SSR renders have updated stats
-    try {
-      await updateClubStatsAction(updated);
-    } catch (_) {}
   };
 
   // ===================== DEDUPLICATED STATE APPORTERS =====================
@@ -1267,6 +1261,9 @@ export function useAdminData() {
     registrations,
     heroSlides,
     loading,
+    // Live auto-computed counts from canonical database collections
+    activeMembersCount: members.length,
+    eventsOrganisedCount: events.length,
     // Adders & Stat Updaters
     updateStats,
     addMemberToState,

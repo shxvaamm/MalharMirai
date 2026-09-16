@@ -60,6 +60,7 @@ export default function AdminMembersPage() {
     deleteMember,
     changeRole,
     loading,
+    activeMembersCount,
   } = useAdminData();
   const { user: authUser, role: authRole } = useAuth();
   const { toast } = useToast();
@@ -197,6 +198,60 @@ export default function AdminMembersPage() {
             <span>Add Member</span>
           </Button>
         </div>
+      </div>
+
+      {/* Live Member Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Active Members Count
+            </CardTitle>
+            <Users className="h-4 w-4 text-neutral-400" />
+          </CardHeader>
+          <CardContent className="p-0 pt-3">
+            <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
+              {activeMembersCount ?? members.length}
+            </div>
+            <p className="text-[11px] text-neutral-400 font-medium mt-1">
+              Live count synced across public website
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Departments Active
+            </CardTitle>
+            <Shield className="h-4 w-4 text-neutral-400" />
+          </CardHeader>
+          <CardContent className="p-0 pt-3">
+            <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
+              {new Set(members.map((m) => m.department)).size}
+            </div>
+            <p className="text-[11px] text-neutral-400 font-medium mt-1">
+              Across 5 official society wings
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
+            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Leadership &amp; Admins
+            </CardTitle>
+            <Crown className="h-4 w-4 text-neutral-400" />
+          </CardHeader>
+          <CardContent className="p-0 pt-3">
+            <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
+              {members.filter((m) => m.role === "admin").length}
+            </div>
+            <p className="text-[11px] text-neutral-400 font-medium mt-1">
+              Administrative &amp; executive tier
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filter and Search Controls */}

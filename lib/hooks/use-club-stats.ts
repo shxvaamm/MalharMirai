@@ -185,12 +185,6 @@ export function useClubStats() {
       } catch (err) {
         console.warn("Direct Supabase stats write warning:", err);
       }
-
-      // 2. Server Action for SSR path revalidations
-      try {
-        const { updateClubStatsAction } = await import("@/lib/actions/stats");
-        await updateClubStatsAction(newStats);
-      } catch {}
     },
     [stats.activeMembers, stats.eventsOrganised]
   );

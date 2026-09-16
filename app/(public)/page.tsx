@@ -8,36 +8,14 @@ import { EventsShowcase } from "@/components/public/events-showcase";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
 import { HeroHeading } from "@/components/public/hero-heading";
 import { HeroAnimations } from "@/components/public/hero-animations";
-import { createClient } from "@/lib/supabase/server";
-import { STAT_FALLBACKS } from "@/lib/mock-data";
+import { getLivePublicStats } from "@/lib/queries/stats";
 
 // Revalidate every 60s — stats stay fresh without a full rebuild
 export const revalidate = 60;
 
-async function getStats(): Promise<{ activeMembers: string; eventsOrganised: string }> {
-  try {
-    const supabase = await createClient();
-    const { data } = await (supabase.from("site_settings") as any)
-      .select("key,value")
-      .in("key", ["public_active_members", "public_events_organised"]);
-
-    if (!data) return { activeMembers: STAT_FALLBACKS.activeMembers, eventsOrganised: STAT_FALLBACKS.eventsOrganised };
-
-    const members = data.find((d: any) => d.key === "public_active_members")?.value;
-    const events  = data.find((d: any) => d.key === "public_events_organised")?.value;
-
-    return {
-      activeMembers:   members ? (String(members).includes("+") ? String(members) : `${members}+`) : STAT_FALLBACKS.activeMembers,
-      eventsOrganised: events  ? (String(events).includes("+")  ? String(events)  : `${events}+`)  : STAT_FALLBACKS.eventsOrganised,
-    };
-  } catch {
-    return { activeMembers: STAT_FALLBACKS.activeMembers, eventsOrganised: STAT_FALLBACKS.eventsOrganised };
-  }
-}
-
 export default async function HomePage() {
-  // Runs on the server — stats are in the HTML before the browser parses JS
-  const { activeMembers, eventsOrganised } = await getStats();
+  // Runs on the server — live counts auto-computed from database collections
+  const { activeMembers, eventsOrganised } = await getLivePublicStats();
 
   return (
     <div className="flex flex-col gap-16 md:gap-24 pb-24 overflow-hidden bg-transparent">
