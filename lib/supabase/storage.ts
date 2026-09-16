@@ -123,7 +123,7 @@ export async function fileToOptimizedDataUrl(
 export async function uploadMediaFile(
   file: File,
   folder: "departments" | "events" | "gallery" | "avatars" = "avatars",
-  bucketName = "department-assets"
+  bucketName = "media"  // Only bucket that exists in Supabase Storage
 ): Promise<UploadResult> {
   const validation = validateMediaFile(file);
   if (!validation.valid) {
@@ -147,30 +147,9 @@ export async function uploadMediaFile(
       });
 
     if (uploadError) {
-      // Try fallback bucket 'media'
-      const { error: fallbackError } = await supabase.storage
-        .from("media")
-        .upload(filePath, file, {
-          cacheControl: "31536000",
-          upsert: true,
-        });
-
-      if (fallbackError) {
-        // Both buckets failed — return error so the caller does NOT save a broken URL
-        return {
-          success: false,
-          error: `Storage upload failed: ${fallbackError.message}`,
-        };
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("media")
-        .getPublicUrl(filePath);
-
       return {
-        success: true,
-        url: publicUrlData.publicUrl,
-        path: filePath,
+        success: false,
+        error: `Storage upload failed: ${uploadError.message}`,
       };
     }
 

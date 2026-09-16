@@ -127,7 +127,7 @@ export function useAdminData() {
         ]);
 
         const timeoutPromise = new Promise<any[]>((resolve) =>
-          setTimeout(() => resolve([{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }]), 2000)
+          setTimeout(() => resolve([{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }]), 12000)
         );
 
         const [
