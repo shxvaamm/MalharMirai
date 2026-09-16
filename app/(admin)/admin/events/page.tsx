@@ -12,12 +12,20 @@ import {
   CheckCircle,
   Sparkles,
   Loader2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAdminData } from "@/lib/hooks/use-admin-data";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -27,15 +35,16 @@ import {
 import { DeleteConfirmDialog } from "@/components/admin/member-dialogs";
 import { deleteEventAction } from "@/lib/actions/events";
 import { ClubEvent } from "@/lib/mock-data";
+import { getEffectiveEventStatus } from "@/lib/utils";
 
 export default function AdminEventsPage() {
   const {
     events,
-    stats,
-    updateStats,
+    registrations,
     addEventToState,
     updateEvent,
     deleteEvent,
+    exportRegistrationsCSV,
     loading,
   } = useAdminData();
   const { toast } = useToast();
@@ -46,32 +55,11 @@ export default function AdminEventsPage() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editEvent, setEditEvent] = React.useState<ClubEvent | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<ClubEvent | null>(null);
-
-  // Events count inline quick edit
-  const [isEditingEventsCount, setIsEditingEventsCount] = React.useState(false);
-  const [eventsCountInput, setEventsCountInput] = React.useState(stats?.eventsOrganised || events.length || 12);
-
-  React.useEffect(() => {
-    if (stats?.eventsOrganised !== undefined) {
-      setEventsCountInput(stats.eventsOrganised);
-    } else {
-      setEventsCountInput(events.length || 12);
-    }
-  }, [stats?.eventsOrganised, events.length]);
-
-  const handleSaveEventsCount = () => {
-    const val = Number(eventsCountInput) >= 0 ? Number(eventsCountInput) : 0;
-    updateStats({ eventsOrganised: val });
-    setIsEditingEventsCount(false);
-    toast({
-      title: "Events Organised Metric Updated",
-      description: `Public website events organised metric set to ${val}.`,
-      type: "success",
-    });
-  };
+  const [selectedRegistrantsEvent, setSelectedRegistrantsEvent] = React.useState<ClubEvent | null>(null);
 
   const filteredEvents = events.filter((ev) => {
-    const matchStatus = statusFilter === "all" || ev.status === statusFilter;
+    const effectiveStatus = getEffectiveEventStatus(ev);
+    const matchStatus = statusFilter === "all" || effectiveStatus === statusFilter;
     const q = searchQuery.toLowerCase().trim();
     const matchQuery =
       !q ||
@@ -130,74 +118,6 @@ export default function AdminEventsPage() {
         </Button>
       </div>
 
-      {/* Events Organised Metric Control Card */}
-      <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 p-5 rounded-3xl shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center font-bold">
-              <Calendar className="h-5 w-5 text-neutral-400" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-neutral-200 flex items-center gap-2">
-                <span>Public Display Events Organised:</span>
-                <span className="text-base font-bold text-neutral-100 font-mono">
-                  {stats?.eventsOrganised !== undefined ? stats.eventsOrganised : (events.length || 12)}+
-                </span>
-                <Badge variant="upcoming" className="text-[10px]">Real-Time</Badge>
-              </div>
-              <p className="text-[11px] text-neutral-400">
-                Database Events Total: <span className="font-semibold text-neutral-200">{events.length} events scheduled/held</span>
-              </p>
-            </div>
-          </div>
-
-          {!isEditingEventsCount ? (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditingEventsCount(true)}
-                className="border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.07] rounded-full text-xs font-medium"
-              >
-                Edit Public Events Count
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  updateStats({ eventsOrganised: events.length });
-                  toast({
-                    title: "Synced to Events Count",
-                    description: `Events organised set to match database total (${events.length}).`,
-                    type: "success",
-                  });
-                }}
-                className="text-xs text-neutral-400 hover:text-neutral-200 rounded-full"
-                title="Sync with current database count"
-              >
-                Auto-Sync ({events.length})
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                value={eventsCountInput}
-                onChange={(e) => setEventsCountInput(Number(e.target.value))}
-                className="w-20 h-8 text-xs font-mono font-bold bg-neutral-900 border-white/10 text-neutral-100 rounded-xl"
-                min={0}
-              />
-              <Button size="sm" variant="default" onClick={handleSaveEventsCount} className="h-8 rounded-full text-xs font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-[#D4D4D4]">
-                Save
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setIsEditingEventsCount(false)} className="h-8 text-xs text-neutral-400 rounded-full">
-                Cancel
-              </Button>
-            </div>
-          )}
-        </div>
-      </Card>
-
       {/* Table Card */}
       <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl shadow-xl">
         <CardHeader className="pb-3">
@@ -254,17 +174,17 @@ export default function AdminEventsPage() {
                   </TableRow>
                 ) : (
                   filteredEvents.map((ev) => {
-                    const registered = ev.registered_count || 0;
+                    const eventRegistrations = registrations.filter((r) => r.event_id === ev.id);
+                    const registered = eventRegistrations.length;
                     const maxCap = ev.max_capacity || 300;
                     const percent = Math.min(100, Math.round((registered / maxCap) * 100));
 
-                    const isPast =
-                      ev.status === "completed" ||
-                      new Date(ev.date_time).getTime() < Date.now();
-                    const isDeadlinePassed = ev.registration_deadline
-                      ? new Date(ev.registration_deadline).getTime() < Date.now()
-                      : false;
-                    const isClosed = isPast || isDeadlinePassed;
+                    const effectiveStatus = getEffectiveEventStatus(ev);
+                    const isClosed =
+                      effectiveStatus === "completed" ||
+                      (ev.registration_deadline
+                        ? new Date(ev.registration_deadline).getTime() < Date.now()
+                        : false);
 
                     return (
                       <TableRow key={ev.id} className="border-b border-white/[0.06] hover:bg-white/[0.02]">
@@ -281,10 +201,10 @@ export default function AdminEventsPage() {
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={ev.status as "upcoming" | "ongoing" | "completed"}
+                            variant={effectiveStatus as "upcoming" | "ongoing" | "completed"}
                             className="capitalize text-[10px]"
                           >
-                            {ev.status}
+                            {effectiveStatus}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-neutral-400">
@@ -298,20 +218,28 @@ export default function AdminEventsPage() {
                           <div className="text-[10px] text-neutral-300 font-medium">{ev.venue}</div>
                         </TableCell>
                         <TableCell className="text-xs">
-                          <div className="space-y-1 w-36">
-                            <div className="flex justify-between items-center text-[11px] font-mono">
-                              <span className="text-neutral-200 font-bold">{registered} / {maxCap}</span>
+                          <div className="space-y-1 w-40">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRegistrantsEvent(ev)}
+                              className="group w-full flex items-center justify-between text-[11px] font-mono px-2 py-1.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border border-white/10 transition-colors text-left"
+                              title="Click to view registrant details (Name + Email)"
+                            >
+                              <span className="text-neutral-200 font-bold group-hover:text-emerald-400 flex items-center gap-1.5 transition-colors">
+                                <Users className="h-3 w-3 text-neutral-400 group-hover:text-emerald-400 shrink-0" />
+                                {registered} registered
+                              </span>
                               {isClosed ? (
-                                <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-400 border border-white/10 font-semibold">
+                                <span className="text-[9px] font-sans px-1.5 py-0.5 rounded bg-black/60 text-neutral-400 border border-white/10 font-semibold">
                                   Closed
                                 </span>
                               ) : (
-                                <span className="font-bold text-neutral-400">{percent}%</span>
+                                <span className="text-[10px] text-neutral-500 font-normal">/ {maxCap}</span>
                               )}
-                            </div>
+                            </button>
                             <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full ${
+                                className={`h-full rounded-full transition-all ${
                                   isClosed
                                     ? "bg-neutral-600"
                                     : percent >= 90
@@ -406,6 +334,105 @@ export default function AdminEventsPage() {
         description={`Are you sure you want to permanently delete "${deleteTarget?.title}"?`}
         onConfirm={handleDeleteEvent}
       />
+
+      {/* Registrant List Modal (Admin Only - Name & Email Record) */}
+      <Dialog
+        open={!!selectedRegistrantsEvent}
+        onOpenChange={(open) => !open && setSelectedRegistrantsEvent(null)}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col rounded-3xl border border-white/[0.08] bg-[#0D0D0D]/95 backdrop-blur-2xl text-neutral-200 p-6">
+          <DialogHeader className="space-y-1.5 pb-4 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between">
+              <Badge variant="member" className="text-xs">
+                {selectedRegistrantsEvent?.category}
+              </Badge>
+              <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-500/20">
+                {selectedRegistrantsEvent
+                  ? registrations.filter((r) => r.event_id === selectedRegistrantsEvent.id).length
+                  : 0}{" "}
+                Registered
+              </span>
+            </div>
+            <DialogTitle className="text-xl font-bold text-neutral-100">
+              {selectedRegistrantsEvent?.title} — Registrants
+            </DialogTitle>
+            <DialogDescription className="text-xs text-neutral-400">
+              Verified attendee records sourced live from the Supabase registrations table.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-2">
+            {(() => {
+              const list = selectedRegistrantsEvent
+                ? registrations.filter((r) => r.event_id === selectedRegistrantsEvent.id)
+                : [];
+              if (list.length === 0) {
+                return (
+                  <div className="py-12 text-center text-xs text-neutral-500">
+                    No student registrations found for this event yet.
+                  </div>
+                );
+              }
+              return (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-white/[0.06] hover:bg-transparent">
+                      <TableHead className="text-neutral-400 text-xs w-12">#</TableHead>
+                      <TableHead className="text-neutral-400 text-xs">Attendee Name</TableHead>
+                      <TableHead className="text-neutral-400 text-xs">Email</TableHead>
+                      <TableHead className="text-neutral-400 text-xs">Registered Date</TableHead>
+                      <TableHead className="text-right text-neutral-400 text-xs">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {list.map((reg, idx) => (
+                      <TableRow key={reg.id || idx} className="border-b border-white/[0.04]">
+                        <TableCell className="text-xs font-mono text-neutral-500">{idx + 1}</TableCell>
+                        <TableCell className="text-xs font-medium text-neutral-100">{reg.student_name}</TableCell>
+                        <TableCell className="text-xs font-mono text-neutral-300">{reg.student_email}</TableCell>
+                        <TableCell className="text-xs text-neutral-400">
+                          {new Date(reg.created_at || reg.registered_at || Date.now()).toLocaleDateString("en-IN", {
+                            dateStyle: "medium",
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="upcoming" className="text-[10px] capitalize">
+                            {reg.status || "confirmed"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              );
+            })()}
+          </div>
+
+          <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (selectedRegistrantsEvent) {
+                  exportRegistrationsCSV(selectedRegistrantsEvent.id);
+                }
+              }}
+              className="rounded-full text-xs border-white/10 hover:bg-white/[0.06] flex items-center gap-1.5"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Export CSV</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedRegistrantsEvent(null)}
+              className="rounded-full text-xs text-neutral-400"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

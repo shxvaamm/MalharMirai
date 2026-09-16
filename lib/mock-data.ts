@@ -71,13 +71,29 @@ export interface ClubStats {
   eventsOrganised: number;
 }
 
-export const SOCIETY_INFO = {
+export interface SocietyInfo {
+  name: string;
+  shortName: string;
+  tagline: string;
+  founded: string;
+  batch: string;
+  college: string;
+  aboutText: string;
+  contact: {
+    email: string;
+    instagram: string;
+    location: string;
+  };
+}
+
+export const SOCIETY_INFO: SocietyInfo = {
   name: "MALHAR – The Cultural Society of Mirai",
   shortName: "MALHAR",
   tagline: "The Cultural Society of Mirai School of Technology",
   founded: "Started by the 2025–29 batch",
-  aboutText: "Malhar is the cultural society of Mirai School of Technology, started by the 2025–29 batch. From dance and singing to management and tech, we give students the stage to build skills and showcase their talent.",
+  batch: "2025–29",
   college: "Mirai School of Technology",
+  aboutText: "Malhar is the cultural society of Mirai School of Technology, started by the 2025–29 batch. From dance and singing to management and tech, we give students the stage to build skills and showcase their talent.",
   contact: {
     email: "malharmirai01@gmail.com",
     instagram: "https://www.instagram.com/malhar_mirai.hiet/",

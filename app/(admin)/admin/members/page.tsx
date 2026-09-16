@@ -55,8 +55,6 @@ export default function AdminMembersPage() {
     members,
     events,
     departments,
-    stats,
-    updateStats,
     addMemberToState,
     updateMember,
     deleteMember,
@@ -87,25 +85,19 @@ export default function AdminMembersPage() {
     if (!rolePanelMember) return;
     setSavingRole(true);
     try {
-      updateMember(rolePanelMember.id, { role: selectedRole });
-
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      await (supabase.from("club_members") as any)
-        .update({ role: selectedRole })
-        .eq("id", rolePanelMember.id);
-
+      await changeRole(rolePanelMember.id, selectedRole);
+      setRolePanelMember(null);
       toast({
-        title: selectedRole === "admin" ? `Admin Access Granted ⭐` : "Role Updated",
-        description:
-          selectedRole === "admin"
-            ? `"${rolePanelMember.full_name}" is now an Admin. Star badge visible on public pages.`
-            : `"${rolePanelMember.full_name}" role set to Member.`,
+        title: "Role Updated",
+        description: `${rolePanelMember.full_name}'s role changed to ${selectedRole}.`,
         type: "success",
       });
-      closeRolePanel();
-    } catch (e) {
-      toast({ title: "Failed to save role", description: String(e), type: "error" });
+    } catch (e: any) {
+      toast({
+        title: "Role Update Failed",
+        description: e?.message || "Failed to update member role.",
+        type: "error",
+      });
     } finally {
       setSavingRole(false);
     }
@@ -116,84 +108,6 @@ export default function AdminMembersPage() {
   const [roleFilter, setRoleFilter] = React.useState("all");
   const [page, setPage] = React.useState(1);
   const itemsPerPage = 8;
-
-  // Public Events counter modal state
-  const [isEventCountModalOpen, setIsEventCountModalOpen] = React.useState(false);
-  const [public_events_count, setPublicEventsCount] = React.useState<number>(
-    stats?.eventsOrganised !== undefined ? stats.eventsOrganised : 5
-  );
-  const [isSavingEventCount, setIsSavingEventCount] = React.useState(false);
-
-  // Active Members counter modal state
-  const [isMemberCountModalOpen, setIsMemberCountModalOpen] = React.useState(false);
-  const [public_members_count, setPublicMembersCount] = React.useState<number>(
-    stats?.activeMembers !== undefined ? stats.activeMembers : 1
-  );
-  const [isSavingMemberCount, setIsSavingMemberCount] = React.useState(false);
-
-  React.useEffect(() => {
-    if (stats?.activeMembers !== undefined) {
-      setPublicMembersCount(stats.activeMembers);
-    }
-  }, [stats?.activeMembers]);
-
-  React.useEffect(() => {
-    if (stats?.eventsOrganised !== undefined) {
-      setPublicEventsCount(stats.eventsOrganised);
-    }
-  }, [stats?.eventsOrganised]);
-
-  const handleSaveActiveCountModal = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const val = Number(public_members_count) >= 0 ? Number(public_members_count) : 7;
-    setIsSavingMemberCount(true);
-
-    try {
-      const supabase = createClient();
-      await (supabase.from("site_settings") as any).upsert([
-        { key: "public_active_members", value: String(val), updated_at: new Date().toISOString() },
-        { key: "active_members", value: String(val), updated_at: new Date().toISOString() },
-      ], { onConflict: "key" });
-      await (supabase.from("club_stats") as any).upsert({
-        id: "current",
-        active_members: val,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "id" });
-    } catch (err) {
-      console.warn("Direct Supabase write:", err);
-    }
-
-    await updateStats({ activeMembers: val });
-    setIsSavingMemberCount(false);
-    setIsMemberCountModalOpen(false);
-    window.location.reload();
-  };
-
-  const handleSaveEventsCountModal = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const val = Number(public_events_count) >= 0 ? Number(public_events_count) : 8;
-    setIsSavingEventCount(true);
-
-    try {
-      const supabase = createClient();
-      await (supabase.from("site_settings") as any).upsert([
-        { key: "public_events_organised", value: String(val), updated_at: new Date().toISOString() },
-        { key: "events_organised", value: String(val), updated_at: new Date().toISOString() },
-      ], { onConflict: "key" });
-      await (supabase.from("club_stats") as any).upsert({
-        id: "current",
-        events_organised: val,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "id" });
-    } catch (err) {
-      console.warn("Direct Supabase write:", err);
-    }
-
-    await updateStats({ eventsOrganised: val });
-    setIsSavingEventCount(false);
-    setIsEventCountModalOpen(false);
-    window.location.reload();
-  };
 
   // Dialog states
   const [addOpen, setAddOpen] = React.useState(false);
@@ -283,115 +197,6 @@ export default function AdminMembersPage() {
             <span>Add Member</span>
           </Button>
         </div>
-      </div>
-
-      {/* Dynamic Statistics Metric Control Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card 1: Active Members Metric Control Card */}
-        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 p-5 rounded-3xl shadow-xl flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center font-bold">
-                <Users className="h-5 w-5 text-neutral-400" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-neutral-200 flex items-center gap-2">
-                  <span>Public Display Active Members:</span>
-                  <span className="text-base font-bold text-neutral-100 font-mono">
-                    {stats?.activeMembers !== undefined ? stats.activeMembers : 1}+
-                  </span>
-                  <Badge variant="upcoming" className="text-[10px]">Real-Time</Badge>
-                </div>
-                <p className="text-[11px] text-neutral-400">
-                  Database Roster Total: <span className="font-semibold text-neutral-200">{members.length} members enrolled</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setPublicMembersCount(stats?.activeMembers !== undefined ? stats.activeMembers : 1);
-                  setIsMemberCountModalOpen(true);
-                }}
-                className="border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.07] rounded-full text-xs font-medium"
-              >
-                Edit Member Count
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  updateStats({ activeMembers: members.length });
-                  toast({
-                    title: "Synced to Roster Count",
-                    description: `Active members set to match roster total (${members.length}).`,
-                    type: "success",
-                  });
-                }}
-                className="text-xs text-neutral-400 hover:text-neutral-200 rounded-full"
-                title="Sync with current database count"
-              >
-                Auto-Sync ({members.length})
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        {/* Card 2: Events Organised Metric Control Card */}
-        <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 p-5 rounded-3xl shadow-xl flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center font-bold">
-                <Calendar className="h-5 w-5 text-neutral-400" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-neutral-200 flex items-center gap-2">
-                  <span>Public Display Events Organised:</span>
-                  <span className="text-base font-bold text-neutral-100 font-mono">
-                    {stats?.eventsOrganised !== undefined ? stats.eventsOrganised : 5}+
-                  </span>
-                  <Badge variant="upcoming" className="text-[10px]">Real-Time</Badge>
-                </div>
-                <p className="text-[11px] text-neutral-400">
-                  Database Events Total: <span className="font-semibold text-neutral-200">{events.length} events scheduled</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setPublicEventsCount(stats?.eventsOrganised !== undefined ? stats.eventsOrganised : 5);
-                  setIsEventCountModalOpen(true);
-                }}
-                className="border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.07] rounded-full text-xs font-medium"
-              >
-                Edit Event Count
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  updateStats({ eventsOrganised: events.length });
-                  toast({
-                    title: "Synced to Events Count",
-                    description: `Events organised set to match events total (${events.length}).`,
-                    type: "success",
-                  });
-                }}
-                className="text-xs text-neutral-400 hover:text-neutral-200 rounded-full"
-                title="Sync with current database count"
-              >
-                Auto-Sync ({events.length})
-              </Button>
-            </div>
-          </div>
-        </Card>
       </div>
 
       {/* Filter and Search Controls */}
@@ -803,133 +608,6 @@ export default function AdminMembersPage() {
         onConfirm={handleDeleteMember}
       />
 
-      {/* Edit Public Events Count Modal */}
-      <Dialog open={isEventCountModalOpen} onOpenChange={setIsEventCountModalOpen}>
-        <DialogContent className="max-w-md bg-[#0D0D0D] border border-white/10 rounded-3xl p-6 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-neutral-100 font-bold flex items-center gap-2 text-base">
-              <Calendar className="h-5 w-5 text-neutral-300" />
-              <span>Edit Public Events Count</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-neutral-400">
-              Update the total number of events organised shown on the public Homepage and About page. This saves to Supabase <code className="text-neutral-300">site_settings</code>, <code className="text-neutral-300">club_stats</code>, and local storage.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveEventsCountModal} className="space-y-4 pt-2">
-            <div>
-              <label className="text-xs font-semibold block mb-1.5 text-neutral-300">
-                Public Events Organised Count
-              </label>
-              <Input
-                type="number"
-                min={0}
-                value={public_events_count}
-                onChange={(e) => setPublicEventsCount(Number(e.target.value))}
-                placeholder="e.g. 12"
-                required
-                className="text-sm font-mono font-bold rounded-2xl bg-black/60 border-white/10 text-neutral-100 h-11"
-              />
-              <span className="text-[11px] text-neutral-500 mt-1.5 block">
-                Public displays will render &ldquo;{public_events_count}+&rdquo; on Homepage and About pages.
-              </span>
-            </div>
-
-            <DialogFooter className="pt-3 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEventCountModalOpen(false)}
-                disabled={isSavingEventCount}
-                className="rounded-full border-white/10 bg-white/[0.03] text-neutral-300 hover:text-white"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="default"
-                size="sm"
-                disabled={isSavingEventCount}
-                className="rounded-full font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-[#D4D4D4]"
-              >
-                {isSavingEventCount ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  "Save Event Count"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Public Active Members Count Modal */}
-      <Dialog open={isMemberCountModalOpen} onOpenChange={setIsMemberCountModalOpen}>
-        <DialogContent className="max-w-md bg-[#0D0D0D] border border-white/10 rounded-3xl p-6 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-neutral-100 font-bold flex items-center gap-2 text-base">
-              <Users className="h-5 w-5 text-neutral-300" />
-              <span>Edit Public Active Members Count</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-neutral-400">
-              Update the total number of active members shown on the public Homepage and About page. This saves to Supabase <code className="text-neutral-300">site_settings</code>, <code className="text-neutral-300">club_stats</code>, and local storage.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveActiveCountModal} className="space-y-4 pt-2">
-            <div>
-              <label className="text-xs font-semibold block mb-1.5 text-neutral-300">
-                Public Active Members Count
-              </label>
-              <Input
-                type="number"
-                min={0}
-                value={public_members_count}
-                onChange={(e) => setPublicMembersCount(Number(e.target.value))}
-                placeholder="e.g. 48"
-                required
-                className="text-sm font-mono font-bold rounded-2xl bg-black/60 border-white/10 text-neutral-100 h-11"
-              />
-              <span className="text-[11px] text-neutral-500 mt-1.5 block">
-                Public displays will render &ldquo;{public_members_count}+&rdquo; on Homepage and About pages.
-              </span>
-            </div>
-
-            <DialogFooter className="pt-3 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsMemberCountModalOpen(false)}
-                disabled={isSavingMemberCount}
-                className="rounded-full border-white/10 bg-white/[0.03] text-neutral-300 hover:text-white"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="default"
-                size="sm"
-                disabled={isSavingMemberCount}
-                className="rounded-full font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-[#D4D4D4]"
-              >
-                {isSavingMemberCount ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  "Save Member Count"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

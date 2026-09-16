@@ -17,6 +17,8 @@ import {
   MOCK_GALLERY,
   DEFAULT_HERO_SLIDES,
   DEFAULT_CLUB_STATS,
+  SOCIETY_INFO,
+  SocietyInfo,
 } from "@/lib/mock-data";
 
 import { createClient } from "@/lib/supabase/client";
@@ -39,10 +41,13 @@ export interface StudentRegistration {
   event_title: string;
   student_name: string;
   student_email: string;
-  student_phone: string;
+  student_phone?: string | null;
+  user_id?: string | null;
+  created_at?: string;
   registered_at: string;
-  department?: string;
-  year?: string;
+  department?: string | null;
+  year?: string | null;
+  status?: string;
 }
 
 const INITIAL_REGISTRATIONS: StudentRegistration[] = [];
@@ -97,6 +102,10 @@ export function useAdminData() {
     if (typeof window !== "undefined") return getSyncedData(STORAGE_KEYS.HERO_SLIDES, DEFAULT_HERO_SLIDES);
     return DEFAULT_HERO_SLIDES;
   });
+  const [societyInfo, setSocietyInfo] = React.useState<SocietyInfo>(() => {
+    if (typeof window !== "undefined") return getSyncedData(STORAGE_KEYS.SOCIETY_INFO, SOCIETY_INFO);
+    return SOCIETY_INFO;
+  });
   const [loading, setLoading] = React.useState(false);
 
 
@@ -143,7 +152,7 @@ export function useAdminData() {
             venue: d.venue || "Campus Auditorium",
             poster_url: d.poster_url || MOCK_EVENTS[0].poster_url,
             max_capacity: d.max_capacity || 300,
-            registered_count: d.registered_count ?? (regData?.filter((r: any) => r.event_id === d.id)?.length || 0),
+            registered_count: regData ? regData.filter((r: any) => r.event_id === d.id).length : (d.registered_count || 0),
             status: d.status || "upcoming",
             registration_deadline: d.registration_deadline || new Date(Date.now() + 86400000 * 7).toISOString(),
             rules: Array.isArray(d.rules) && d.rules.length > 0 ? d.rules : ["Valid Mirai Student Registration Pass required.", "Report 20 mins early."],
@@ -262,6 +271,26 @@ export function useAdminData() {
           setSyncedData(STORAGE_KEYS.HERO_SLIDES, mappedHero);
         }
 
+        // Load registrations from DB (Supabase sole source of truth)
+        if (regData && Array.isArray(regData)) {
+          const mappedRegs: StudentRegistration[] = regData.map((d: any) => ({
+            id: d.id,
+            event_id: d.event_id,
+            event_title: d.event_title || d.events?.title || "",
+            student_name: d.student_name,
+            student_email: d.student_email,
+            student_phone: d.student_phone || null,
+            user_id: d.user_id || null,
+            created_at: d.created_at,
+            registered_at: d.created_at || d.registered_at || new Date().toISOString(),
+            department: d.department || null,
+            year: d.year_of_study || d.year || null,
+            status: d.status || "confirmed",
+          }));
+          setRegistrations(mappedRegs);
+          setSyncedData(STORAGE_KEYS.REGISTRATIONS, mappedRegs);
+        }
+
         // Fetch club stats from Supabase site_settings and club_stats
         const { data: settingsData } = await (supabase.from("site_settings") as any)
           .select("key, value")
@@ -375,6 +404,9 @@ export function useAdminData() {
       if (!key || key === STORAGE_KEYS.HERO_SLIDES) {
         const syncedHero = getSyncedData(STORAGE_KEYS.HERO_SLIDES, DEFAULT_HERO_SLIDES);
         setHeroSlides(Array.from(new Map(syncedHero.map((s: any) => [s.id, s])).values()));
+      }
+      if (!key || key === STORAGE_KEYS.SOCIETY_INFO) {
+        setSocietyInfo(getSyncedData(STORAGE_KEYS.SOCIETY_INFO, SOCIETY_INFO));
       }
     };
 
@@ -625,21 +657,54 @@ export function useAdminData() {
     }
 
     const regId = generateSafeUUID();
+    const nowIso = new Date().toISOString();
     const newReg: StudentRegistration = {
       ...regInput,
       id: regId,
-      registered_at: new Date().toISOString(),
+      created_at: nowIso,
+      registered_at: nowIso,
+      student_phone: regInput.student_phone || null,
+      user_id: regInput.user_id || null,
+      department: regInput.department || null,
+      year: regInput.year || null,
+      status: "confirmed",
     };
 
+    // 1. Persist to Supabase first — Supabase as sole source of truth with database unique constraint
+    const supabase = createClient();
+    const { error: insertError } = await (supabase.from("registrations") as any).insert({
+      id: regId,
+      event_id: regInput.event_id || null,
+      student_name: regInput.student_name,
+      student_email: regInput.student_email.trim().toLowerCase(),
+      student_phone: regInput.student_phone || null,
+      user_id: regInput.user_id || null,
+      department: null,
+      year_of_study: null,
+      college_id: null,
+      status: "confirmed",
+      created_at: nowIso,
+    });
 
-    // 1. Add to registrations state and persist to syncStore
+    if (insertError) {
+      if (
+        insertError.code === "23505" ||
+        insertError.message?.toLowerCase().includes("unique") ||
+        insertError.message?.toLowerCase().includes("duplicate")
+      ) {
+        throw new Error("You're already registered for this event.");
+      }
+      throw new Error(insertError.message || "Failed to submit event registration.");
+    }
+
+    // 2. Add to registrations state and persist to syncStore upon DB confirmation
     setRegistrations((prev) => {
-      const updated = [newReg, ...prev];
+      const updated = [newReg, ...prev.filter((r) => r.id !== regId)];
       setSyncedData(STORAGE_KEYS.REGISTRATIONS, updated);
       return updated;
     });
 
-    // 2. Increment target event's registered_count dynamically
+    // 3. Increment target event's registered_count dynamically
     setEvents((prev) => {
       const updated = prev.map((ev) =>
         ev.id === regInput.event_id ||
@@ -651,40 +716,16 @@ export function useAdminData() {
       return updated;
     });
 
-    // 3. Persist to Supabase — include ALL columns with safe defaults to avoid NOT NULL failures
+    // Try incrementing registered_count column in events table for legacy sync
     try {
-      const supabase = createClient();
-      const { error: insertError } = await (supabase.from("registrations") as any).insert({
-        id: regId,
-        event_id: regInput.event_id || null,
-        student_name: regInput.student_name,
-        student_email: regInput.student_email,
-        student_phone: regInput.student_phone || "",
-        department: regInput.department || "",
-        year_of_study: regInput.year || "",
-        college_id: "",
-        status: "confirmed",
-      });
-
-      if (insertError) {
-        console.warn("[Registration] DB insert error:", insertError.message, insertError.code);
-      } else {
-        // Increment registered_count in events table
-        try {
-          const { data: ev } = await (supabase.from("events") as any)
-            .select("registered_count")
-            .eq("id", regInput.event_id)
-            .maybeSingle();
-          await (supabase.from("events") as any)
-            .update({ registered_count: (ev?.registered_count || 0) + 1 })
-            .eq("id", regInput.event_id);
-        } catch (e) {
-          console.warn("[Registration] Count increment failed:", e);
-        }
-      }
-    } catch (e) {
-      console.warn("[Registration] Supabase save failed, data saved locally:", e);
-    }
+      const { data: ev } = await (supabase.from("events") as any)
+        .select("registered_count")
+        .eq("id", regInput.event_id)
+        .maybeSingle();
+      await (supabase.from("events") as any)
+        .update({ registered_count: (ev?.registered_count || 0) + 1 })
+        .eq("id", regInput.event_id);
+    } catch {}
 
     return newReg;
   };
@@ -1076,10 +1117,10 @@ export function useAdminData() {
       r.id,
       `"${r.student_name}"`,
       r.student_email,
-      r.student_phone,
+      r.student_phone || "N/A",
       `"${r.event_title}"`,
       `"${r.department || "General"}"`,
-      new Date(r.registered_at).toLocaleString("en-IN"),
+      new Date(r.created_at || r.registered_at || Date.now()).toLocaleString("en-IN"),
     ]);
 
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
@@ -1258,6 +1299,21 @@ export function useAdminData() {
     toggleHeroSlideActive,
     deleteHeroSlide,
     reorderHeroSlides,
+    // Society Info
+    societyInfo,
+    updateSocietyInfo: async (info: Partial<SocietyInfo>) => {
+      const current = getSyncedData(STORAGE_KEYS.SOCIETY_INFO, SOCIETY_INFO);
+      const updated = {
+        ...current,
+        ...info,
+        contact: {
+          ...current.contact,
+          ...(info.contact || {}),
+        },
+      };
+      setSocietyInfo(updated);
+      setSyncedData(STORAGE_KEYS.SOCIETY_INFO, updated);
+    },
   };
 }
 

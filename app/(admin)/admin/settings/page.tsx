@@ -28,7 +28,7 @@ import { isSuperAdminEmail } from "@/lib/auth/rbac";
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
-  const { stats, members, events, updateStats } = useAdminData();
+  const { stats, members, events, updateStats, societyInfo, updateSocietyInfo } = useAdminData();
   const { user: authUser, role: authRole } = useAuth();
   const isSuperAdmin = authRole === "super_admin" || isSuperAdminEmail(authUser?.email);
 
@@ -37,12 +37,14 @@ export default function AdminSettingsPage() {
   const [eventsOrganised, setEventsOrganised] = React.useState(stats?.eventsOrganised || events.length || 12);
   const [savingStats, setSavingStats] = React.useState(false);
 
-  // Club Profile State
-  const [clubName, setClubName] = React.useState(SOCIETY_INFO.name);
-  const [aboutText, setAboutText] = React.useState(SOCIETY_INFO.aboutText);
-  const [officialEmail, setOfficialEmail] = React.useState(SOCIETY_INFO.contact.email);
-  const [instagram, setInstagram] = React.useState(SOCIETY_INFO.contact.instagram);
-  const [address, setAddress] = React.useState(SOCIETY_INFO.contact.location);
+  // Club Profile State (Sourced from canonical shared societyInfo)
+  const [clubName, setClubName] = React.useState(societyInfo.name);
+  const [college, setCollege] = React.useState(societyInfo.college || "Mirai School of Technology");
+  const [batch, setBatch] = React.useState(societyInfo.batch || "2025–29");
+  const [aboutText, setAboutText] = React.useState(societyInfo.aboutText);
+  const [officialEmail, setOfficialEmail] = React.useState(societyInfo.contact.email);
+  const [instagram, setInstagram] = React.useState(societyInfo.contact.instagram);
+  const [address, setAddress] = React.useState(societyInfo.contact.location);
   const [savingSettings, setSavingSettings] = React.useState(false);
 
   // Security State
@@ -57,6 +59,18 @@ export default function AdminSettingsPage() {
       setEventsOrganised(stats.eventsOrganised !== undefined ? stats.eventsOrganised : (events.length || 12));
     }
   }, [stats, members.length, events.length]);
+
+  React.useEffect(() => {
+    if (societyInfo) {
+      setClubName(societyInfo.name);
+      setCollege(societyInfo.college || "Mirai School of Technology");
+      setBatch(societyInfo.batch || "2025–29");
+      setAboutText(societyInfo.aboutText);
+      setOfficialEmail(societyInfo.contact.email);
+      setInstagram(societyInfo.contact.instagram);
+      setAddress(societyInfo.contact.location);
+    }
+  }, [societyInfo]);
 
   const handleSaveDynamicStats = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,11 +92,23 @@ export default function AdminSettingsPage() {
   const handleSaveClubSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
-    await new Promise((r) => setTimeout(r, 600));
+    const shortName = clubName.includes("–") ? clubName.split("–")[0].trim() : (clubName.includes("-") ? clubName.split("-")[0].trim() : clubName);
+    await updateSocietyInfo({
+      name: clubName,
+      shortName,
+      college,
+      batch,
+      aboutText,
+      contact: {
+        email: officialEmail,
+        instagram,
+        location: address,
+      },
+    });
     setSavingSettings(false);
     toast({
       title: "Society Settings Saved",
-      description: "Official contact details and public social links updated.",
+      description: "Official contact details, institution affiliation, and public identity updated.",
     });
   };
 
@@ -236,6 +262,17 @@ export default function AdminSettingsPage() {
               <div>
                 <label className="text-xs font-semibold block mb-1 text-neutral-300">Official Society Email</label>
                 <Input type="email" value={officialEmail} onChange={(e) => setOfficialEmail(e.target.value)} required className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold block mb-1 text-neutral-300">Affiliated Institution</label>
+                <Input value={college} onChange={(e) => setCollege(e.target.value)} required className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1 text-neutral-300">Batch / Active Cohort</label>
+                <Input value={batch} onChange={(e) => setBatch(e.target.value)} required className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
               </div>
             </div>
 

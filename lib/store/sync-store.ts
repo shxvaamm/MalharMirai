@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   STATS: "malhar_synced_stats",
   REGISTRATIONS: "malhar_synced_registrations",
   HERO_SLIDES: "malhar_synced_hero_slides",
+  SOCIETY_INFO: "malhar_synced_society_info",
 };
 
 
