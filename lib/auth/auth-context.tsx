@@ -116,6 +116,68 @@ function getInitialAuthState(): { user: AuthUser | null; role: UserRole; loading
 
 export const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
+// Asynchronously verifies user role directly against Supabase database truth
+async function fetchUserRoleFromSupabase(
+  supabase: any,
+  userId: string,
+  userEmail: string
+): Promise<UserRole> {
+  const normEmail = userEmail.toLowerCase().trim();
+  if (isSuperAdminEmail(normEmail)) return "super_admin";
+
+  try {
+    // 1. Check profiles table by id
+    if (userId) {
+      const { data: profileById } = await (supabase.from("profiles") as any)
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profileById?.role && (profileById.role === "admin" || profileById.role === "super_admin")) {
+        return "admin";
+      }
+    }
+
+    // 2. Check profiles table by email
+    const { data: profileByEmail } = await (supabase.from("profiles") as any)
+      .select("role")
+      .eq("email", normEmail)
+      .maybeSingle();
+
+    if (profileByEmail?.role && (profileByEmail.role === "admin" || profileByEmail.role === "super_admin")) {
+      return "admin";
+    }
+
+    // 3. Check club_members table by email
+    const { data: memberByEmail } = await (supabase.from("club_members") as any)
+      .select("role")
+      .eq("email", normEmail)
+      .maybeSingle();
+
+    if (memberByEmail?.role && (memberByEmail.role === "admin" || memberByEmail.role === "super_admin")) {
+      return "admin";
+    }
+  } catch (err) {
+    console.warn("[AuthContext] Error querying user role from Supabase:", err);
+  }
+
+  // 4. Fallback to localStorage / registered credentials
+  try {
+    const membersList = typeof window !== "undefined"
+      ? getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS)
+      : MOCK_MEMBERS;
+    const localMember = membersList.find((m) => m.email.toLowerCase() === normEmail);
+    if (localMember?.role === "admin") return "admin";
+
+    const registered = typeof window !== "undefined"
+      ? getRegisteredCredentials().find((c) => c.email.toLowerCase() === normEmail)
+      : null;
+    if (registered?.role === "admin" || registered?.role === "super_admin") return "admin";
+  } catch {}
+
+  return "member";
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [initial] = React.useState(getInitialAuthState);
@@ -136,6 +198,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRole(storedUser.role);
           setLoading(false);
         }
+        // Background verify from Supabase to catch newly appointed admins
+        if (storedUser.email) {
+          const supabase = createClient();
+          fetchUserRoleFromSupabase(supabase, storedUser.id, storedUser.email).then((verifiedRole) => {
+            if (isMounted && verifiedRole !== storedUser.role) {
+              setRole(verifiedRole);
+              setUser((prev) => (prev ? { ...prev, role: verifiedRole } : null));
+              if (verifiedRole === "admin" || verifiedRole === "super_admin") {
+                fetch("/api/auth/admin-session", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ email: storedUser.email, role: verifiedRole }),
+                }).catch(() => {});
+                document.cookie = `malhar_demo_role=${verifiedRole}; path=/; max-age=86400; SameSite=Lax`;
+                localStorage.setItem("malhar_current_user_role", verifiedRole);
+              }
+            }
+          }).catch(() => {});
+        }
         return;
       }
 
@@ -152,23 +234,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session && session.user && session.user.email) {
           const userEmail = session.user.email.toLowerCase().trim();
-          const isSuper = isSuperAdminEmail(userEmail);
-          const membersList = typeof window !== "undefined"
-            ? getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS)
-            : MOCK_MEMBERS;
-          const member = membersList.find((m) => m.email.toLowerCase() === userEmail);
-          const isPromotedAdmin = member?.role === "admin";
-          const registered = typeof window !== "undefined"
-            ? getRegisteredCredentials().find((c) => c.email.toLowerCase() === userEmail)
-            : null;
-          const isRegisteredAdmin = registered?.role === "admin" || registered?.role === "super_admin";
-          const effectiveRole: UserRole = isSuper
-            ? "super_admin"
-            : (isPromotedAdmin || isRegisteredAdmin ? "admin" : "member");
-
+          const effectiveRole = await fetchUserRoleFromSupabase(supabase, session.user.id, userEmail);
+          const isSuper = effectiveRole === "super_admin";
           const hasAdminAccess = effectiveRole === "super_admin" || effectiveRole === "admin";
+
           if (hasAdminAccess) {
-            fetch("/api/auth/admin-session", {
+            await fetch("/api/auth/admin-session", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -190,10 +261,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: userEmail,
               fullName: isSuper
                 ? "Shivam Kumar (Super Admin)"
-                : (registered?.fullName || session.user.user_metadata?.full_name || member?.full_name || "User"),
+                : (session.user.user_metadata?.full_name || userEmail.split("@")[0]),
               role: effectiveRole,
-              avatarUrl: session.user.user_metadata?.avatar_url || member?.avatar_url,
-              department: registered?.department || member?.department || "General",
+              avatarUrl: session.user.user_metadata?.avatar_url,
+              department: "General",
             });
             setRole(effectiveRole);
             setLoading(false);
@@ -218,29 +289,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let authListener: { subscription: { unsubscribe: () => void } } | null = null;
     try {
       const supabase = createClient();
-      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (!isMounted) return;
 
         if (event === "SIGNED_IN" && session?.user?.email) {
           const userEmail = session.user.email.toLowerCase().trim();
-          const isSuper = isSuperAdminEmail(userEmail);
-          const membersList = typeof window !== "undefined"
-            ? getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS)
-            : MOCK_MEMBERS;
-          const member = membersList.find((m) => m.email.toLowerCase() === userEmail);
-          const isPromotedAdmin = member?.role === "admin";
-          const registered = typeof window !== "undefined"
-            ? getRegisteredCredentials().find((c) => c.email.toLowerCase() === userEmail)
-            : null;
-          const isRegisteredAdmin = registered?.role === "admin" || registered?.role === "super_admin";
-          const effectiveRole: UserRole = isSuper
-            ? "super_admin"
-            : (isPromotedAdmin || isRegisteredAdmin ? "admin" : "member");
-
+          const effectiveRole = await fetchUserRoleFromSupabase(supabase, session.user.id, userEmail);
+          const isSuper = effectiveRole === "super_admin";
           const hasAdminAccess = effectiveRole === "super_admin" || effectiveRole === "admin";
 
           if (hasAdminAccess) {
-            fetch("/api/auth/admin-session", {
+            await fetch("/api/auth/admin-session", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -258,19 +317,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem("malhar_current_user_role", effectiveRole);
           }
 
-          setUser({
-            id: session.user.id,
-            email: userEmail,
-            fullName: isSuper
-              ? "Shivam Kumar (Super Admin)"
-              : (registered?.fullName || session.user.user_metadata?.full_name || member?.full_name || "User"),
-            role: effectiveRole,
-            avatarUrl: session.user.user_metadata?.avatar_url || member?.avatar_url,
-            department: registered?.department || member?.department || "General",
-          });
-          setRole(effectiveRole);
-          setLoading(false);
-
+          if (isMounted) {
+            setUser({
+              id: session.user.id,
+              email: userEmail,
+              fullName: isSuper
+                ? "Shivam Kumar (Super Admin)"
+                : (session.user.user_metadata?.full_name || userEmail.split("@")[0]),
+              role: effectiveRole,
+              avatarUrl: session.user.user_metadata?.avatar_url,
+              department: "General",
+            });
+            setRole(effectiveRole);
+            setLoading(false);
+          }
         } else if (event === "SIGNED_OUT") {
           document.cookie = "malhar_demo_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
           document.cookie = "malhar_demo_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";

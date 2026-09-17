@@ -40,15 +40,13 @@ export function AdminGuard({ children, fallback }: AdminGuardProps) {
         const supabase = createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-        if (authError || !user) {
-          if (isSubscribed) {
-            setDbRole(null);
-            setCheckingSupabase(false);
-          }
-          return;
-        }
-
-        const userEmail = user.email?.toLowerCase().trim();
+        const userEmail = (
+          user?.email ||
+          contextUser?.email ||
+          (typeof document !== "undefined"
+            ? decodeURIComponent(document.cookie.match(/malhar_user_email=([^;]+)/)?.[1] || "")
+            : "")
+        ).toLowerCase().trim();
 
         // 1. Direct Super Admin check
         if (isSuperAdminEmail(userEmail)) {
@@ -59,14 +57,58 @@ export function AdminGuard({ children, fallback }: AdminGuardProps) {
           return;
         }
 
-        // 2. Fetch role directly from Supabase `profiles` table
-        const { data: profile } = await (supabase.from("profiles") as any)
-          .select("role, email")
-          .eq("id", user.id)
-          .maybeSingle();
+        // 2. If user exists, check Supabase `profiles` table by id
+        if (user?.id) {
+          const { data: profile } = await (supabase.from("profiles") as any)
+            .select("role, email")
+            .eq("id", user.id)
+            .maybeSingle();
 
-        if (profile && profile.role) {
-          const resolved = resolveUserRole(userEmail, profile.role as string);
+          if (profile && profile.role) {
+            const resolved = resolveUserRole(userEmail, profile.role as string);
+            if (isSubscribed) {
+              setDbRole(resolved);
+              setCheckingSupabase(false);
+            }
+            return;
+          }
+        }
+
+        // 3. Check profiles table by email
+        if (userEmail) {
+          const { data: profileByEmail } = await (supabase.from("profiles") as any)
+            .select("role, email")
+            .eq("email", userEmail)
+            .maybeSingle();
+
+          if (profileByEmail && profileByEmail.role) {
+            const resolved = resolveUserRole(userEmail, profileByEmail.role as string);
+            if (isSubscribed) {
+              setDbRole(resolved);
+              setCheckingSupabase(false);
+            }
+            return;
+          }
+
+          // 4. Check club_members table by email
+          const { data: member } = await (supabase.from("club_members") as any)
+            .select("role, email")
+            .eq("email", userEmail)
+            .maybeSingle();
+
+          if (member?.role && (member.role === "admin" || member.role === "super_admin")) {
+            if (isSubscribed) {
+              setDbRole("admin");
+              setCheckingSupabase(false);
+            }
+            return;
+          }
+        }
+
+        // 5. Fallback to auth metadata or contextRole
+        const metaRole = (user?.user_metadata?.role as string) || (contextRole !== "member" ? contextRole : null);
+        if (metaRole) {
+          const resolved = resolveUserRole(userEmail, metaRole);
           if (isSubscribed) {
             setDbRole(resolved);
             setCheckingSupabase(false);
@@ -74,11 +116,8 @@ export function AdminGuard({ children, fallback }: AdminGuardProps) {
           return;
         }
 
-        // 3. Fallback to auth metadata
-        const metaRole = (user.user_metadata?.role as string) || "member";
-        const resolved = resolveUserRole(userEmail, metaRole);
         if (isSubscribed) {
-          setDbRole(resolved);
+          setDbRole(null);
           setCheckingSupabase(false);
         }
       } catch (err) {
