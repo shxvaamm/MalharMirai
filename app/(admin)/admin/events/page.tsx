@@ -33,7 +33,6 @@ import {
   EditEventDialog,
 } from "@/components/admin/event-dialogs";
 import { DeleteConfirmDialog } from "@/components/admin/member-dialogs";
-import { deleteEventAction } from "@/lib/actions/events";
 import { ClubEvent } from "@/lib/mock-data";
 import { getEffectiveEventStatus } from "@/lib/utils";
 
@@ -76,19 +75,22 @@ export default function AdminEventsPage() {
     const targetId = deleteTarget.id;
     const targetTitle = deleteTarget.title;
 
-    deleteEvent(targetId);
-    setDeleteTarget(null);
-
-    toast({
-      title: "Event Removed",
-      description: `"${targetTitle}" deleted.`,
-      type: "warning",
-    });
-
     try {
-      await deleteEventAction(targetId);
-    } catch (e) {
-      console.warn("Background event deletion sync:", e);
+      await deleteEvent(targetId);
+      toast({
+        title: "Event Removed",
+        description: `"${targetTitle}" deleted permanently.`,
+        type: "success",
+      });
+    } catch (err: any) {
+      console.error("Event deletion error:", err);
+      toast({
+        title: "Delete Failed",
+        description: err?.message || "Could not delete event. Please check your connection or permissions.",
+        type: "error",
+      });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 

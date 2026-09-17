@@ -218,6 +218,36 @@ export async function updateEventAction(
 /**
  * Server Action: Delete an event from the database.
  */
+/**
+ * Helper to extract Supabase Storage path for an event poster image.
+ */
+function extractEventPosterPath(posterUrl?: string): string | null {
+  if (!posterUrl) return null;
+  // External unsplash or placeholder images should not be treated as Supabase Storage objects
+  if (posterUrl.includes("unsplash.com") || posterUrl.startsWith("data:")) return null;
+
+  const mediaIdx = posterUrl.indexOf("/media/");
+  if (mediaIdx !== -1) {
+    const rel = posterUrl.substring(mediaIdx + "/media/".length).split("?")[0];
+    return rel.startsWith("events/") ? rel : `events/${rel}`;
+  }
+
+  const eventsIdx = posterUrl.indexOf("/events/");
+  if (eventsIdx !== -1 && posterUrl.includes("supabase.co")) {
+    return posterUrl.substring(eventsIdx + 1).split("?")[0];
+  }
+
+  if (posterUrl.startsWith("events/")) {
+    return posterUrl.split("?")[0];
+  }
+
+  return null;
+}
+
+/**
+ * Server Action: Delete an event from the database, its storage poster,
+ * linked child registrations, and unlink any associated gallery photos.
+ */
 export async function deleteEventAction(id: string): Promise<ActionResult> {
   const authCheck = await verifyAdminAuthorization("delete_event");
   if (!authCheck.authorized) {
@@ -228,29 +258,106 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
     return { success: false, error: "Event ID is required." };
   }
 
-  revalidatePath("/");
-  revalidatePath("/events");
-  revalidatePath("/admin/events");
-  revalidatePath("/admin");
-
   if (!isValidUUID(id)) {
-    return { success: true };
+    return { success: false, error: "Invalid Event UUID." };
   }
 
   try {
-    const supabase = createAdminClient();
+    const adminClient = createAdminClient();
 
-    const { error } = await (supabase.from("events") as any)
+    // 1. Look up event record first to get poster_url and title
+    const { data: event, error: fetchError } = await (adminClient.from("events") as any)
+      .select("id, title, poster_url")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError) {
+      return { success: false, error: `Failed to fetch event for deletion: ${fetchError.message}` };
+    }
+
+    // If event does not exist, treat as already deleted
+    if (!event) {
+      revalidatePath("/");
+      revalidatePath("/events");
+      revalidatePath(`/events/${id}`);
+      revalidatePath("/admin/events");
+      revalidatePath("/admin");
+      return { success: true };
+    }
+
+    // 2. Delete poster image from media/events/ using admin client if present in Supabase Storage
+    let storageError: any = null;
+    const posterStoragePath = extractEventPosterPath(event.poster_url);
+    if (posterStoragePath) {
+      try {
+        const { error: removeErr } = await adminClient.storage
+          .from("media")
+          .remove([posterStoragePath]);
+        if (removeErr) {
+          console.error(`[deleteEventAction] Failed to delete poster storage file "${posterStoragePath}":`, removeErr);
+          storageError = removeErr;
+        }
+      } catch (stErr: any) {
+        console.error(`[deleteEventAction] Storage removal exception for "${posterStoragePath}":`, stErr);
+        storageError = stErr;
+      }
+    }
+
+    // 3. Delete child registrations explicitly first (ensures clean cascade even without DB FK)
+    const { error: regError } = await (adminClient.from("registrations") as any)
+      .delete()
+      .eq("event_id", id);
+
+    if (regError) {
+      console.error(`[deleteEventAction] Failed to delete registrations for event "${id}":`, regError);
+      return { success: false, error: `Failed to delete linked registrations: ${regError.message}` };
+    }
+
+    // 4. Decision 1: Nullify gallery references (unlink photos, preserve fest memories)
+    if (event.title) {
+      try {
+        await (adminClient.from("gallery") as any)
+          .update({ event_title: null })
+          .eq("event_title", event.title);
+      } catch (gTitleErr) {
+        console.warn(`[deleteEventAction] Could not unlink gallery by event_title:`, gTitleErr);
+      }
+    }
+    try {
+      await (adminClient.from("gallery") as any)
+        .update({ event_id: null })
+        .eq("event_id", id);
+    } catch {
+      // Column event_id may not exist in current schema; handled safely
+    }
+
+    // 5. Delete event row from database
+    const { error: dbError } = await (adminClient.from("events") as any)
       .delete()
       .eq("id", id);
 
-    if (error && error.code !== "22P02" && error.code !== "PGRST116") {
-      return { success: false, error: error.message };
+    if (dbError) {
+      console.error(`[deleteEventAction] Failed to delete event record "${id}":`, dbError);
+      return { success: false, error: dbError.message };
     }
+
+    if (storageError) {
+      return {
+        success: false,
+        error: `Event was removed from database, but poster file cleanup failed: ${storageError.message || storageError}`,
+      };
+    }
+
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath(`/events/${id}`);
+    revalidatePath("/admin/events");
+    revalidatePath("/admin");
 
     return { success: true };
   } catch (err: any) {
-    return { success: true };
+    console.error("[deleteEventAction] Unexpected failure:", err);
+    return { success: false, error: err?.message || "Failed to delete event." };
   }
 }
 

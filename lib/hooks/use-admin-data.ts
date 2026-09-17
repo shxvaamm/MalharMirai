@@ -619,23 +619,22 @@ export function useAdminData() {
   };
 
   const deleteEvent = async (id: string) => {
+    if (!id) return { success: false, error: "Event ID is required" };
+
+    if (isValidUUID(id)) {
+      const res = await deleteEventAction(id);
+      if (!res.success) {
+        throw new Error(res.error || "Failed to delete event from server.");
+      }
+    }
+
     setEvents((prev) => {
       const updated = prev.filter((ev) => ev.id !== id);
       setSyncedData(STORAGE_KEYS.EVENTS, updated);
       return updated;
     });
-    if (isValidUUID(id)) {
-      try {
-        const supabase = createClient();
-        await (supabase.from("events") as any).delete().eq("id", id);
-      } catch (e) {
-        console.warn("Event deleted in local state");
-      }
 
-      try {
-        deleteEventAction(id).catch(() => {});
-      } catch {}
-    }
+    return { success: true };
   };
 
   const registerStudentForEvent = async (regInput: Omit<StudentRegistration, "id" | "registered_at">) => {
