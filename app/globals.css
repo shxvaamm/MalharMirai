@@ -406,7 +406,6 @@ input:-webkit-autofill:active {
   animation-delay: calc(
     20ms + var(--word-i, 0) * 35ms
   );                             /* 20ms base + 35ms × index */
-  will-change: opacity, transform;
 }
 /* Last word in a run — no trailing space */
 .hero-word-last {
