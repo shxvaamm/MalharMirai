@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { hasPermission, UserRole, isSuperAdminEmail } from "@/lib/auth/rbac";
 import { MediaType, GalleryCategory } from "@/lib/types/database";
+import { GalleryMedia, MOCK_GALLERY } from "@/lib/mock-data";
 
 export interface GalleryInput {
   title: string;
@@ -194,6 +195,107 @@ export async function getAdminGalleryListAction(): Promise<ActionResult<any[]>> 
   } catch (err: any) {
     console.error("[getAdminGalleryListAction] Caught exception:", err);
     return { success: false, error: err?.message || "Failed to load admin gallery list." };
+  }
+}
+
+/**
+ * Server Function: Fetch public gallery items using privileged admin client.
+ * Bypasses client-side RLS blocking, checks storage consistency, and delivers
+ * fresh data directly to Server Components without any stale localStorage delay.
+ */
+export async function getPublicGalleryList(): Promise<GalleryMedia[]> {
+  try {
+    const adminClient = createAdminClient();
+
+    // 1. Fetch from Postgres gallery table
+    const { data: dbData, error: dbError } = await (adminClient.from("gallery") as any)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (dbError) {
+      console.error("[getPublicGalleryList] DB query error:", dbError);
+    }
+
+    // 2. Fetch all current storage files to guarantee consistency
+    let storageFileNames = new Set<string>();
+    let storageFiles: any[] = [];
+    try {
+      const { data: files } = await adminClient.storage
+        .from("media")
+        .list("gallery", { sortBy: { column: "created_at", order: "desc" } });
+      if (files && Array.isArray(files)) {
+        storageFiles = files;
+        files.forEach((f: any) => {
+          if (f.name && !f.name.startsWith(".")) storageFileNames.add(f.name);
+        });
+      }
+    } catch (storageErr) {
+      console.warn("[getPublicGalleryList] Storage listing warning:", storageErr);
+    }
+
+    // 3. Map DB rows — filtering out any Supabase storage URL whose file was deleted
+    let list: GalleryMedia[] = (dbData || [])
+      .filter((d: any) => {
+        if (!d.media_url) return false;
+        // If it's a Supabase storage URL in media/gallery, ensure the underlying file still exists
+        const match = d.media_url.match(/\/gallery\/([^/?#]+)/);
+        if (match && match[1] && storageFileNames.size > 0) {
+          return storageFileNames.has(match[1]);
+        }
+        return true;
+      })
+      .map((d: any) => ({
+        id: d.id,
+        title: d.title || "Gallery Item",
+        media_url: d.media_url,
+        media_type: d.media_type || "image",
+        category: d.category || "general",
+        event_title: d.event_title || "",
+        date: d.date || (d.created_at ? new Date(d.created_at).toLocaleDateString() : "2026"),
+        thumbnail_color: "from-amber-600/30 via-orange-600/20 to-stone-900",
+      }));
+
+    // 4. Append any photos in storage that are not yet recorded in DB
+    if (storageFiles.length > 0) {
+      const existingUrls = new Set(list.map((m) => m.media_url));
+      const storageMedia: GalleryMedia[] = [];
+
+      for (const f of storageFiles) {
+        if (!f.name || f.name.startsWith(".")) continue;
+        const { data: urlData } = adminClient.storage
+          .from("media")
+          .getPublicUrl(`gallery/${f.name}`);
+        const publicUrl = urlData?.publicUrl;
+        if (!publicUrl || existingUrls.has(publicUrl)) continue;
+
+        const cleanTitle = f.name
+          .replace(/^\d+_/, "")
+          .replace(/\.[^/.]+$/, "")
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+        storageMedia.push({
+          id: `storage-${f.name}`,
+          title: cleanTitle || "Gallery Capture",
+          media_url: publicUrl,
+          media_type: "image",
+          category: "previous_events",
+          event_title: "Mirai Cultural Fest",
+          date: f.created_at ? new Date(f.created_at).toLocaleDateString() : "2026",
+          thumbnail_color: "from-amber-600/30 via-orange-600/20 to-stone-900",
+        });
+        existingUrls.add(publicUrl);
+      }
+
+      if (storageMedia.length > 0) {
+        list = [...list, ...storageMedia];
+      }
+    }
+
+    return list;
+  } catch (err: any) {
+    console.error("[getPublicGalleryList] Exception fetching gallery:", err);
+    return MOCK_GALLERY;
   }
 }
 

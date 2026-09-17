@@ -134,13 +134,6 @@ export function useGallery(categoryFilter?: string) {
   }, []);
 
   useEffect(() => {
-    if (!isGalleryCacheVersionCurrent()) {
-      wipeGalleryCache();
-      setAllMedia(MOCK_GALLERY);
-    } else {
-      const cached = getSyncedData<GalleryMedia[]>(STORAGE_KEYS.GALLERY, MOCK_GALLERY);
-      if (Array.isArray(cached) && cached.length > 0) setAllMedia(cached);
-    }
     fetchGallery();
   }, [fetchGallery]);
 
