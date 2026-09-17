@@ -36,6 +36,15 @@ export async function GET(request: Request) {
     adminClientStorageResult = { exception: err?.message };
   }
 
+  let anonClientDbResult: any = null;
+  try {
+    const anon = await createClient();
+    const { data, error } = await (anon.from("gallery") as any).select("id, title, media_url");
+    anonClientDbResult = { dataCount: data?.length, error };
+  } catch (err: any) {
+    anonClientDbResult = { exception: err?.message };
+  }
+
   if (probePath) {
     try {
       const admin = createAdminClient();
@@ -58,6 +67,7 @@ export async function GET(request: Request) {
     },
     adminClientDbResult,
     adminClientStorageResult,
+    anonClientDbResult,
     probeDeleteResult,
   });
 }

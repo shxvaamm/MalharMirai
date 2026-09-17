@@ -246,50 +246,18 @@ export function useAdminData() {
           setSyncedData(STORAGE_KEYS.ANNOUNCEMENTS, mappedAnns);
         }
 
-        if (galData && Array.isArray(galData) && galData.length > 0) {
+        if (galData && Array.isArray(galData)) {
           const mappedGal = galData.map((d: any) => ({
             id: d.id,
-            title: d.title,
+            title: d.title || "Gallery Item",
             media_url: d.media_url,
             media_type: d.media_type || "image",
             category: d.category || "general",
-            date: "2026",
-            event_title: "Mirai Cultural Showcase",
+            date: d.date || (d.created_at ? new Date(d.created_at).toLocaleDateString() : "2026"),
+            event_title: d.event_title || "Mirai Cultural Showcase",
           }));
           setGallery(mappedGal);
           setSyncedData(STORAGE_KEYS.GALLERY, mappedGal);
-        } else {
-          // If DB table is empty, sync from storage so admin sees all photos
-          try {
-            const { data: storageFiles } = await supabase.storage
-              .from("media")
-              .list("gallery", { sortBy: { column: "created_at", order: "desc" } });
-            if (storageFiles && storageFiles.length > 0) {
-              const mappedGal = storageFiles
-                .filter((f) => f.name && !f.name.startsWith("."))
-                .map((f, idx) => {
-                  const { data: urlData } = supabase.storage
-                    .from("media")
-                    .getPublicUrl(`gallery/${f.name}`);
-                  const cleanTitle = f.name
-                    .replace(/^\d+_/, "")
-                    .replace(/\.[^/.]+$/, "")
-                    .replace(/[-_]/g, " ")
-                    .replace(/\b\w/g, (c) => c.toUpperCase());
-                  return {
-                    id: `storage-${f.name}`,
-                    title: cleanTitle || `Fest Capture ${idx + 1}`,
-                    media_url: urlData.publicUrl,
-                    media_type: "image" as const,
-                    category: "previous_events" as const,
-                    date: "2026",
-                    event_title: "Mirai Cultural Showcase",
-                  };
-                });
-              setGallery(mappedGal);
-              setSyncedData(STORAGE_KEYS.GALLERY, mappedGal);
-            }
-          } catch {}
         }
 
         // Load hero slides from DB
@@ -1082,65 +1050,32 @@ export function useAdminData() {
     category: "general" | "previous_events" | "workshops" = "previous_events",
     mediaType: "image" | "video" = "image"
   ) => {
-    // FIX 1: Call uploadGalleryMediaAction FIRST to let the server generate and return
-    // the real UUID inserted into Postgres. Only THEN add to state with the real UUID.
-    let serverId: string | undefined;
-    let uploadRes: any = null;
-    try {
-      uploadRes = await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
-      console.log("[TRACE_UPLOAD] uploadGalleryMediaAction response:", {
-        fullResponse: uploadRes,
-        success: uploadRes?.success,
-        data: uploadRes?.data,
-        hasDataId: !!uploadRes?.data?.id,
-        dataId: uploadRes?.data?.id,
-      });
-      if (typeof window !== "undefined") {
-        (window as any).__GALLERY_TRACES = (window as any).__GALLERY_TRACES || [];
-        (window as any).__GALLERY_TRACES.push({
-          type: "upload_response",
-          timestamp: new Date().toISOString(),
-          response: uploadRes,
-          success: uploadRes?.success,
-          data: uploadRes?.data,
-          hasDataId: !!uploadRes?.data?.id,
-          dataId: uploadRes?.data?.id,
-        });
-      }
-
-      if (uploadRes?.success && uploadRes?.data?.id) {
-        serverId = uploadRes.data.id;
-      } else {
-        console.error("[addGalleryMedia] uploadGalleryMediaAction returned failure:", uploadRes?.error);
-      }
-    } catch (err) {
-      console.error("[addGalleryMedia] uploadGalleryMediaAction exception:", err);
-    }
-
-    const assignedId = serverId || generateSafeUUID();
-    console.log("[TRACE_UPLOAD] ID resolution:", {
-      serverId,
-      finalAssignedId: assignedId,
-      usedServerId: assignedId === serverId,
-    });
-    if (typeof window !== "undefined") {
-      (window as any).__GALLERY_TRACES = (window as any).__GALLERY_TRACES || [];
-      (window as any).__GALLERY_TRACES.push({
-        type: "upload_id_assigned",
-        timestamp: new Date().toISOString(),
-        serverId,
-        finalAssignedId: assignedId,
-        usedServerId: assignedId === serverId,
-      });
-    }
-
-    const newMedia: GalleryMedia = {
-      id: assignedId,
+    // PHASE 2: Call uploadGalleryMediaAction FIRST, wait for real inserted row with real ID.
+    const uploadRes = await uploadGalleryMediaAction({
       title,
       media_url: mediaUrl,
       category,
       media_type: mediaType,
-      date: "2026",
+    });
+
+    console.log("[useAdminData:addGalleryMedia] uploadGalleryMediaAction response:", uploadRes);
+
+    if (!uploadRes.success || !uploadRes.data?.id) {
+      const errorMsg = uploadRes.error || "Failed to upload gallery media to database.";
+      console.error("[useAdminData:addGalleryMedia] upload failed:", errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    const realId = uploadRes.data.id;
+    const newMedia: GalleryMedia = {
+      id: realId,
+      title: uploadRes.data.title || title,
+      media_url: uploadRes.data.media_url || mediaUrl,
+      category: (uploadRes.data.category as any) || category,
+      media_type: uploadRes.data.media_type || mediaType,
+      date: uploadRes.data.created_at
+        ? new Date(uploadRes.data.created_at).toLocaleDateString()
+        : "2026",
       event_title: "Mirai Cultural Showcase",
       thumbnail_color: "from-cyan-600/30 via-blue-600/20 to-slate-950",
     };
@@ -1149,20 +1084,29 @@ export function useAdminData() {
     return newMedia;
   };
 
-  const deleteGalleryMedia = async (id: string, mediaUrl?: string) => {
-    setGallery((prev) => {
-      const updated = prev.filter((g) => g.id !== id && (!mediaUrl || g.media_url !== mediaUrl));
-      setSyncedData(STORAGE_KEYS.GALLERY, updated);
-      return updated;
-    });
-
+  const deleteGalleryMedia = async (
+    id: string,
+    mediaUrl?: string
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
+      // PHASE 3: Call deleteGalleryMediaAction FIRST and verify server success
       const res = await deleteGalleryMediaAction(id, mediaUrl);
       if (!res.success) {
-        console.error(`[deleteGalleryMedia] deleteGalleryMediaAction error for id="${id}":`, res.error);
+        console.error(`[useAdminData:deleteGalleryMedia] Action failed for id="${id}":`, res.error);
+        return { success: false, error: res.error || "Failed to delete gallery media." };
       }
-    } catch (err) {
-      console.error(`[deleteGalleryMedia] deleteGalleryMediaAction exception for id="${id}":`, err);
+
+      // Only on confirmed server delete: remove from local state
+      setGallery((prev) => {
+        const updated = prev.filter((g) => g.id !== id && (!mediaUrl || g.media_url !== mediaUrl));
+        setSyncedData(STORAGE_KEYS.GALLERY, updated);
+        return updated;
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      console.error(`[useAdminData:deleteGalleryMedia] Exception deleting id="${id}":`, err);
+      return { success: false, error: err?.message || "An unexpected error occurred during deletion." };
     }
   };
 

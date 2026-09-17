@@ -103,24 +103,7 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
     insertPayload.event_id = input.event_id;
   }
 
-  // 1. Try with user's authenticated SSR client (carries session cookies)
-  try {
-    const userClient = await createClient();
-    const { data, error } = await (userClient.from("gallery") as any)
-      .insert(insertPayload)
-      .select()
-      .single();
-
-    if (!error && data) {
-      console.log("[uploadGalleryMediaAction] User client inserted row successfully:", data);
-      return { success: true, data };
-    }
-    console.warn("[uploadGalleryMediaAction] User client insert failed:", error);
-  } catch (err: any) {
-    console.warn("[uploadGalleryMediaAction] User client insert exception:", err?.message);
-  }
-
-  // 2. Try with privileged admin client
+  // Insert using privileged admin client (bypasses RLS)
   try {
     const adminClient = createAdminClient();
     const { data, error } = await (adminClient.from("gallery") as any)
@@ -128,22 +111,11 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
       .select()
       .single();
 
-    if (!error && data) {
-      console.log("[uploadGalleryMediaAction] Admin client inserted row successfully:", data);
-      return {
-        success: true,
-        data: {
-          id: data.id || newId,
-          ...data,
-        },
-      };
-    }
-
-    console.error("[uploadGalleryMediaAction] Admin client insert failed:", error);
-    if (error && error.code !== "23505") {
+    if (error) {
+      console.error("[uploadGalleryMediaAction] Admin client insert failed:", error);
       return {
         success: false,
-        error: error.message,
+        error: error.message || "Failed to insert gallery record into database.",
         debug: {
           insertPayload,
           error,
@@ -151,6 +123,15 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
         },
       };
     }
+
+    console.log("[uploadGalleryMediaAction] Admin client inserted row successfully:", data);
+    return {
+      success: true,
+      data: {
+        id: data.id || newId,
+        ...data,
+      },
+    };
   } catch (err: any) {
     console.error("[uploadGalleryMediaAction] Admin client insert exception:", err);
     return {
@@ -159,14 +140,6 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
       debug: { exception: err?.message },
     };
   }
-
-  return {
-    success: true,
-    data: {
-      id: newId,
-      ...insertPayload,
-    },
-  };
 }
 
 /**

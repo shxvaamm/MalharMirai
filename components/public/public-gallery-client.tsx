@@ -70,6 +70,27 @@ export function PublicGalleryClient({ initialMedia }: PublicGalleryClientProps) 
             }
           }
         )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "gallery" },
+          (payload) => {
+            const updatedRow = payload.new as any;
+            if (updatedRow && updatedRow.id) {
+              setMedia((prev) =>
+                prev.map((item) =>
+                  item.id === updatedRow.id
+                    ? {
+                        ...item,
+                        title: updatedRow.title || item.title,
+                        media_url: updatedRow.media_url || item.media_url,
+                        category: updatedRow.category || item.category,
+                      }
+                    : item
+                )
+              );
+            }
+          }
+        )
         .subscribe();
 
       return () => {

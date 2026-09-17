@@ -194,8 +194,13 @@ export default function AdminGalleryPage() {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         onUpload={async (title, url, category, type) => {
-          await addGalleryMedia(title, url, category, type);
-          toast({ title: "Media Added", description: `"${title}" has been published to the gallery.` });
+          try {
+            await addGalleryMedia(title, url, category, type);
+            toast({ title: "Media Added", description: `"${title}" has been published to the gallery.` });
+          } catch (err: any) {
+            toast({ title: "Upload Failed", description: err?.message || "Failed to publish media.", type: "error" });
+            throw err;
+          }
         }}
       />
 
@@ -208,39 +213,14 @@ export default function AdminGalleryPage() {
           if (deleteTarget) {
             const targetId = deleteTarget.id;
             const targetMediaUrl = deleteTarget.media_url;
-            console.log("[TRACE_DELETE] Sourced directly from deleteTarget:", {
+            console.log("[AdminGallery] Initiating delete:", {
               id: targetId,
               mediaUrl: targetMediaUrl,
               title: deleteTarget.title,
-              category: deleteTarget.category,
-              fullTarget: deleteTarget,
             });
 
-            if (typeof window !== "undefined") {
-              (window as any).__GALLERY_TRACES = (window as any).__GALLERY_TRACES || [];
-              (window as any).__GALLERY_TRACES.push({
-                type: "delete_target_sourced",
-                timestamp: new Date().toISOString(),
-                targetId,
-                targetMediaUrl,
-                fullTarget: { ...deleteTarget },
-              });
-            }
-
-            const res = await deleteGalleryMediaAction(targetId, targetMediaUrl);
-            console.log("[TRACE_DELETE] deleteGalleryMediaAction result:", res);
-
-            if (typeof window !== "undefined") {
-              (window as any).__GALLERY_TRACES.push({
-                type: "delete_action_result",
-                timestamp: new Date().toISOString(),
-                res,
-              });
-              (window as any).__LAST_GALLERY_DELETE_DEBUG = res;
-            }
-
+            const res = await deleteGalleryMedia(targetId, targetMediaUrl);
             if (res.success) {
-              deleteGalleryMedia(targetId, targetMediaUrl);
               toast({ title: "Media Removed", description: "Item deleted from gallery and storage.", type: "warning" });
               setDeleteTarget(null);
             } else {
