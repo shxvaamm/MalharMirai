@@ -64,6 +64,7 @@ export function AnnouncementsContent({ initialAnnouncements }: AnnouncementsCont
                       day: "numeric",
                       month: "short",
                       year: "numeric",
+                      timeZone: "UTC",
                     })}
                   </span>
                 </div>
