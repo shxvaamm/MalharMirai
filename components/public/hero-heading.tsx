@@ -54,18 +54,20 @@ export function HeroHeading({ prefix, highlight, className = "" }: HeroHeadingPr
       {/* Responsive break before the highlighted school name */}
       <br className="hidden sm:inline" />
 
-      {/* Highlight words — gradient text, stagger continues from prefix end */}
-      <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-neutral-200 to-neutral-300">
-        {highlightWords.map((word, i) => (
-          <span
-            key={`highlight-${i}`}
-            className={`hero-word${i === highlightWords.length - 1 ? " hero-word-last" : ""}`}
-            style={{ "--word-i": prefixCount + i } as React.CSSProperties}
-          >
-            {word}
-          </span>
-        ))}
-      </span>
+      {/* Highlight words — gradient applied per-word so bg-clip-text clips to the
+          span's own direct text node (not children). Using a wrapper span with
+          bg-clip-text doesn't work when all text is inside inline-block children:
+          the wrapper has no direct text nodes to clip to, so the gradient is
+          invisible. Applying the classes per-span is unambiguous in all browsers. */}
+      {highlightWords.map((word, i) => (
+        <span
+          key={`highlight-${i}`}
+          className={`hero-word text-transparent bg-clip-text bg-gradient-to-b from-white via-neutral-200 to-neutral-300${i === highlightWords.length - 1 ? " hero-word-last" : ""}`}
+          style={{ "--word-i": prefixCount + i } as React.CSSProperties}
+        >
+          {word}
+        </span>
+      ))}
     </h1>
   );
 }
