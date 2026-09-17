@@ -1,0 +1,478 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+:root {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 92%;
+
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 92%;
+
+  --popover: 0 0% 4%;
+  --popover-foreground: 0 0% 92%;
+
+  --primary: 0 0% 90%;
+  --primary-foreground: 0 0% 8%;
+
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 90%;
+
+  --muted: 0 0% 11%;
+  --muted-foreground: 0 0% 58%;
+
+  --accent: 0 0% 16%;
+  --accent-foreground: 0 0% 92%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 92%;
+
+  --border: 0 0% 13%;
+  --input: 0 0% 13%;
+  --ring: 0 0% 90%;
+
+  --radius: 1rem;
+  --navbar-height: 5rem; /* 80px on desktop (md:h-20) */
+}
+
+@media (max-width: 767px) {
+  :root {
+    --navbar-height: 4rem; /* 64px on mobile (h-16) */
+  }
+}
+
+/* ── Global Scroll & Layout Positioning System ── */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--navbar-height);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Ensure all anchor targets and sections clear the fixed navbar */
+section, [id], main > div {
+  scroll-margin-top: var(--navbar-height);
+}
+
+*,
+*::before,
+*::after {
+  border-color: hsl(var(--border));
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Exclude inputs, textareas, and editable fields so forms remain fully functional */
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+body {
+  color: #e5e5e5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.015em;
+  text-rendering: optimizeSpeed;
+  overflow-x: hidden;
+  /* NOTE: transform:translateZ(0) intentionally removed — it creates a stacking context
+     on <body> which traps position:fixed children, breaking the global background slideshow.
+     Fixed elements must be fixed relative to the viewport (initial containing block), not body. */
+}
+
+
+img, svg, video {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans), sans-serif;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+  color: #EDEDED;
+}
+
+/* ── Monospace accent font — JetBrains Mono
+   Used for: eyebrow labels, stat numbers, tab counts, footer details.
+   font-feature-settings "tnum" enables tabular (fixed-width) numerals
+   so numbers don't cause layout shift when they animate (counter effect). */
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Eyebrow label typography — small caps, wide tracking, mono */
+.text-eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.625rem;      /* 10px */
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MALHAR — Premium Animation System
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─── Page Transition: Fade + Slide Up ─── */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+.page-fade-in {
+  animation: pageFadeIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ─── Scroll Reveal System ─── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity  0.42s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Slide from left */
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-28px);
+  transition:
+    opacity  0.42s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal-left.reveal-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Slide from right */
+.reveal-right {
+  opacity: 0;
+  transform: translateX(28px);
+  transition:
+    opacity  0.42s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal-right.reveal-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Scale up */
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.95);
+  transition:
+    opacity  0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal-scale.reveal-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Stagger delays for children */
+.stagger-children > *:nth-child(1)  { transition-delay: 0ms;  }
+.stagger-children > *:nth-child(2)  { transition-delay: 50ms;  }
+.stagger-children > *:nth-child(3)  { transition-delay: 100ms; }
+.stagger-children > *:nth-child(4)  { transition-delay: 150ms; }
+.stagger-children > *:nth-child(5)  { transition-delay: 200ms; }
+.stagger-children > *:nth-child(6)  { transition-delay: 250ms; }
+.stagger-children > *:nth-child(7)  { transition-delay: 300ms; }
+.stagger-children > *:nth-child(8)  { transition-delay: 350ms; }
+.stagger-children > *:nth-child(9)  { transition-delay: 400ms; }
+.stagger-children > *:nth-child(10) { transition-delay: 450ms; }
+
+/* ─── Floating Animation ─── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px);   }
+  50%       { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ─── Shimmer / Glow Text ─── */
+@keyframes shimmer {
+  from { background-position: -200% 50%; }
+  to   { background-position:  200% 50%; }
+}
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    #ededed 0%,
+    #ffffff 30%,
+    #a3a3a3 50%,
+    #ffffff 70%,
+    #ededed 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+
+/* ─── Underline Grow on Hover ─── */
+.hover-underline {
+  position: relative;
+}
+.hover-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hover-underline:hover::after {
+  width: 100%;
+}
+
+/* ─── Card Lift on Hover ─── */
+.card-lift {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-4px) scale(1.008);
+  box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+}
+
+/* ─── Marquee ─── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+  will-change: transform;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* ─── Pulse Glow ─── */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.08); }
+  50%       { box-shadow: 0 0 28px 4px rgba(255,255,255,0.10); }
+}
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* ─── Slideshow Slide Layer ─── */
+.slide-layer {
+  will-change: opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: layout paint;
+}
+
+/* ── Optimised Glassmorphism Utilities ── */
+.glass-panel {
+  background: rgba(13, 13, 13, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transform: translateZ(0);
+}
+
+.glass-card {
+  background: rgba(16, 16, 16, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transform: translateZ(0);
+}
+
+.glass-nav {
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transform: translateZ(0);
+}
+
+/* ── Soft Off-White & Muted Gray Text Gradients ── */
+.text-gradient-gold,
+.text-gradient-mono,
+.text-gradient-champagne,
+.text-gradient-soft {
+  background: linear-gradient(180deg, #EDEDED 0%, #B5B5B5 45%, #737373 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-gradient-fest {
+  background: linear-gradient(180deg, #E5E5E5 0%, #A3A3A3 50%, #525252 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-gradient-mirai {
+  background: linear-gradient(180deg, #E5E5E5 0%, #A3A3A3 50%, #737373 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.border-glow-white,
+.border-glow-gold,
+.border-glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(255, 255, 255, 0.06);
+}
+
+/* ── Subtle Masonry Utilities ── */
+.masonry-col {
+  break-inside: avoid;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Custom Scrollbar ── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3d3d3d;
+}
+
+/* ── Prevent browser autofill background discoloration ── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #0A0A0A inset !important;
+  box-shadow: 0 0 0 30px #0A0A0A inset !important;
+  -webkit-text-fill-color: #EDEDED !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: #EDEDED !important;
+}
+
+/* ── Focus visible ring — accessible keyboard nav ── */
+:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+/* ── Hero word-by-word stagger keyframe ── */
+/* duration: 260ms, easing cubic-bezier(0.16,1,0.3,1) — matches former WORD_TRANSITION exactly */
+/* delay per word: 20ms base + word-index × 35ms — matches delayChildren:0.02 + staggerChildren:0.035 */
+@keyframes heroWordIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.hero-word {
+  display: inline-block;
+  margin-right: 0.28em;          /* matches former marginRight: '0.28em' */
+  opacity: 0;                    /* start hidden; animation fills to visible */
+  animation: heroWordIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(
+    20ms + var(--word-i, 0) * 35ms
+  );                             /* 20ms base + 35ms × index */
+  will-change: opacity, transform;
+}
+/* Last word in a run — no trailing space */
+.hero-word-last {
+  margin-right: 0;
+}
+
+/* ── Hero block stagger (subtitle, CTAs, stats) ── */
+/* duration: 380ms (DURATION.base), delays: 420/540/660ms match Framer delay values */
+@keyframes heroBlockIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.hero-block {
+  opacity: 0;
+  animation: heroBlockIn 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--hero-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+/* ── On-mount fade-up for above-fold elements (not scroll-triggered) ── */
+@keyframes revealFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.reveal-on-mount {
+  animation: revealFadeUp 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+/* ── Stagger item — used inside stagger-children containers ── */
+/* Each child gets --reveal-i set via inline style for dynamic delay */
+.stagger-item {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity  380ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--reveal-i, 0) * 70ms);
+  will-change: opacity, transform;
+}
+.stagger-item.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Navbar CSS pill — smooth slide between active nav links ── */
+.nav-pill {
+  position: absolute;
+  border-radius: 9999px;
+  background: #e5e5e5;
+  pointer-events: none;
+  transition:
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    width     200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity   150ms ease;
+  will-change: transform, width;
+}
+
+/* ── Reduced motion: honour user preference ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
