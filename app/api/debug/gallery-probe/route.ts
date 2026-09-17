@@ -61,3 +61,14 @@ export async function GET(request: Request) {
     probeDeleteResult,
   });
 }
+
+export async function POST(request: Request) {
+  try {
+    const { id, mediaUrl } = await request.json();
+    const { deleteGalleryMediaAction } = await import("@/lib/actions/gallery");
+    const result = await deleteGalleryMediaAction(id, mediaUrl);
+    return NextResponse.json(result);
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
+  }
+}
