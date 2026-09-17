@@ -6,6 +6,7 @@ import { PageTransition } from "@/components/public/page-transition";
 import { fetchHeroSlidesServer } from "@/lib/data/hero-slides-server";
 import { fetchAnnouncementsServer } from "@/lib/data/announcements-server";
 import { EmergencyBanner } from "@/components/public/emergency-banner";
+import { AnnouncementsProvider } from "@/lib/context/announcements-context";
 
 // Revalidate the layout every 60 s — slides stay fresh without a full rebuild
 export const revalidate = 60;
@@ -23,39 +24,44 @@ export default async function PublicLayout({
   const firstSlideUrl = initialSlides[0]?.image_url ?? null;
 
   return (
-    // bg-transparent so the global fixed background at z:-1 shows through every page
-    <div className="min-h-screen flex flex-col bg-transparent text-foreground selection:bg-white selection:text-black">
-      {/* Preload the first hero image so the browser fetches it during HTML
-          parsing — before React hydrates or the client JS executes. */}
-      {firstSlideUrl && (
-        <link
-          rel="preload"
-          as="image"
-          href={firstSlideUrl}
-          fetchPriority="high"
+    // AnnouncementsProvider creates exactly ONE Supabase Realtime channel for all
+    // public-page consumers (EmergencyBanner + AnnouncementsContent). It lives here
+    // in the layout so it persists across client-side navigations without remounting.
+    <AnnouncementsProvider initialAnnouncements={initialAnnouncements}>
+      {/* bg-transparent so the global fixed background at z:-1 shows through every page */}
+      <div className="min-h-screen flex flex-col bg-transparent text-foreground selection:bg-white selection:text-black">
+        {/* Preload the first hero image so the browser fetches it during HTML
+            parsing — before React hydrates or the client JS executes. */}
+        {firstSlideUrl && (
+          <link
+            rel="preload"
+            as="image"
+            href={firstSlideUrl}
+            fetchPriority="high"
+          />
+        )}
+
+        {/* Global fixed background — renders at z-index:-1, stays anchored to viewport */}
+        <HeroBackgroundSlideshow
+          intervalMs={4500}
+          opacityClassName="opacity-85"
+          initialSlides={initialSlides}
         />
-      )}
 
-      {/* Global fixed background — renders at z-index:-1, stays anchored to viewport */}
-      <HeroBackgroundSlideshow
-        intervalMs={4500}
-        opacityClassName="opacity-85"
-        initialSlides={initialSlides}
-      />
+        {/* Emergency banner — reads announcements from context, no own channel */}
+        <EmergencyBanner />
 
-      {/* Emergency banner */}
-      <EmergencyBanner initialAnnouncements={initialAnnouncements} />
+        {/* Fixed top navbar */}
+        <PublicNavbar />
 
-      {/* Fixed top navbar */}
-      <PublicNavbar />
+        {/* Main page content - offset for fixed navbar */}
+        <main className="flex-1 flex flex-col bg-transparent pt-16 md:pt-20">
+          <PageTransition>{children}</PageTransition>
+        </main>
 
-      {/* Main page content - offset for fixed navbar */}
-      <main className="flex-1 flex flex-col bg-transparent pt-16 md:pt-20">
-        <PageTransition>{children}</PageTransition>
-      </main>
-
-      {/* Standard page footer at the end of the document */}
-      <PublicFooter />
-    </div>
+        {/* Standard page footer at the end of the document */}
+        <PublicFooter />
+      </div>
+    </AnnouncementsProvider>
   );
 }

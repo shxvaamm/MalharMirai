@@ -3,15 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { AlertTriangle, BellRing, ArrowRight, X } from "lucide-react";
-import { useAnnouncements } from "@/lib/hooks/use-announcements";
-import { Announcement } from "@/lib/mock-data";
+import { useAnnouncementsContext } from "@/lib/context/announcements-context";
 
-interface EmergencyBannerProps {
-  initialAnnouncements?: Announcement[];
-}
-
-export function EmergencyBanner({ initialAnnouncements }: EmergencyBannerProps = {}) {
-  const { emergencyAlert } = useAnnouncements(undefined, initialAnnouncements);
+export function EmergencyBanner() {
+  const { emergencyAlert } = useAnnouncementsContext();
   const [dismissed, setDismissed] = React.useState(false);
 
   if (!emergencyAlert || dismissed) return null;

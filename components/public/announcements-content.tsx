@@ -4,16 +4,11 @@ import * as React from "react";
 import { Bell, AlertTriangle, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAnnouncements } from "@/lib/hooks/use-announcements";
+import { useAnnouncementsContext } from "@/lib/context/announcements-context";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
-import { Announcement } from "@/lib/mock-data";
 
-interface AnnouncementsContentProps {
-  initialAnnouncements?: Announcement[];
-}
-
-export function AnnouncementsContent({ initialAnnouncements }: AnnouncementsContentProps) {
-  const { announcements, loading } = useAnnouncements(undefined, initialAnnouncements);
+export function AnnouncementsContent() {
+  const { announcements, loading } = useAnnouncementsContext();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 sm:space-y-10">
