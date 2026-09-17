@@ -139,9 +139,29 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
 }
 
 /**
- * Server Action: Delete gallery media.
+ * Helper to extract bucket file path from mediaUrl or synthetic storage ID.
  */
-export async function deleteGalleryMediaAction(id: string): Promise<ActionResult> {
+function extractStoragePath(mediaUrl?: string, id?: string): string | null {
+  if (id && id.startsWith("storage-")) {
+    const rawName = id.replace(/^storage-/, "");
+    return rawName.startsWith("gallery/") ? rawName : `gallery/${rawName}`;
+  }
+  if (!mediaUrl) return null;
+  const mediaIdx = mediaUrl.indexOf("/media/");
+  if (mediaIdx !== -1) {
+    return mediaUrl.substring(mediaIdx + "/media/".length).split("?")[0];
+  }
+  const galleryIdx = mediaUrl.indexOf("/gallery/");
+  if (galleryIdx !== -1) {
+    return mediaUrl.substring(galleryIdx + 1).split("?")[0];
+  }
+  return null;
+}
+
+/**
+ * Server Action: Delete gallery media from database and Supabase Storage.
+ */
+export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): Promise<ActionResult> {
   const auth = await verifyGalleryPermission();
   if (!auth.authorized) return { success: false, error: auth.error };
 
@@ -150,32 +170,44 @@ export async function deleteGalleryMediaAction(id: string): Promise<ActionResult
   revalidatePath("/admin/gallery");
   revalidatePath("/admin");
 
-  if (!isValidUUID(id)) {
-    return { success: true };
+  const filePath = extractStoragePath(mediaUrl, id);
+
+  // 1. Delete the underlying file from Supabase Storage if found
+  if (filePath) {
+    try {
+      const userClient = await createClient();
+      await userClient.storage.from("media").remove([filePath]);
+    } catch {}
+
+    try {
+      const adminClient = createAdminClient();
+      await adminClient.storage.from("media").remove([filePath]);
+    } catch {}
   }
 
-  // 1. Try with user session client
-  try {
-    const userClient = await createClient();
-    const { error } = await (userClient.from("gallery") as any)
-      .delete()
-      .eq("id", id);
-    if (!error) return { success: true };
-  } catch {}
+  // 2. If valid UUID, delete the row from Postgres gallery table
+  if (isValidUUID(id)) {
+    try {
+      const userClient = await createClient();
+      const { error } = await (userClient.from("gallery") as any)
+        .delete()
+        .eq("id", id);
+      if (!error) return { success: true };
+    } catch {}
 
-  // 2. Try with admin client
-  try {
-    const supabase = createAdminClient();
-    const { error } = await (supabase.from("gallery") as any)
-      .delete()
-      .eq("id", id);
+    try {
+      const adminClient = createAdminClient();
+      const { error } = await (adminClient.from("gallery") as any)
+        .delete()
+        .eq("id", id);
 
-    if (error && error.code !== "22P02" && error.code !== "PGRST116") {
-      return { success: false, error: error.message };
+      if (error && error.code !== "22P02" && error.code !== "PGRST116") {
+        return { success: false, error: error.message };
+      }
+    } catch (err: any) {
+      // ignore
     }
-
-    return { success: true };
-  } catch (err: any) {
-    return { success: true };
   }
+
+  return { success: true };
 }

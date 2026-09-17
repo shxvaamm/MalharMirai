@@ -206,7 +206,7 @@ export default function AdminGalleryPage() {
         description={`Are you sure you want to remove "${deleteTarget?.title}" from the gallery?`}
         onConfirm={async () => {
           if (deleteTarget) {
-            const res = await deleteGalleryMediaAction(deleteTarget.id);
+            const res = await deleteGalleryMediaAction(deleteTarget.id, deleteTarget.media_url);
             if (res.success) {
               deleteGalleryMedia(deleteTarget.id);
               toast({ title: "Media Removed", description: "Item deleted from gallery and storage.", type: "warning" });

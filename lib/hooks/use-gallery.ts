@@ -67,9 +67,16 @@ export function useGallery(categoryFilter?: string) {
         thumbnail_color: "from-amber-600/30 via-orange-600/20 to-stone-900",
       }));
 
-      // Fallback & sync with Supabase Storage media/gallery:
-      // If Postgres gallery table is empty or missing storage photos,
-      // populate from the public storage bucket so photos never disappear.
+      // =========================================================================
+      // ARCHITECTURAL NOTICE:
+      // The public gallery currently sources its list primarily from raw Storage
+      // listing (`media/gallery`) as a fallback because the Postgres `gallery`
+      // table has 0 rows (due to RLS or missing service role key on direct client writes).
+      // Any file uploaded directly to Storage (bypassing the admin upload flow) will
+      // appear publicly with synthetic metadata, and deleted photos must have their
+      // underlying storage files removed via `deleteGalleryMediaAction` to prevent resurrection.
+      // Do not restructure this data flow without explicit user confirmation.
+      // =========================================================================
       try {
         const { data: storageFiles } = await supabase.storage
           .from("media")
