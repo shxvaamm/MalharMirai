@@ -129,7 +129,13 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
 
     if (!error && data) {
       console.log("[uploadGalleryMediaAction] Admin client inserted row successfully:", data);
-      return { success: true, data };
+      return {
+        success: true,
+        data: {
+          id: data.id || newId,
+          ...data,
+        },
+      };
     }
 
     console.error("[uploadGalleryMediaAction] Admin client insert failed:", error);
@@ -153,7 +159,13 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
     };
   }
 
-  return { success: true, data: { id: newId, ...insertPayload } };
+  return {
+    success: true,
+    data: {
+      id: newId,
+      ...insertPayload,
+    },
+  };
 }
 
 /**
@@ -228,16 +240,51 @@ export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): P
   revalidatePath("/admin/gallery");
   revalidatePath("/admin");
 
-  const filePath = getStoragePath(mediaUrl, id);
+  const adminClient = createAdminClient();
+
+  // 1. If mediaUrl is missing or incomplete, attempt DB lookup by valid UUID
+  let resolvedMediaUrl = mediaUrl?.trim() || "";
+  if (!resolvedMediaUrl && isValidUUID(id)) {
+    try {
+      const { data: existingRow } = await (adminClient.from("gallery") as any)
+        .select("media_url")
+        .eq("id", id)
+        .maybeSingle();
+      if (existingRow?.media_url) {
+        resolvedMediaUrl = existingRow.media_url;
+        console.log(`[deleteGalleryMediaAction] Resolved media_url from DB for id="${id}":`, resolvedMediaUrl);
+      }
+    } catch (err) {
+      console.warn(`[deleteGalleryMediaAction] DB lookup by id failed:`, err);
+    }
+  }
+
+  // 2. If id is not a valid UUID, attempt to resolve true UUID from DB by media_url
+  let resolvedId = id;
+  if (!isValidUUID(resolvedId) && resolvedMediaUrl) {
+    try {
+      const { data: rowByUrl } = await (adminClient.from("gallery") as any)
+        .select("id")
+        .eq("media_url", resolvedMediaUrl)
+        .maybeSingle();
+      if (rowByUrl?.id) {
+        resolvedId = rowByUrl.id;
+        console.log(`[deleteGalleryMediaAction] Resolved true DB UUID for media_url:`, resolvedId);
+      }
+    } catch (err) {
+      console.warn(`[deleteGalleryMediaAction] DB lookup by media_url failed:`, err);
+    }
+  }
+
+  const filePath = getStoragePath(resolvedMediaUrl || mediaUrl, resolvedId || id);
   console.log(`[deleteGalleryMediaAction] Computed storage filePath="${filePath}"`);
 
   let storageError: string | null = null;
   let dbError: string | null = null;
 
-  // 1. Delete the underlying file from Supabase Storage using privileged admin client (FIX 4)
+  // 3. Delete the underlying file from Supabase Storage using privileged admin client
   if (filePath) {
     try {
-      const adminClient = createAdminClient();
       const res = await adminClient.storage.from("media").remove([filePath]);
       if (res.error) {
         storageError = res.error.message;
@@ -253,26 +300,25 @@ export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): P
     console.warn(`[deleteGalleryMediaAction] No storage filePath could be determined for id="${id}", mediaUrl="${mediaUrl}"`);
   }
 
-  // 2. Delete the row from Postgres gallery table (by UUID and/or by media_url)
+  // 4. Delete the row from Postgres gallery table (by UUID and/or by media_url)
   try {
-    const adminClient = createAdminClient();
-    if (isValidUUID(id)) {
+    if (isValidUUID(resolvedId)) {
       const res = await (adminClient.from("gallery") as any)
         .delete()
-        .eq("id", id);
+        .eq("id", resolvedId);
       if (res.error && res.error.code !== "22P02" && res.error.code !== "PGRST116") {
         dbError = res.error.message;
-        console.error(`[deleteGalleryMediaAction] adminClient DB delete by id="${id}" error:`, res.error);
+        console.error(`[deleteGalleryMediaAction] adminClient DB delete by id="${resolvedId}" error:`, res.error);
       } else {
-        console.log(`[deleteGalleryMediaAction] adminClient DB delete by id="${id}" succeeded.`);
+        console.log(`[deleteGalleryMediaAction] adminClient DB delete by id="${resolvedId}" succeeded.`);
       }
     }
 
     // Always delete by media_url as well to guarantee no orphaned rows exist
-    if (mediaUrl) {
+    if (resolvedMediaUrl) {
       const res = await (adminClient.from("gallery") as any)
         .delete()
-        .eq("media_url", mediaUrl);
+        .eq("media_url", resolvedMediaUrl);
       if (res.error && res.error.code !== "22P02" && res.error.code !== "PGRST116") {
         console.error(`[deleteGalleryMediaAction] adminClient DB delete by media_url error:`, res.error);
       }
@@ -282,12 +328,12 @@ export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): P
     console.error(`[deleteGalleryMediaAction] adminClient DB delete caught exception:`, err);
   }
 
-  if (storageError && dbError) {
-    return { success: false, error: `Storage: ${storageError}, DB: ${dbError}` };
+  if (storageError || dbError) {
+    return { success: false, error: `Storage: ${storageError || "OK"}, DB: ${dbError || "OK"}` };
   }
 
   return {
     success: true,
-    data: { id, filePath },
+    data: { id: resolvedId, filePath, mediaUrl: resolvedMediaUrl },
   };
 }

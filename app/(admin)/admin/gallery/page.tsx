@@ -206,19 +206,43 @@ export default function AdminGalleryPage() {
         description={`Are you sure you want to remove "${deleteTarget?.title}" from the gallery?`}
         onConfirm={async () => {
           if (deleteTarget) {
-            console.log("[ADMIN_GALLERY] Deleting media item with args:", {
-              id: deleteTarget.id,
-              media_url: deleteTarget.media_url,
+            const targetId = deleteTarget.id;
+            const targetMediaUrl = deleteTarget.media_url;
+            console.log("[TRACE_DELETE] Sourced directly from deleteTarget:", {
+              id: targetId,
+              mediaUrl: targetMediaUrl,
               title: deleteTarget.title,
+              category: deleteTarget.category,
+              fullTarget: deleteTarget,
             });
-            const res = await deleteGalleryMediaAction(deleteTarget.id, deleteTarget.media_url);
-            console.log("[ADMIN_GALLERY] deleteGalleryMediaAction result:", res);
+
             if (typeof window !== "undefined") {
+              (window as any).__GALLERY_TRACES = (window as any).__GALLERY_TRACES || [];
+              (window as any).__GALLERY_TRACES.push({
+                type: "delete_target_sourced",
+                timestamp: new Date().toISOString(),
+                targetId,
+                targetMediaUrl,
+                fullTarget: { ...deleteTarget },
+              });
+            }
+
+            const res = await deleteGalleryMediaAction(targetId, targetMediaUrl);
+            console.log("[TRACE_DELETE] deleteGalleryMediaAction result:", res);
+
+            if (typeof window !== "undefined") {
+              (window as any).__GALLERY_TRACES.push({
+                type: "delete_action_result",
+                timestamp: new Date().toISOString(),
+                res,
+              });
               (window as any).__LAST_GALLERY_DELETE_DEBUG = res;
             }
+
             if (res.success) {
-              deleteGalleryMedia(deleteTarget.id, deleteTarget.media_url);
+              deleteGalleryMedia(targetId, targetMediaUrl);
               toast({ title: "Media Removed", description: "Item deleted from gallery and storage.", type: "warning" });
+              setDeleteTarget(null);
             } else {
               toast({ title: "Delete Failed", description: res.error || "Failed to remove item from server.", type: "error" });
             }

@@ -1085,18 +1085,55 @@ export function useAdminData() {
     // FIX 1: Call uploadGalleryMediaAction FIRST to let the server generate and return
     // the real UUID inserted into Postgres. Only THEN add to state with the real UUID.
     let serverId: string | undefined;
+    let uploadRes: any = null;
     try {
-      const res = await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
-      if (res.success && res.data?.id) {
-        serverId = res.data.id;
+      uploadRes = await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
+      console.log("[TRACE_UPLOAD] uploadGalleryMediaAction response:", {
+        fullResponse: uploadRes,
+        success: uploadRes?.success,
+        data: uploadRes?.data,
+        hasDataId: !!uploadRes?.data?.id,
+        dataId: uploadRes?.data?.id,
+      });
+      if (typeof window !== "undefined") {
+        (window as any).__GALLERY_TRACES = (window as any).__GALLERY_TRACES || [];
+        (window as any).__GALLERY_TRACES.push({
+          type: "upload_response",
+          timestamp: new Date().toISOString(),
+          response: uploadRes,
+          success: uploadRes?.success,
+          data: uploadRes?.data,
+          hasDataId: !!uploadRes?.data?.id,
+          dataId: uploadRes?.data?.id,
+        });
+      }
+
+      if (uploadRes?.success && uploadRes?.data?.id) {
+        serverId = uploadRes.data.id;
       } else {
-        console.error("[addGalleryMedia] uploadGalleryMediaAction returned failure:", res.error);
+        console.error("[addGalleryMedia] uploadGalleryMediaAction returned failure:", uploadRes?.error);
       }
     } catch (err) {
       console.error("[addGalleryMedia] uploadGalleryMediaAction exception:", err);
     }
 
     const assignedId = serverId || generateSafeUUID();
+    console.log("[TRACE_UPLOAD] ID resolution:", {
+      serverId,
+      finalAssignedId: assignedId,
+      usedServerId: assignedId === serverId,
+    });
+    if (typeof window !== "undefined") {
+      (window as any).__GALLERY_TRACES = (window as any).__GALLERY_TRACES || [];
+      (window as any).__GALLERY_TRACES.push({
+        type: "upload_id_assigned",
+        timestamp: new Date().toISOString(),
+        serverId,
+        finalAssignedId: assignedId,
+        usedServerId: assignedId === serverId,
+      });
+    }
+
     const newMedia: GalleryMedia = {
       id: assignedId,
       title,
@@ -1114,7 +1151,7 @@ export function useAdminData() {
 
   const deleteGalleryMedia = async (id: string, mediaUrl?: string) => {
     setGallery((prev) => {
-      const updated = prev.filter((g) => g.id !== id);
+      const updated = prev.filter((g) => g.id !== id && (!mediaUrl || g.media_url !== mediaUrl));
       setSyncedData(STORAGE_KEYS.GALLERY, updated);
       return updated;
     });
