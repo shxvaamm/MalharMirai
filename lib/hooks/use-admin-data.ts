@@ -32,7 +32,7 @@ import { createMemberAction, updateMemberAction, deleteMemberAction } from "@/li
 import { createEventAction, updateEventAction, deleteEventAction } from "@/lib/actions/events";
 import { createDepartmentAction, updateDepartmentAction, deleteDepartmentAction } from "@/lib/actions/departments";
 import { postAnnouncementAction, deleteAnnouncementAction } from "@/lib/actions/announcements";
-import { uploadGalleryMediaAction, deleteGalleryMediaAction } from "@/lib/actions/gallery";
+import { uploadGalleryMediaAction, deleteGalleryMediaAction, getAdminGalleryListAction } from "@/lib/actions/gallery";
 
 export interface StudentRegistration {
   id: string;
@@ -121,7 +121,12 @@ export function useAdminData() {
           (supabase.from("profiles") as any).select("*"),      // SECONDARY: auth users
           (supabase.from("departments") as any).select("*"),
           (supabase.from("announcements") as any).select("*"),
-          (supabase.from("gallery") as any).select("*"),
+          getAdminGalleryListAction()
+            .then((res) => ({ data: res.success && Array.isArray(res.data) ? res.data : null }))
+            .catch((err) => {
+              console.error("[useAdminData] Error loading admin gallery list:", err);
+              return { data: null };
+            }),
           (supabase.from("registrations") as any).select("*"),
           (supabase.from("hero_slides") as any).select("*").order("sort_order", { ascending: true }),
         ]);
@@ -1077,9 +1082,23 @@ export function useAdminData() {
     category: "general" | "previous_events" | "workshops" = "previous_events",
     mediaType: "image" | "video" = "image"
   ) => {
-    const id = generateSafeUUID();
+    // FIX 1: Call uploadGalleryMediaAction FIRST to let the server generate and return
+    // the real UUID inserted into Postgres. Only THEN add to state with the real UUID.
+    let serverId: string | undefined;
+    try {
+      const res = await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
+      if (res.success && res.data?.id) {
+        serverId = res.data.id;
+      } else {
+        console.error("[addGalleryMedia] uploadGalleryMediaAction returned failure:", res.error);
+      }
+    } catch (err) {
+      console.error("[addGalleryMedia] uploadGalleryMediaAction exception:", err);
+    }
+
+    const assignedId = serverId || generateSafeUUID();
     const newMedia: GalleryMedia = {
-      id,
+      id: assignedId,
       title,
       media_url: mediaUrl,
       category,
@@ -1090,46 +1109,23 @@ export function useAdminData() {
     };
 
     addGalleryMediaToState(newMedia);
-
-    try {
-      const supabase = createClient();
-      await (supabase.from("gallery") as any).insert({
-        id,
-        title,
-        media_url: mediaUrl,
-        category,
-        media_type: mediaType,
-      });
-    } catch (e) {
-      console.warn("Gallery media created in local state");
-    }
-
-    try {
-      await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
-    } catch (err) {
-      console.warn("Server action upload gallery media:", err);
-    }
-
     return newMedia;
   };
 
-  const deleteGalleryMedia = async (id: string) => {
+  const deleteGalleryMedia = async (id: string, mediaUrl?: string) => {
     setGallery((prev) => {
       const updated = prev.filter((g) => g.id !== id);
       setSyncedData(STORAGE_KEYS.GALLERY, updated);
       return updated;
     });
-    if (isValidUUID(id)) {
-      try {
-        const supabase = createClient();
-        await (supabase.from("gallery") as any).delete().eq("id", id);
-      } catch (e) {
-        console.warn("Gallery media deleted in local state");
-      }
 
-      try {
-        deleteGalleryMediaAction(id).catch(() => {});
-      } catch {}
+    try {
+      const res = await deleteGalleryMediaAction(id, mediaUrl);
+      if (!res.success) {
+        console.error(`[deleteGalleryMedia] deleteGalleryMediaAction error for id="${id}":`, res.error);
+      }
+    } catch (err) {
+      console.error(`[deleteGalleryMedia] deleteGalleryMediaAction exception for id="${id}":`, err);
     }
   };
 

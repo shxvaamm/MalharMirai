@@ -217,11 +217,10 @@ export default function AdminGalleryPage() {
               (window as any).__LAST_GALLERY_DELETE_DEBUG = res;
             }
             if (res.success) {
-              deleteGalleryMedia(deleteTarget.id);
+              deleteGalleryMedia(deleteTarget.id, deleteTarget.media_url);
               toast({ title: "Media Removed", description: "Item deleted from gallery and storage.", type: "warning" });
             } else {
-              deleteGalleryMedia(deleteTarget.id);
-              toast({ title: "Media Removed", description: `Item removed locally. Server error: ${res.error || "unknown"}`, type: "warning" });
+              toast({ title: "Delete Failed", description: res.error || "Failed to remove item from server.", type: "error" });
             }
           }
         }}
