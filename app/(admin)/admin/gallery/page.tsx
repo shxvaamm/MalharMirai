@@ -206,13 +206,22 @@ export default function AdminGalleryPage() {
         description={`Are you sure you want to remove "${deleteTarget?.title}" from the gallery?`}
         onConfirm={async () => {
           if (deleteTarget) {
+            console.log("[ADMIN_GALLERY] Deleting media item with args:", {
+              id: deleteTarget.id,
+              media_url: deleteTarget.media_url,
+              title: deleteTarget.title,
+            });
             const res = await deleteGalleryMediaAction(deleteTarget.id, deleteTarget.media_url);
+            console.log("[ADMIN_GALLERY] deleteGalleryMediaAction result:", res);
+            if (typeof window !== "undefined") {
+              (window as any).__LAST_GALLERY_DELETE_DEBUG = res;
+            }
             if (res.success) {
               deleteGalleryMedia(deleteTarget.id);
               toast({ title: "Media Removed", description: "Item deleted from gallery and storage.", type: "warning" });
             } else {
               deleteGalleryMedia(deleteTarget.id);
-              toast({ title: "Media Removed", description: "Item removed.", type: "warning" });
+              toast({ title: "Media Removed", description: `Item removed locally. Server error: ${res.error || "unknown"}`, type: "warning" });
             }
           }
         }}

@@ -18,6 +18,7 @@ export interface ActionResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+  debug?: any;
 }
 
 function isValidUUID(str: string): boolean {
@@ -110,10 +111,12 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
       .single();
 
     if (!error && data) {
+      console.log("[uploadGalleryMediaAction] User client inserted row successfully:", data);
       return { success: true, data };
     }
-  } catch {
-    // Fall through to admin client
+    console.warn("[uploadGalleryMediaAction] User client insert failed:", error);
+  } catch (err: any) {
+    console.warn("[uploadGalleryMediaAction] User client insert exception:", err?.message);
   }
 
   // 2. Try with privileged admin client
@@ -125,23 +128,38 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
       .single();
 
     if (!error && data) {
+      console.log("[uploadGalleryMediaAction] Admin client inserted row successfully:", data);
       return { success: true, data };
     }
 
+    console.error("[uploadGalleryMediaAction] Admin client insert failed:", error);
     if (error && error.code !== "23505") {
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error.message,
+        debug: {
+          insertPayload,
+          error,
+          serviceRoleKeyExists: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY),
+        },
+      };
     }
   } catch (err: any) {
-    return { success: false, error: err?.message || "Failed to upload gallery media." };
+    console.error("[uploadGalleryMediaAction] Admin client insert exception:", err);
+    return {
+      success: false,
+      error: err?.message || "Failed to upload gallery media.",
+      debug: { exception: err?.message },
+    };
   }
 
   return { success: true, data: { id: newId, ...insertPayload } };
 }
 
 /**
- * Helper to extract bucket file path from mediaUrl or synthetic storage ID.
+ * Internal synchronous helper to extract bucket file path from mediaUrl or synthetic storage ID.
  */
-function extractStoragePath(mediaUrl?: string, id?: string): string | null {
+function getStoragePath(mediaUrl?: string, id?: string): string | null {
   if (id && id.startsWith("storage-")) {
     const rawName = id.replace(/^storage-/, "");
     return rawName.startsWith("gallery/") ? rawName : `gallery/${rawName}`;
@@ -159,55 +177,127 @@ function extractStoragePath(mediaUrl?: string, id?: string): string | null {
 }
 
 /**
+ * Server Action: Helper to extract bucket file path from mediaUrl or synthetic storage ID.
+ */
+export async function extractStoragePath(mediaUrl?: string, id?: string): Promise<string | null> {
+  return getStoragePath(mediaUrl, id);
+}
+
+/**
  * Server Action: Delete gallery media from database and Supabase Storage.
  */
 export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): Promise<ActionResult> {
+  console.log(`[deleteGalleryMediaAction] START - id="${id}", mediaUrl="${mediaUrl}"`);
   const auth = await verifyGalleryPermission();
-  if (!auth.authorized) return { success: false, error: auth.error };
+  if (!auth.authorized) {
+    console.error(`[deleteGalleryMediaAction] Permission denied:`, auth.error);
+    return { success: false, error: auth.error };
+  }
 
   revalidatePath("/");
   revalidatePath("/gallery");
   revalidatePath("/admin/gallery");
   revalidatePath("/admin");
 
-  const filePath = extractStoragePath(mediaUrl, id);
+  const filePath = getStoragePath(mediaUrl, id);
+  console.log(`[deleteGalleryMediaAction] Computed filePath="${filePath}" from id="${id}", mediaUrl="${mediaUrl}"`);
+
+  let userStorageRes: any = null;
+  let adminStorageRes: any = null;
+  let userStorageException: string | null = null;
+  let adminStorageException: string | null = null;
 
   // 1. Delete the underlying file from Supabase Storage if found
   if (filePath) {
     try {
       const userClient = await createClient();
-      await userClient.storage.from("media").remove([filePath]);
-    } catch {}
+      const res = await userClient.storage.from("media").remove([filePath]);
+      userStorageRes = res;
+      console.log(`[deleteGalleryMediaAction] userClient.storage.remove(["${filePath}"]):`, JSON.stringify(res));
+      if (res.error) {
+        console.error(`[deleteGalleryMediaAction] userClient storage remove error:`, res.error);
+      }
+    } catch (err: any) {
+      userStorageException = err?.message || String(err);
+      console.error(`[deleteGalleryMediaAction] userClient storage remove caught exception:`, err);
+    }
 
     try {
       const adminClient = createAdminClient();
-      await adminClient.storage.from("media").remove([filePath]);
-    } catch {}
+      const res = await adminClient.storage.from("media").remove([filePath]);
+      adminStorageRes = res;
+      console.log(`[deleteGalleryMediaAction] adminClient.storage.remove(["${filePath}"]):`, JSON.stringify(res));
+      if (res.error) {
+        console.error(`[deleteGalleryMediaAction] adminClient storage remove error:`, res.error);
+      }
+    } catch (err: any) {
+      adminStorageException = err?.message || String(err);
+      console.error(`[deleteGalleryMediaAction] adminClient storage remove caught exception:`, err);
+    }
+  } else {
+    console.warn(`[deleteGalleryMediaAction] Could not derive filePath from mediaUrl="${mediaUrl}", id="${id}"`);
   }
+
+  let userDbRes: any = null;
+  let adminDbRes: any = null;
+  let userDbException: string | null = null;
+  let adminDbException: string | null = null;
 
   // 2. If valid UUID, delete the row from Postgres gallery table
   if (isValidUUID(id)) {
     try {
       const userClient = await createClient();
-      const { error } = await (userClient.from("gallery") as any)
+      const res = await (userClient.from("gallery") as any)
         .delete()
         .eq("id", id);
-      if (!error) return { success: true };
-    } catch {}
+      userDbRes = res;
+      console.log(`[deleteGalleryMediaAction] userClient DB delete("${id}"):`, JSON.stringify(res));
+      if (res.error) {
+        console.error(`[deleteGalleryMediaAction] userClient DB delete error:`, res.error);
+      }
+    } catch (err: any) {
+      userDbException = err?.message || String(err);
+      console.error(`[deleteGalleryMediaAction] userClient DB delete caught exception:`, err);
+    }
 
     try {
       const adminClient = createAdminClient();
-      const { error } = await (adminClient.from("gallery") as any)
+      const res = await (adminClient.from("gallery") as any)
         .delete()
         .eq("id", id);
-
-      if (error && error.code !== "22P02" && error.code !== "PGRST116") {
-        return { success: false, error: error.message };
+      adminDbRes = res;
+      console.log(`[deleteGalleryMediaAction] adminClient DB delete("${id}"):`, JSON.stringify(res));
+      if (res.error) {
+        console.error(`[deleteGalleryMediaAction] adminClient DB delete error:`, res.error);
       }
     } catch (err: any) {
-      // ignore
+      adminDbException = err?.message || String(err);
+      console.error(`[deleteGalleryMediaAction] adminClient DB delete caught exception:`, err);
     }
+  } else {
+    console.log(`[deleteGalleryMediaAction] id="${id}" is not a UUID, skipping Postgres DB delete`);
   }
 
-  return { success: true };
+  const debug = {
+    id,
+    mediaUrl,
+    filePath,
+    serviceRoleKeyExists: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY),
+    serviceRoleKeyLength: (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "").length,
+    userStorageRes,
+    adminStorageRes,
+    userStorageException,
+    adminStorageException,
+    userDbRes,
+    adminDbRes,
+    userDbException,
+    adminDbException,
+  };
+
+  console.log(`[deleteGalleryMediaAction] COMPLETED with debug:`, JSON.stringify(debug));
+
+  return {
+    success: true,
+    debug,
+  };
 }
