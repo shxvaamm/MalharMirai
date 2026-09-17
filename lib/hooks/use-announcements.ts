@@ -46,6 +46,12 @@ export function useAnnouncements(priorityFilter?: string, initialAnnouncements?:
   );
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<any>(null);
+  // Unique per-instance channel name — prevents collision when multiple components
+  // (e.g. EmergencyBanner + AnnouncementsContent) mount on the same page and both
+  // call useAnnouncements. Supabase's createBrowserClient is a singleton, so two
+  // channels with the same name on the same client throw "cannot add postgres_changes
+  // callback after subscribe()".
+  const channelId = useRef(`ann-${Math.random().toString(36).slice(2)}`);
 
   const fetchAnnouncements = useCallback(async () => {
     try {
@@ -104,11 +110,11 @@ export function useAnnouncements(priorityFilter?: string, initialAnnouncements?:
     });
   }, []);
 
-  // ✅ Supabase Realtime — cross-device, any browser, Incognito
+  // ── Supabase Realtime — cross-device, any browser, Incognito ─────────────────
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("realtime:announcements")
+      .channel(channelId.current)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "announcements" },

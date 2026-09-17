@@ -123,6 +123,9 @@ export function useMembers(
   );
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<any>(null);
+  // Unique per-instance channel name — prevents collision if multiple components
+  // call useMembers on the same page (Supabase createBrowserClient is a singleton).
+  const channelId = useRef(`members-${Math.random().toString(36).slice(2)}`);
 
   const fetchMembers = useCallback(async () => {
     try {
@@ -204,7 +207,7 @@ export function useMembers(
 
     // Listen on club_members only (profiles is excluded from the public member list)
     const channel = supabase
-      .channel("realtime:members:club")
+      .channel(channelId.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "club_members" }, () => {
         fetchMembers();
       })
