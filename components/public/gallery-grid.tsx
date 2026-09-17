@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ZoomIn, Image as ImageIcon, Play } from "lucide-react";
 import { GalleryMedia } from "@/lib/mock-data";
 import {
   SCALE_IN,
@@ -11,6 +11,114 @@ import {
   VIEWPORT_ONCE,
   useReducedMotion,
 } from "@/lib/motion";
+
+interface GalleryCardProps {
+  item: GalleryMedia;
+  index: number;
+  onClick: () => void;
+}
+
+function GalleryCard({ item, index, onClick }: GalleryCardProps) {
+  const [imageLoaded, setImageLoaded] = React.useState(false);
+  const [hasError, setHasError] = React.useState(false);
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <motion.div
+      variants={prefersReducedMotion ? undefined : SCALE_IN}
+      initial={prefersReducedMotion ? undefined : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: "easeOut", delay: (index % 6) * 0.04 }}
+      className="break-inside-avoid mb-3 sm:mb-4 group rounded-2xl sm:rounded-3xl overflow-hidden bg-[#0D0D0D]/90 border border-white/[0.08] hover:border-white/20 transition-all duration-300 shadow-xl cursor-pointer block w-full text-left"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={item.title || "Gallery photo"}
+    >
+      {/* Image Container with robust aspect ratio & skeleton */}
+      <div className="relative w-full min-h-[180px] bg-neutral-900/90 overflow-hidden flex items-center justify-center">
+        {/* Subtle skeleton loader while image is loading */}
+        {!imageLoaded && !hasError && (
+          <div className="absolute inset-0 bg-neutral-900 animate-pulse flex items-center justify-center">
+            <ImageIcon className="h-6 w-6 text-neutral-700 animate-pulse" />
+          </div>
+        )}
+
+        {hasError ? (
+          <div className="py-12 px-4 flex flex-col items-center justify-center text-neutral-500 gap-2 w-full text-center">
+            <ImageIcon className="h-8 w-8 text-neutral-600" />
+            <span className="text-[11px] text-neutral-400">Photo Showcase</span>
+          </div>
+        ) : (
+          <img
+            src={item.media_url}
+            alt={item.title || "Gallery photo"}
+            className={`w-full h-auto block object-cover group-hover:scale-105 transition-transform duration-500 ${
+              imageLoaded ? "opacity-100" : "opacity-0"
+            }`}
+            loading="lazy"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setHasError(true)}
+          />
+        )}
+
+        {/* Video play overlay if video media */}
+        {item.media_type === "video" && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="h-9 w-9 rounded-full bg-white/90 text-neutral-950 flex items-center justify-center shadow-lg">
+              <Play className="h-4 w-4 fill-current ml-0.5" />
+            </div>
+          </div>
+        )}
+
+        {/* Hover overlay — minimal gradient + zoom indicator */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+          <div className="p-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white shadow-md">
+            <ZoomIn className="h-3.5 w-3.5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Visible Metadata Panel below the image */}
+      <div className="p-3 sm:p-4 space-y-1.5 bg-[#0D0D0D]/90 border-t border-white/[0.04]">
+        {/* Event / Category Tag Pill */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-white/[0.08] text-neutral-300 border border-white/10">
+            {(item.category as string) === "previous_events" || (item.category as string) === "events"
+              ? "Event"
+              : item.category === "workshops"
+              ? "Workshop"
+              : item.category === "general"
+              ? "Campus"
+              : (item.category as string) || "Showcase"}
+          </span>
+          {item.event_title && (
+            <span className="text-[10px] text-neutral-400 truncate max-w-[130px]">
+              {item.event_title}
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3 className="text-xs sm:text-sm font-bold text-neutral-100 line-clamp-1 leading-snug group-hover:text-white transition-colors">
+          {item.title || "Untitled Capture"}
+        </h3>
+
+        {/* Description / Subtext */}
+        <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">
+          {item.event_title || item.date || "MALHAR Society Visual Archive"}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
 
 interface GalleryGridProps {
   media: GalleryMedia[];
@@ -110,78 +218,12 @@ export function GalleryGrid({ media }: GalleryGridProps) {
       {/* Multi-column CSS Masonry Layout */}
       <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 sm:gap-4">
         {filteredMedia.map((item, index) => (
-          <motion.div
+          <GalleryCard
             key={item.id}
-            variants={prefersReducedMotion ? undefined : SCALE_IN}
-            initial={prefersReducedMotion ? undefined : "hidden"}
-            whileInView={prefersReducedMotion ? undefined : "visible"}
-            viewport={VIEWPORT_ONCE}
-            transition={
-              prefersReducedMotion
-                ? undefined
-                : { duration: DURATION.base, ease: EASE_OUT, delay: (index % 6) * 0.04 }
-            }
-            className="break-inside-avoid mb-3 sm:mb-4 group rounded-2xl sm:rounded-3xl overflow-hidden bg-[#0D0D0D]/90 border border-white/[0.08] hover:border-white/20 transition-all duration-300 shadow-xl cursor-pointer block w-full text-left"
+            item={item}
+            index={index}
             onClick={() => setActiveIndex(index)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setActiveIndex(index);
-              }
-            }}
-            aria-label={item.title || "Gallery photo"}
-          >
-            {/* Image Container with subtle skeleton background */}
-            <div className="relative w-full overflow-hidden bg-neutral-900/80">
-              <img
-                src={item.media_url}
-                alt={item.title || "Gallery photo"}
-                className="w-full h-auto block object-cover group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
-              />
-
-              {/* Hover overlay — minimal gradient + zoom indicator */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                <div className="p-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white shadow-md">
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </div>
-              </div>
-            </div>
-
-            {/* Visible Metadata Panel below the image */}
-            <div className="p-3 sm:p-4 space-y-1.5 bg-[#0D0D0D]/90 border-t border-white/[0.04]">
-              {/* Event / Category Tag Pill */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-white/[0.08] text-neutral-300 border border-white/10">
-                  {(item.category as string) === "previous_events" || (item.category as string) === "events"
-                    ? "Event"
-                    : item.category === "workshops"
-                    ? "Workshop"
-                    : item.category === "general"
-                    ? "Campus"
-                    : (item.category as string) || "Showcase"}
-                </span>
-                {item.event_title && (
-                  <span className="text-[10px] text-neutral-400 truncate max-w-[130px]">
-                    {item.event_title}
-                  </span>
-                )}
-              </div>
-
-              {/* Title */}
-              <h3 className="text-xs sm:text-sm font-bold text-neutral-100 line-clamp-1 leading-snug group-hover:text-white transition-colors">
-                {item.title || "Untitled Capture"}
-              </h3>
-
-              {/* Description / Subtext */}
-              <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">
-                {item.event_title || item.date || "MALHAR Society Visual Archive"}
-              </p>
-            </div>
-          </motion.div>
+          />
         ))}
       </div>
 

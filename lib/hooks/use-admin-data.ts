@@ -241,7 +241,7 @@ export function useAdminData() {
           setSyncedData(STORAGE_KEYS.ANNOUNCEMENTS, mappedAnns);
         }
 
-        if (galData && Array.isArray(galData)) {
+        if (galData && Array.isArray(galData) && galData.length > 0) {
           const mappedGal = galData.map((d: any) => ({
             id: d.id,
             title: d.title,
@@ -253,6 +253,38 @@ export function useAdminData() {
           }));
           setGallery(mappedGal);
           setSyncedData(STORAGE_KEYS.GALLERY, mappedGal);
+        } else {
+          // If DB table is empty, sync from storage so admin sees all photos
+          try {
+            const { data: storageFiles } = await supabase.storage
+              .from("media")
+              .list("gallery", { sortBy: { column: "created_at", order: "desc" } });
+            if (storageFiles && storageFiles.length > 0) {
+              const mappedGal = storageFiles
+                .filter((f) => f.name && !f.name.startsWith("."))
+                .map((f, idx) => {
+                  const { data: urlData } = supabase.storage
+                    .from("media")
+                    .getPublicUrl(`gallery/${f.name}`);
+                  const cleanTitle = f.name
+                    .replace(/^\d+_/, "")
+                    .replace(/\.[^/.]+$/, "")
+                    .replace(/[-_]/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase());
+                  return {
+                    id: `storage-${f.name}`,
+                    title: cleanTitle || `Fest Capture ${idx + 1}`,
+                    media_url: urlData.publicUrl,
+                    media_type: "image" as const,
+                    category: "previous_events" as const,
+                    date: "2026",
+                    event_title: "Mirai Cultural Showcase",
+                  };
+                });
+              setGallery(mappedGal);
+              setSyncedData(STORAGE_KEYS.GALLERY, mappedGal);
+            }
+          } catch {}
         }
 
         // Load hero slides from DB

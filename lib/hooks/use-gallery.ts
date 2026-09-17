@@ -56,7 +56,7 @@ export function useGallery(categoryFilter?: string) {
       const res = await Promise.race([queryPromise, timeoutPromise]);
       if (!res || !("data" in res) || res.data === null) return;
 
-      const remoteList: GalleryMedia[] = (res.data || []).map((d: any) => ({
+      let remoteList: GalleryMedia[] = (res.data || []).map((d: any) => ({
         id: d.id,
         title: d.title || "Gallery Item",
         media_url: d.media_url,
@@ -67,8 +67,55 @@ export function useGallery(categoryFilter?: string) {
         thumbnail_color: "from-amber-600/30 via-orange-600/20 to-stone-900",
       }));
 
+      // Fallback & sync with Supabase Storage media/gallery:
+      // If Postgres gallery table is empty or missing storage photos,
+      // populate from the public storage bucket so photos never disappear.
+      try {
+        const { data: storageFiles } = await supabase.storage
+          .from("media")
+          .list("gallery", { sortBy: { column: "created_at", order: "desc" } });
+
+        if (storageFiles && storageFiles.length > 0) {
+          const existingUrls = new Set(remoteList.map((m) => m.media_url));
+          const storageMedia: GalleryMedia[] = [];
+
+          for (const f of storageFiles) {
+            if (!f.name || f.name.startsWith(".")) continue;
+            const { data: urlData } = supabase.storage
+              .from("media")
+              .getPublicUrl(`gallery/${f.name}`);
+            const publicUrl = urlData?.publicUrl;
+            if (!publicUrl || existingUrls.has(publicUrl)) continue;
+
+            const cleanTitle = f.name
+              .replace(/^\d+_/, "")
+              .replace(/\.[^/.]+$/, "")
+              .replace(/[-_]/g, " ")
+              .replace(/\b\w/g, (c) => c.toUpperCase());
+
+            storageMedia.push({
+              id: `storage-${f.name}`,
+              title: cleanTitle || "Gallery Capture",
+              media_url: publicUrl,
+              media_type: "image",
+              category: "previous_events",
+              event_title: "Mirai Cultural Fest",
+              date: f.created_at ? new Date(f.created_at).toLocaleDateString() : "2026",
+              thumbnail_color: "from-amber-600/30 via-orange-600/20 to-stone-900",
+            });
+            existingUrls.add(publicUrl);
+          }
+
+          if (storageMedia.length > 0) {
+            remoteList = [...remoteList, ...storageMedia];
+          }
+        }
+      } catch {
+        // Storage check optional
+      }
+
       // Supabase is the sole source of truth: remoteList directly replaces local
-      // state and cache. Missing from remote always means deleted.
+      // state and cache.
       setAllMedia(remoteList);
       setSyncedData(STORAGE_KEYS.GALLERY, remoteList);
       stampGalleryCacheVersion();

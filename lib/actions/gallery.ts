@@ -81,12 +81,20 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
 
   const newId = crypto.randomUUID();
 
+  const allowedCategories: Record<string, "winners" | "previous_events" | "general"> = {
+    winners: "winners",
+    previous_events: "previous_events",
+    workshops: "previous_events",
+    general: "general",
+  };
+  const category = allowedCategories[input.category || "general"] || "general";
+
   const insertPayload: any = {
     id: newId,
     title,
     media_url: mediaUrl,
     media_type: input.media_type || "image",
-    category: input.category || "general",
+    category,
   };
 
   if (input.event_id && isValidUUID(input.event_id)) {
