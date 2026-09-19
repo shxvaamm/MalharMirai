@@ -94,7 +94,6 @@ export function CreateEventDialog({
   const [dateTime, setDateTime] = React.useState("2026-11-20T17:00");
   const [venue, setVenue] = React.useState("Main Campus Auditorium");
   const [capacity, setCapacity] = React.useState("400");
-  const [status, setStatus] = React.useState<"upcoming" | "ongoing" | "completed">("upcoming");
   const [deadline, setDeadline] = React.useState("2026-11-15T23:59");
   const [posterUrl, setPosterUrl] = React.useState("");
 
@@ -160,6 +159,9 @@ export function CreateEventDialog({
       finalPosterUrl = uploadRes.url;
     }
 
+    const computedStatus = deriveStatusFromDate(dateTime);
+    console.log("[CreateEvent] dateTime:", dateTime, "→ status:", computedStatus);
+
     const result = await createEventAction({
       title: title.trim(),
       category: category.trim(),
@@ -168,7 +170,7 @@ export function CreateEventDialog({
       venue: venue.trim(),
       poster_url: finalPosterUrl,
       max_capacity: parseInt(capacity) || 200,
-      status,
+      status: computedStatus,
       registration_deadline: new Date(deadline).toISOString(),
     });
     setLoading(false);
@@ -184,7 +186,7 @@ export function CreateEventDialog({
         poster_url: finalPosterUrl,
         max_capacity: parseInt(capacity) || 200,
         registered_count: 0,
-        status,
+        status: computedStatus,
         registration_deadline: new Date(deadline).toISOString(),
         rules: ["Valid college ID required.", "Report 30 mins early."],
         prizes: ["1st Prize: Champion Trophy", "2nd Prize: Silver Trophy"],
@@ -239,36 +241,21 @@ export function CreateEventDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Wing / Category</label>
-              <select
-                className="flex h-10 w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                disabled={loading}
-              >
-                <option value="Music">Music &amp; Vocals</option>
-                <option value="Dance">Dance &amp; Choreography</option>
-                <option value="Dramatic Arts">Dramatic Arts &amp; Theatre</option>
-                <option value="Fine Arts">Fine Arts &amp; Design</option>
-                <option value="Literary">Literary &amp; Debating</option>
-                <option value="General">General Fest Event</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Status</label>
-              <select
-                className="flex h-10 w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                disabled={loading}
-              >
-                <option value="upcoming">Upcoming</option>
-                <option value="ongoing">Ongoing (Live)</option>
-                <option value="completed">Completed / Archive</option>
-              </select>
-            </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">Wing / Category</label>
+            <select
+              className="flex h-10 w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={loading}
+            >
+              <option value="Music">Music &amp; Vocals</option>
+              <option value="Dance">Dance &amp; Choreography</option>
+              <option value="Dramatic Arts">Dramatic Arts &amp; Theatre</option>
+              <option value="Fine Arts">Fine Arts &amp; Design</option>
+              <option value="Literary">Literary &amp; Debating</option>
+              <option value="General">General Fest Event</option>
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -277,10 +264,7 @@ export function CreateEventDialog({
               <Input
                 type="datetime-local"
                 value={dateTime}
-                onChange={(e) => {
-                  setDateTime(e.target.value);
-                  setStatus(deriveStatusFromDate(e.target.value));
-                }}
+                onChange={(e) => setDateTime(e.target.value)}
                 required
                 disabled={loading}
                 className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
@@ -442,7 +426,6 @@ export function EditEventDialog({
   const [description, setDescription] = React.useState("");
   const [venue, setVenue] = React.useState("");
   const [capacity, setCapacity] = React.useState("400");
-  const [status, setStatus] = React.useState<"upcoming" | "ongoing" | "completed">("upcoming");
   const [dateTime, setDateTime] = React.useState("");
   const [deadline, setDeadline] = React.useState("");
   const [posterUrl, setPosterUrl] = React.useState("");
@@ -462,7 +445,6 @@ export function EditEventDialog({
       setDescription(event.description || "");
       setVenue(event.venue || "");
       setCapacity(String(event.max_capacity) || "400");
-      setStatus(event.status || "upcoming");
       setPosterUrl(event.poster_url || "");
       // Format ISO string to datetime-local input value (YYYY-MM-DDTHH:mm)
       const toLocal = (iso: string) => iso ? iso.slice(0, 16) : "";
@@ -518,6 +500,9 @@ export function EditEventDialog({
       }
     }
 
+    const computedStatus = deriveStatusFromDate(dateTime || event.date_time?.slice(0, 16) || "");
+    console.log("[EditEvent] dateTime:", dateTime, "→ status:", computedStatus);
+
     const result = await updateEventAction(event.id, {
       title: title.trim(),
       category: category.trim(),
@@ -525,7 +510,7 @@ export function EditEventDialog({
       venue: venue.trim(),
       poster_url: finalPosterUrl,
       max_capacity: parseInt(capacity) || 200,
-      status,
+      status: computedStatus,
       ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
       ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
     });
@@ -540,7 +525,7 @@ export function EditEventDialog({
         venue: venue.trim(),
         poster_url: finalPosterUrl,
         max_capacity: parseInt(capacity) || 200,
-        status,
+        status: computedStatus,
         ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
         ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
       });
@@ -583,24 +568,9 @@ export function EditEventDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Category</label>
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Status</label>
-              <select
-                className="flex h-10 w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                disabled={loading}
-              >
-                <option value="upcoming">Upcoming</option>
-                <option value="ongoing">Ongoing (Live)</option>
-                <option value="completed">Completed / Archive</option>
-              </select>
-            </div>
+          <div>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">Category</label>
+            <Input value={category} onChange={(e) => setCategory(e.target.value)} disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -620,10 +590,7 @@ export function EditEventDialog({
               <Input
                 type="datetime-local"
                 value={dateTime}
-                onChange={(e) => {
-                  setDateTime(e.target.value);
-                  setStatus(deriveStatusFromDate(e.target.value));
-                }}
+                onChange={(e) => setDateTime(e.target.value)}
                 disabled={loading}
                 className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
               />
