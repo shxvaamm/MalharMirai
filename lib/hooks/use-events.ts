@@ -79,6 +79,7 @@ export function useEvents(categoryFilter?: string, statusFilter?: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<any>(null);
+  const channelId = useRef(`events-${Math.random().toString(36).slice(2)}`);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -142,7 +143,7 @@ export function useEvents(categoryFilter?: string, statusFilter?: string) {
 
     // Listen to events table changes (for registered_count updates)
     const channel = supabase
-      .channel("realtime:events:public")
+      .channel(channelId.current)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "events" },
@@ -227,7 +228,7 @@ export function useEventById(id: string) {
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("realtime:event:" + id)
+      .channel(`realtime:event:${id}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
         fetchEvents();
       })

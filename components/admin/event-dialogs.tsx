@@ -34,6 +34,44 @@ import {
 } from "@/lib/actions/events";
 import { uploadMediaFile, validateMediaFile } from "@/lib/supabase/storage";
 
+// ─── Auto-status helper ─────────────────────────────────────────────────────
+/**
+ * Derives a status from a datetime-local input value (always "YYYY-MM-DDTHH:mm").
+ * Parses year/month/day/hour/minute explicitly from the known format so that
+ * new Date(string) ambiguity (UTC vs local, MM/DD vs DD/MM) is never an issue.
+ *
+ * Comparison logic:
+ *   - event date is after today's end (23:59:59)  → "upcoming"
+ *   - event date falls on today (00:00 – 23:59)   → "ongoing"
+ *   - event date is before today's start           → "completed"
+ */
+function deriveStatusFromDate(dateTimeValue: string): "upcoming" | "ongoing" | "completed" {
+  if (!dateTimeValue) return "upcoming";
+
+  // datetime-local inputs always yield "YYYY-MM-DDTHH:mm" (e.g. "2026-03-20T17:00").
+  // Parse the components explicitly so there is zero ambiguity about timezone or
+  // day/month order — we always interpret it as a LOCAL date.
+  const match = dateTimeValue.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  let eventDate: Date;
+  if (match) {
+    const [, yr, mo, dy, hr, mn] = match.map(Number);
+    eventDate = new Date(yr, mo - 1, dy, hr, mn, 0, 0); // local time, unambiguous
+  } else {
+    // Fallback for any unexpected format — still try native parse
+    eventDate = new Date(dateTimeValue);
+  }
+
+  if (isNaN(eventDate.getTime())) return "upcoming";
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  if (eventDate > todayEnd)   return "upcoming";
+  if (eventDate >= todayStart) return "ongoing";
+  return "completed";
+}
+
 // ===================== CREATE EVENT DIALOG =====================
 interface CreateEventDialogProps {
   open: boolean;
@@ -239,7 +277,10 @@ export function CreateEventDialog({
               <Input
                 type="datetime-local"
                 value={dateTime}
-                onChange={(e) => setDateTime(e.target.value)}
+                onChange={(e) => {
+                  setDateTime(e.target.value);
+                  setStatus(deriveStatusFromDate(e.target.value));
+                }}
                 required
                 disabled={loading}
                 className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
@@ -579,7 +620,10 @@ export function EditEventDialog({
               <Input
                 type="datetime-local"
                 value={dateTime}
-                onChange={(e) => setDateTime(e.target.value)}
+                onChange={(e) => {
+                  setDateTime(e.target.value);
+                  setStatus(deriveStatusFromDate(e.target.value));
+                }}
                 disabled={loading}
                 className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
               />

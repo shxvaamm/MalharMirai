@@ -406,6 +406,8 @@ input:-webkit-autofill:active {
   animation-delay: calc(
     20ms + var(--word-i, 0) * 35ms
   );                             /* 20ms base + 35ms × index */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 /* Last word in a run — no trailing space */
 .hero-word-last {
@@ -470,8 +472,16 @@ input:-webkit-autofill:active {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .hero-word,
+  .hero-block {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
   }
 }

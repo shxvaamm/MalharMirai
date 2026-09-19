@@ -39,11 +39,21 @@ export async function GET(request: Request) {
   const errorParam = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
+  // Determine actual external origin (handling reverse proxies / Vercel deployment hosts)
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+  const appOrigin =
+    process.env.NODE_ENV === "development"
+      ? origin
+      : forwardedHost
+      ? `${forwardedProto}://${forwardedHost}`
+      : origin;
+
   // 1. Handle OAuth error returned in query string
   if (errorParam) {
     console.error(`[OAuth Callback] Provider error: ${errorParam} - ${errorDescription}`);
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(errorParam)}&message=${encodeURIComponent(errorDescription || "")}`
+      `${appOrigin}/login?error=${encodeURIComponent(errorParam)}&message=${encodeURIComponent(errorDescription || "")}`
     );
   }
 
@@ -53,8 +63,18 @@ export async function GET(request: Request) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
-      console.error("[OAuth Callback] Code exchange failed:", exchangeError.message);
-      return NextResponse.redirect(`${origin}/login?error=oauth_token_exchange_failed`);
+      console.warn("[OAuth Callback] Code exchange warning:", exchangeError.message);
+
+      // Guard against double-trigger / flow_state_already_used:
+      // If code was already exchanged by a concurrent or preceding request, check if a valid session already exists
+      const {
+        data: { user: existingUser },
+      } = await supabase.auth.getUser();
+
+      if (!existingUser) {
+        console.error("[OAuth Callback] Code exchange failed and no active session found:", exchangeError.message);
+        return NextResponse.redirect(`${appOrigin}/login?error=oauth_token_exchange_failed`);
+      }
     }
 
     // 3. Fetch current authenticated user
@@ -110,13 +130,13 @@ export async function GET(request: Request) {
 
       if (effectiveRole === "super_admin" || effectiveRole === "admin") {
         const hmac = await computeHmac(userEmail);
-        const response = NextResponse.redirect(`${origin}/dashboard`);
+        const response = NextResponse.redirect(`${appOrigin}/dashboard`);
         response.cookies.set("malhar_demo_admin", hmac, cookieOpts);
         response.cookies.set("malhar_demo_role", effectiveRole, cookieOpts);
         response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), cookieOpts);
         return response;
       } else {
-        const response = NextResponse.redirect(`${origin}/dashboard`);
+        const response = NextResponse.redirect(`${appOrigin}/dashboard`);
         response.cookies.set("malhar_demo_role", effectiveRole, cookieOpts);
         response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), cookieOpts);
         return response;
@@ -125,5 +145,5 @@ export async function GET(request: Request) {
   }
 
   // 5. Fallback redirect if code is absent or exchange failed
-  return NextResponse.redirect(`${origin}/login?error=oauth_failed`);
+  return NextResponse.redirect(`${appOrigin}/login?error=oauth_failed`);
 }

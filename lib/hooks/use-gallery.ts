@@ -42,6 +42,7 @@ export function useGallery(categoryFilter?: string) {
   const [allMedia, setAllMedia] = useState<GalleryMedia[]>(MOCK_GALLERY);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<any>(null);
+  const channelId = useRef(`gallery-${Math.random().toString(36).slice(2)}`);
 
   const fetchGallery = useCallback(async () => {
     try {
@@ -155,7 +156,7 @@ export function useGallery(categoryFilter?: string) {
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("realtime:gallery")
+      .channel(channelId.current)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "gallery" },

@@ -123,7 +123,7 @@ export function useHeroSlides(initialSlides?: HeroSlide[]) {
     try {
       const supabase = createClient();
       channel = supabase
-        .channel("hero_slides_realtime_v2")
+        .channel(`hero_slides_${Math.random().toString(36).slice(2)}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "hero_slides" }, () => {
           loadAndSync();
         })

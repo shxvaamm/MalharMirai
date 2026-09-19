@@ -366,7 +366,7 @@ export function useAdminData() {
     try {
       const supabase = createClient();
       channel = supabase
-        .channel("admin_all_tables_realtime")
+        .channel(`admin_all_tables_${Math.random().toString(36).slice(2)}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "club_members" }, () => loadSupabaseData())
         .on("postgres_changes", { event: "*", schema: "public", table: "hero_slides" }, () => loadSupabaseData())
         .on("postgres_changes", { event: "*", schema: "public", table: "site_settings" }, () => loadSupabaseData())

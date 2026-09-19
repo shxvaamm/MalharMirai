@@ -139,8 +139,13 @@ function AuthForm() {
     }
   }, [errorParam, emailParam]);
 
+  // Synchronous ref lock to prevent double-triggering Google OAuth on rapid clicks
+  const googleSigningInRef = React.useRef(false);
+
   // Handle Google OAuth Sign-In
   const handleGoogleSignIn = async () => {
+    if (googleSigningInRef.current || googleLoading || loading) return;
+    googleSigningInRef.current = true;
     setGoogleLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -165,11 +170,13 @@ function AuthForm() {
       if (error) {
         setErrorMessage(error.message || "Failed to initiate Google authentication.");
         setGoogleLoading(false);
+        googleSigningInRef.current = false;
       }
       // If successful, Supabase automatically redirects to Google OAuth endpoint
     } catch (err: any) {
       setErrorMessage(err?.message || "Google authentication failed. Please try again.");
       setGoogleLoading(false);
+      googleSigningInRef.current = false;
     }
   };
 
