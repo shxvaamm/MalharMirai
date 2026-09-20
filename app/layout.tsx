@@ -37,6 +37,9 @@ export const metadata: Metadata = {
   icons: {
     icon: "/images/malhar-logo.png",
   },
+  verification: {
+    google: "U5YsB2z_YAOMyiyjN_o45ubtwlypaeteOpXWw4uJ9b0",
+  },
   other: {
     // Preload critical above-the-fold static assets to eliminate render-blocking logo flicker
     "preload-wordmark": "/images/malhar-wordmark.png",
