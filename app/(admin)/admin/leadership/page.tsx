@@ -11,8 +11,6 @@ import {
   Phone,
   Search,
   Camera,
-  Sparkles,
-  ExternalLink,
   Instagram,
   Linkedin,
   Star,
@@ -39,10 +37,9 @@ import {
   EditLeaderDialog,
   DeleteLeaderConfirmDialog,
 } from "@/components/admin/leadership-dialogs";
-import { getLeadershipRank, getLeadershipBadgeColor, isLeadershipRole, OFFICIAL_LEADERSHIP_ROLES } from "@/lib/leadership";
+import { getLeadershipRank, getLeadershipBadgeColor, isLeadershipRole } from "@/lib/leadership";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
 import Image from "next/image";
-import Link from "next/link";
 
 export default function AdminLeadershipPage() {
   const { members, updateMember, deleteMember, addMemberToState } = useAdminData();
@@ -154,50 +151,13 @@ export default function AdminLeadershipPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/leadership"
-            target="_blank"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium border border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.07] transition-colors"
-          >
-            <ExternalLink className="h-3.5 w-3.5 text-neutral-400" />
-            <span>View Public Page</span>
-          </Link>
+        <div>
           <Button variant="default" size="sm" onClick={() => handleOpenAdd("President")} className="rounded-full font-semibold bg-[#E5E5E5] text-neutral-950 hover:bg-[#D4D4D4] shadow-sm">
             <Plus className="mr-1.5 h-4 w-4" />
             <span>Add Core Member</span>
           </Button>
         </div>
       </div>
-
-      {/* Quick Add Preset Bar */}
-      <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 p-5 rounded-3xl shadow-xl">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-neutral-400" />
-              <span>Quick Appoint Core Committee Roles</span>
-            </div>
-            <p className="text-[11px] text-neutral-400">
-              Select a position to quickly appoint and publish directly to the main website:
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {OFFICIAL_LEADERSHIP_ROLES.map((role, idx) => (
-              <Button
-                key={role}
-                variant="outline"
-                size="sm"
-                onClick={() => handleOpenAdd(role)}
-                className="h-8 text-xs font-medium border-white/10 bg-white/[0.03] hover:bg-white/[0.07] text-neutral-200 rounded-full"
-              >
-                <span className="font-mono text-[10px] text-neutral-400 mr-1">#{idx + 1}</span>
-                <span>+ {role}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      </Card>
 
       {/* Filter and Search Bar */}
       <div className="flex items-center gap-3">
