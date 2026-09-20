@@ -103,6 +103,7 @@ function mapRowToMember(d: any, cachedMatch?: ClubMember): ClubMember {
     bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
     year: d.year || cachedMatch?.year || "1st Year",
     specialty: d.specialty || cachedMatch?.specialty || "Official Member",
+    display_order: d.display_order ?? cachedMatch?.display_order ?? null,
     socials: {
       instagram: d.instagram || cachedMatch?.socials?.instagram || null,
       linkedin: d.linkedin || cachedMatch?.socials?.linkedin || null,
@@ -139,7 +140,10 @@ export function useMembers(
       const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
 
       const clubResult = await Promise.race([
-        (supabase.from("club_members") as any).select("*"),
+        (supabase.from("club_members") as any)
+          .select("*")
+          .order("display_order", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: true }),
         timeout.then(() => ({ data: null })),
       ]);
 

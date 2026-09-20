@@ -28,6 +28,7 @@ export interface ClubMember {
   bio: string;
   year?: string;
   specialty: string;
+  display_order?: number | null;
   socials?: {
     instagram?: string;
     linkedin?: string;

@@ -247,3 +247,43 @@ export async function deleteMemberAction(id: string): Promise<ActionResult> {
  * Alias for updateMemberAction — kept for backward compatibility with dialogs.
  */
 export const updateMemberRoleAction = updateMemberAction;
+
+/**
+ * Server Action: Update a member's display_order for manual ordering.
+ * Writes only to club_members (the public member directory).
+ */
+export async function updateMemberOrderAction(
+  id: string,
+  display_order: number
+): Promise<ActionResult> {
+  const authCheck = await verifyAdminAuthorization("manage_user_roles");
+  if (!authCheck.authorized) {
+    return { success: false, error: authCheck.error };
+  }
+
+  if (!isValidUUID(id)) {
+    return { success: false, error: "Invalid member ID." };
+  }
+
+  try {
+    const supabase = createAdminClient();
+
+    const { error } = await (supabase.from("club_members") as any)
+      .update({ display_order })
+      .eq("id", id);
+
+    if (error) {
+      console.error("[updateMemberOrderAction] error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/");
+    revalidatePath("/members");
+    revalidatePath("/leadership");
+    revalidatePath("/admin/members");
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to update member order." };
+  }
+}

@@ -32,6 +32,7 @@ function mapRowToMember(d: any): ClubMember {
     bio: d.bio || "Active cultural society member.",
     year: d.year || "1st Year",
     specialty: d.specialty || "Official Member",
+    display_order: d.display_order ?? null,
     socials: {
       instagram: d.instagram || null,
       linkedin: d.linkedin || null,
@@ -51,7 +52,12 @@ function isSyntheticEntry(m: ClubMember): boolean {
 export async function fetchMembersServer(): Promise<ClubMember[]> {
   try {
     const supabase = await createClient();
-    const { data, error } = await (supabase.from("club_members") as any).select("*");
+    // Sort by display_order ASC (nulls last), then created_at ASC as tiebreaker.
+    // This mirrors what the admin panel sets — members with no order yet fall to end.
+    const { data, error } = await (supabase.from("club_members") as any)
+      .select("*")
+      .order("display_order", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
 
     if (error || !data) return [];
 

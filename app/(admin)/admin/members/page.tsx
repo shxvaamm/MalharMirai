@@ -14,6 +14,8 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Mail,
   Phone,
   Loader2,
@@ -43,7 +45,7 @@ import {
   ChangeRoleDialog,
   DeleteConfirmDialog,
 } from "@/components/admin/member-dialogs";
-import { deleteMemberAction } from "@/lib/actions/members";
+import { deleteMemberAction, updateMemberOrderAction } from "@/lib/actions/members";
 import { ClubMember, MOCK_DEPARTMENTS } from "@/lib/mock-data";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
 import { isLeadershipRole } from "@/lib/leadership";
@@ -108,6 +110,7 @@ export default function AdminMembersPage() {
   const [deptFilter, setDeptFilter] = React.useState("all");
   const [roleFilter, setRoleFilter] = React.useState("all");
   const [page, setPage] = React.useState(1);
+  const [reorderingId, setReorderingId] = React.useState<string | null>(null);
   const itemsPerPage = 8;
 
   // Dialog states
@@ -117,7 +120,7 @@ export default function AdminMembersPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<ClubMember | null>(null);
 
   const filteredMembers = React.useMemo(() => {
-    return members.filter((m) => {
+    const filtered = members.filter((m) => {
       // Exclude executive leaders (managed in /admin/leadership)
       if (isLeadershipRole(m.specialty, m.department)) return false;
 
@@ -131,7 +134,46 @@ export default function AdminMembersPage() {
         m.department.toLowerCase().includes(q);
       return matchDept && matchRole && matchQuery;
     });
+
+    // Sort by display_order (nulls last), then by name as stable tiebreaker
+    return filtered.sort((a, b) => {
+      const oa = a.display_order ?? Infinity;
+      const ob = b.display_order ?? Infinity;
+      if (oa !== ob) return oa - ob;
+      return a.full_name.localeCompare(b.full_name);
+    });
   }, [members, deptFilter, roleFilter, searchQuery]);
+
+  // Move a member up or down in display_order relative to its neighbour in the filtered+sorted list
+  const handleReorder = async (memberId: string, direction: "up" | "down") => {
+    const idx = filteredMembers.findIndex((m) => m.id === memberId);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= filteredMembers.length) return;
+
+    const current = filteredMembers[idx];
+    const neighbour = filteredMembers[swapIdx];
+
+    // Assign new order values: swap their positions (1-based so 0 is never used)
+    const newCurrentOrder = swapIdx + 1;
+    const newNeighbourOrder = idx + 1;
+
+    // Optimistic update in local state via updateMember
+    updateMember(current.id, { ...current, display_order: newCurrentOrder });
+    updateMember(neighbour.id, { ...neighbour, display_order: newNeighbourOrder });
+
+    setReorderingId(memberId);
+    try {
+      await Promise.all([
+        updateMemberOrderAction(current.id, newCurrentOrder),
+        updateMemberOrderAction(neighbour.id, newNeighbourOrder),
+      ]);
+    } catch (e: any) {
+      toast({ title: "Reorder Failed", description: e?.message || "Could not save order.", type: "error" });
+    } finally {
+      setReorderingId(null);
+    }
+  };
 
 
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage) || 1;
@@ -315,6 +357,7 @@ export default function AdminMembersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-white/[0.06] hover:bg-transparent">
+                  <TableHead className="text-neutral-400 w-16">Order</TableHead>
                   <TableHead className="text-neutral-400">Member / Coordinator</TableHead>
                   <TableHead className="text-neutral-400">Department</TableHead>
                   <TableHead className="text-neutral-400">Role</TableHead>
@@ -326,13 +369,40 @@ export default function AdminMembersPage() {
               <TableBody>
                 {paginatedMembers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-neutral-400 text-xs">
+                    <TableCell colSpan={7} className="text-center py-8 text-neutral-400 text-xs">
                       Looking for Other Members? No matching records found.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedMembers.map((m) => (
+                  paginatedMembers.map((m, pageIdx) => {
+                    // Absolute index within filteredMembers for up/down boundary checks
+                    const absIdx = (page - 1) * itemsPerPage + pageIdx;
+                    return (
                     <TableRow key={m.id} className="border-b border-white/[0.06] hover:bg-white/[0.02]">
+                      {/* Order column */}
+                      <TableCell className="w-16">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <button
+                            onClick={() => handleReorder(m.id, "up")}
+                            disabled={absIdx === 0 || reorderingId === m.id}
+                            title="Move up"
+                            className="p-0.5 rounded text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="text-[10px] font-mono text-neutral-500">
+                            {m.display_order ?? "—"}
+                          </span>
+                          <button
+                            onClick={() => handleReorder(m.id, "down")}
+                            disabled={absIdx === filteredMembers.length - 1 || reorderingId === m.id}
+                            title="Move down"
+                            className="p-0.5 rounded text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           {m.avatar_url ? (
@@ -425,7 +495,8 @@ export default function AdminMembersPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
