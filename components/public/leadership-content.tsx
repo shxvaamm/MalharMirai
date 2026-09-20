@@ -26,6 +26,20 @@ import {
 } from "@/lib/leadership";
 import { ClubMember } from "@/lib/mock-data";
 
+// ─── Display-time URL normalizer ──────────────────────────────────────────────
+// Fixes stored values like "www.linkedin.com/in/..." that have no scheme —
+// browsers treat those as relative paths, producing broken links.
+// Values already starting with http/https are returned untouched.
+// Plain handles (e.g. "https://instagram.com/handle") are also untouched.
+function normalizeSocialUrl(val: string | null | undefined): string {
+  if (!val) return "";
+  const v = val.trim();
+  if (v.startsWith("http://") || v.startsWith("https://")) return v;
+  if (v.startsWith("www.")) return `https://${v}`;
+  return v;
+}
+
+
 // ─────────────────────────────────────────────────────────
 // Year ordering helper
 // Parses strings like "4th Year", "3rd Year", "2nd Year", "1st Year"
@@ -137,7 +151,7 @@ function CoreCard({ leader }: { leader: ClubMember }) {
       <div className="p-4 border-t border-white/[0.06] flex items-center justify-center gap-2.5 bg-black/40">
         {hasInstagram && (
           <a
-            href={leader.socials!.instagram!}
+            href={normalizeSocialUrl(leader.socials!.instagram!)}
             target="_blank"
             rel="noreferrer"
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-neutral-200 hover:text-white hover:bg-white/10 hover:border-white/25 transition-all font-semibold text-xs shadow-sm"
@@ -148,7 +162,7 @@ function CoreCard({ leader }: { leader: ClubMember }) {
         )}
         {hasLinkedIn && (
           <a
-            href={leader.socials!.linkedin!}
+            href={normalizeSocialUrl(leader.socials!.linkedin!)}
             target="_blank"
             rel="noreferrer"
             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-neutral-200 hover:text-white hover:bg-white/10 hover:border-white/25 transition-all font-semibold text-xs shadow-sm"
@@ -262,7 +276,7 @@ function MemberCard({ member }: { member: ClubMember }) {
       <div className="p-3 border-t border-white/[0.06] flex items-center justify-center gap-2 bg-black/40">
         {hasInstagram && (
           <a
-            href={member.socials!.instagram!}
+            href={normalizeSocialUrl(member.socials!.instagram!)}
             target="_blank"
             rel="noreferrer"
             className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm"
@@ -273,7 +287,7 @@ function MemberCard({ member }: { member: ClubMember }) {
         )}
         {hasLinkedIn && (
           <a
-            href={member.socials!.linkedin!}
+            href={normalizeSocialUrl(member.socials!.linkedin!)}
             target="_blank"
             rel="noreferrer"
             className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm"

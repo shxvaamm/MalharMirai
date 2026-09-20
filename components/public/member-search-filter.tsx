@@ -12,6 +12,16 @@ import { useDepartments } from "@/lib/hooks/use-departments";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
 import { isLeadershipRole } from "@/lib/leadership";
 
+// Display-time URL normalizer — see leadership-content.tsx for rationale.
+// Fixes stored "www." values that have no scheme (browsers treat as relative paths).
+function normalizeSocialUrl(val: string | null | undefined): string {
+  if (!val) return "";
+  const v = val.trim();
+  if (v.startsWith("http://") || v.startsWith("https://")) return v;
+  if (v.startsWith("www.")) return `https://${v}`;
+  return v;
+}
+
 export function MemberSearchFilter() {
   const [roleTab, setRoleTab] = React.useState<string>("all");
   const [deptFilter, setDeptFilter] = React.useState<string>("all");
@@ -256,7 +266,7 @@ export function MemberSearchFilter() {
                 <div className="p-3 border-t border-white/[0.06] flex items-center justify-center gap-2 bg-black/40">
                   {hasInstagram ? (
                     <a
-                      href={member.socials!.instagram}
+                      href={normalizeSocialUrl(member.socials!.instagram)}
                       target="_blank"
                       rel="noreferrer"
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm"
@@ -269,7 +279,7 @@ export function MemberSearchFilter() {
 
                   {hasLinkedIn ? (
                     <a
-                      href={member.socials!.linkedin}
+                      href={normalizeSocialUrl(member.socials!.linkedin)}
                       target="_blank"
                       rel="noreferrer"
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm"
