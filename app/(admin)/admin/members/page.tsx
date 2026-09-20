@@ -51,6 +51,7 @@ export default function AdminMembersPage() {
     changeRole,
     loading,
     activeMembersCount,
+    lockMemberReorder,
   } = useAdminData();
   const { user: authUser, role: authRole } = useAuth();
   const { toast } = useToast();
@@ -155,9 +156,13 @@ export default function AdminMembersPage() {
     const currentOrder = current.display_order ?? idx + 1;
     const neighbourOrder = neighbour.display_order ?? swapIdx + 1;
 
-    // Optimistic local update — triggers re-sort via useMemo
+    // 1. Optimistic local update — triggers instant re-sort via useMemo
     updateMember(current.id, { ...current, display_order: neighbourOrder });
     updateMember(neighbour.id, { ...neighbour, display_order: currentOrder });
+
+    // 2. Lock the Realtime listener so the DB write echo doesn't overwrite
+    //    the optimistic state with a full re-fetch (which causes the jump).
+    lockMemberReorder(2000);
 
     setReorderingId(memberId);
     try {

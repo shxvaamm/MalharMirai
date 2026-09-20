@@ -68,6 +68,11 @@ function generateSafeUUID(): string {
   });
 }
 
+// Ref lives outside the hook so it survives across re-renders without
+// needing to be in state. It's set to true during a display_order swap so
+// the Realtime echo from that write doesn't trigger a full re-fetch.
+const reorderLockRef = { current: false };
+
 export function useAdminData() {
   const [events, setEvents] = React.useState<ClubEvent[]>(() => {
     if (typeof window !== "undefined") return getSyncedData(STORAGE_KEYS.EVENTS, MOCK_EVENTS);
@@ -367,7 +372,12 @@ export function useAdminData() {
       const supabase = createClient();
       channel = supabase
         .channel(`admin_all_tables_${Math.random().toString(36).slice(2)}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "club_members" }, () => loadSupabaseData())
+        .on("postgres_changes", { event: "*", schema: "public", table: "club_members" }, () => {
+          // Skip the full reload if a display_order reorder is in flight —
+          // the optimistic local update already reflects the new order.
+          if (reorderLockRef.current) return;
+          loadSupabaseData();
+        })
         .on("postgres_changes", { event: "*", schema: "public", table: "hero_slides" }, () => loadSupabaseData())
         .on("postgres_changes", { event: "*", schema: "public", table: "site_settings" }, () => loadSupabaseData())
         .on("postgres_changes", { event: "*", schema: "public", table: "club_stats" }, () => loadSupabaseData())
@@ -1285,6 +1295,13 @@ export function useAdminData() {
     setSyncedData(STORAGE_KEYS.HERO_SLIDES, updated);
   };
 
+  // Exposed so the reorder handler in the members page can suppress the
+  // Realtime echo that would otherwise overwrite the optimistic state update.
+  const lockMemberReorder = (durationMs = 2000) => {
+    reorderLockRef.current = true;
+    setTimeout(() => { reorderLockRef.current = false; }, durationMs);
+  };
+
   return {
     events,
     members,
@@ -1312,6 +1329,7 @@ export function useAdminData() {
     registerStudentForEvent,
     createMember,
     updateMember,
+    lockMemberReorder,
     deleteMember,
     changeRole,
     createDepartment,
