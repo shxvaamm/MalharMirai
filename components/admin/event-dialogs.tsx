@@ -60,6 +60,21 @@ export function CreateEventDialog({
   const [deadline, setDeadline] = React.useState("2026-11-15T23:59");
   const [posterUrl, setPosterUrl] = React.useState("");
 
+  const isCompleted = status === "completed";
+
+  const handleStatusChange = (newStatus: "upcoming" | "ongoing" | "completed") => {
+    setStatus(newStatus);
+    if (newStatus === "completed") {
+      // Clear template dummy values when logging a past event
+      if (deadline === "2026-11-15T23:59") setDeadline("");
+      if (capacity === "400") setCapacity("");
+    } else {
+      // Restore defaults if user switches back to active/future event and fields are blank
+      if (!deadline) setDeadline("2026-11-15T23:59");
+      if (!capacity) setCapacity("400");
+    }
+  };
+
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [uploadingPoster, setUploadingPoster] = React.useState(false);
@@ -104,6 +119,27 @@ export function CreateEventDialog({
       setValidationError("Description must be at least 10 characters.");
       return;
     }
+    if (!dateTime.trim()) {
+      setValidationError("Event date & time is required.");
+      return;
+    }
+    if (!venue.trim()) {
+      setValidationError("Event venue is required.");
+      return;
+    }
+
+    // Enforce registration logistics only for upcoming or ongoing events
+    if (!isCompleted) {
+      if (!deadline.trim()) {
+        setValidationError("Registration deadline is required for upcoming/ongoing events.");
+        return;
+      }
+      const parsedCap = parseInt(capacity);
+      if (!capacity.trim() || isNaN(parsedCap) || parsedCap <= 0) {
+        setValidationError("Valid maximum capacity (seats) is required for upcoming/ongoing events.");
+        return;
+      }
+    }
 
     setLoading(true);
 
@@ -122,6 +158,10 @@ export function CreateEventDialog({
       finalPosterUrl = uploadRes.url;
     }
 
+    const parsedCap = capacity.trim() ? parseInt(capacity) : NaN;
+    const finalCapacity = !isNaN(parsedCap) ? parsedCap : (isCompleted ? 0 : 200);
+    const finalDeadline = deadline.trim() ? new Date(deadline).toISOString() : null;
+
     const result = await createEventAction({
       title: title.trim(),
       category: category.trim(),
@@ -129,9 +169,9 @@ export function CreateEventDialog({
       date_time: new Date(dateTime).toISOString(),
       venue: venue.trim(),
       poster_url: finalPosterUrl,
-      max_capacity: parseInt(capacity) || 200,
+      max_capacity: finalCapacity,
       status,
-      registration_deadline: new Date(deadline).toISOString(),
+      registration_deadline: finalDeadline,
     });
     setLoading(false);
 
@@ -144,10 +184,10 @@ export function CreateEventDialog({
         date_time: new Date(dateTime).toISOString(),
         venue: venue.trim(),
         poster_url: finalPosterUrl,
-        max_capacity: parseInt(capacity) || 200,
+        max_capacity: finalCapacity,
         registered_count: 0,
         status,
-        registration_deadline: new Date(deadline).toISOString(),
+        registration_deadline: finalDeadline || undefined,
         rules: ["Valid college ID required.", "Report 30 mins early."],
         prizes: ["1st Prize: Champion Trophy", "2nd Prize: Silver Trophy"],
       };
@@ -161,6 +201,9 @@ export function CreateEventDialog({
       onOpenChange(false);
       setTitle("");
       setDescription("");
+      setDeadline("2026-11-15T23:59");
+      setCapacity("400");
+      setStatus("upcoming");
       handleRemovePoster();
     } else {
       setValidationError(result.error || "Failed to create event.");
@@ -190,7 +233,9 @@ export function CreateEventDialog({
 
         <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
           <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Event Title *</label>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Event Title <span className="text-rose-400">*</span>
+            </label>
             <Input
               placeholder="e.g. Dhwani: Battle of the Bands"
               value={title}
@@ -223,7 +268,7 @@ export function CreateEventDialog({
               <select
                 className="flex h-10 w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(e) => handleStatusChange(e.target.value as any)}
                 disabled={loading}
               >
                 <option value="upcoming">Upcoming</option>
@@ -235,7 +280,9 @@ export function CreateEventDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Date &amp; Time</label>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Date &amp; Time <span className="text-rose-400">*</span>
+              </label>
               <Input
                 type="datetime-local"
                 value={dateTime}
@@ -246,21 +293,32 @@ export function CreateEventDialog({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Registration Deadline</label>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Registration Deadline{" "}
+                {isCompleted ? (
+                  <span className="text-[11px] font-normal text-neutral-400">(Optional)</span>
+                ) : (
+                  <span className="text-rose-400">*</span>
+                )}
+              </label>
               <Input
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                required
+                required={!isCompleted}
                 disabled={loading}
-                className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
+                className={`text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200 ${
+                  isCompleted ? "opacity-75 focus:opacity-100" : ""
+                }`}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Venue</label>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Venue <span className="text-rose-400">*</span>
+              </label>
               <Input
                 placeholder="Main Campus Auditorium"
                 value={venue}
@@ -271,14 +329,24 @@ export function CreateEventDialog({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Max Capacity (Seats)</label>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Max Capacity (Seats){" "}
+                {isCompleted ? (
+                  <span className="text-[11px] font-normal text-neutral-400">(Optional)</span>
+                ) : (
+                  <span className="text-rose-400">*</span>
+                )}
+              </label>
               <Input
                 type="number"
+                placeholder={isCompleted ? "Optional (past event)" : "e.g. 400"}
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value)}
-                required
+                required={!isCompleted}
                 disabled={loading}
-                className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
+                className={`text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200 ${
+                  isCompleted ? "opacity-75 focus:opacity-100" : ""
+                }`}
               />
             </div>
           </div>
@@ -298,12 +366,10 @@ export function CreateEventDialog({
                 </div>
                 <div className="flex-1 min-w-0 text-xs">
                   <div className="font-semibold text-neutral-200 truncate">
-                    {selectedFile ? selectedFile.name : "Event Poster"}
+                    {selectedFile ? selectedFile.name : "Remote Poster Image"}
                   </div>
-                  <div className="text-[11px] text-neutral-400">
-                    {selectedFile
-                      ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
-                      : "Attached"}
+                  <div className="text-[10px] text-neutral-400">
+                    {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : "Stored URL"}
                   </div>
                 </div>
                 <Button
@@ -311,7 +377,8 @@ export function CreateEventDialog({
                   variant="ghost"
                   size="sm"
                   onClick={handleRemovePoster}
-                  className="h-8 w-8 p-0 text-rose-400 hover:text-rose-300 rounded-full"
+                  disabled={loading}
+                  className="rounded-full text-rose-400 hover:text-rose-300 hover:bg-rose-950/20"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -319,15 +386,11 @@ export function CreateEventDialog({
             ) : (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-white/15 hover:border-white/30 rounded-2xl p-4 text-center cursor-pointer transition-all bg-white/[0.02] hover:bg-white/[0.05] group"
+                className="border-2 border-dashed border-white/10 hover:border-white/20 bg-white/[0.01] rounded-2xl p-4 text-center cursor-pointer transition-colors"
               >
-                <UploadCloud className="h-8 w-8 mx-auto text-neutral-400 group-hover:text-neutral-200 transition-colors mb-1" />
-                <div className="text-xs font-semibold text-neutral-200">
-                  Click to browse event poster
-                </div>
-                <div className="text-[10px] text-neutral-400 mt-0.5">
-                  Supports PNG, JPG, WebP up to 5MB
-                </div>
+                <UploadCloud className="h-6 w-6 text-neutral-400 mx-auto mb-1.5" />
+                <p className="text-xs font-medium text-neutral-300">Click to upload poster</p>
+                <p className="text-[10px] text-neutral-500">Supports JPG, PNG, WebP up to 5MB</p>
               </div>
             )}
 
@@ -336,15 +399,18 @@ export function CreateEventDialog({
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={handleFileChange}
+              disabled={loading}
               className="hidden"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Event Description *</label>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Description <span className="text-rose-400">*</span>
+            </label>
             <textarea
               className="flex w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 min-h-[70px] focus:outline-none"
-              placeholder="Describe event format, rules, and participant criteria..."
+              placeholder="Describe event highlights, rounds, guidelines..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
@@ -406,6 +472,8 @@ export function EditEventDialog({
   const [deadline, setDeadline] = React.useState("");
   const [posterUrl, setPosterUrl] = React.useState("");
 
+  const isCompleted = status === "completed";
+
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [filePreview, setFilePreview] = React.useState<string | null>(null);
   const [uploadingPoster, setUploadingPoster] = React.useState(false);
@@ -420,11 +488,11 @@ export function EditEventDialog({
       setCategory(event.category || "Music");
       setDescription(event.description || "");
       setVenue(event.venue || "");
-      setCapacity(String(event.max_capacity) || "400");
+      setCapacity(event.max_capacity !== undefined && event.max_capacity !== null ? String(event.max_capacity) : "");
       setStatus(event.status || "upcoming");
       setPosterUrl(event.poster_url || "");
       // Format ISO string to datetime-local input value (YYYY-MM-DDTHH:mm)
-      const toLocal = (iso: string) => iso ? iso.slice(0, 16) : "";
+      const toLocal = (iso: string) => (iso ? iso.slice(0, 16) : "");
       setDateTime(toLocal(event.date_time || ""));
       setDeadline(toLocal(event.registration_deadline || ""));
       setSelectedFile(null);
@@ -463,6 +531,36 @@ export function EditEventDialog({
     e.preventDefault();
     setValidationError(null);
 
+    if (!title.trim() || title.trim().length < 3) {
+      setValidationError("Event title must be at least 3 characters.");
+      return;
+    }
+    if (!description.trim() || description.trim().length < 10) {
+      setValidationError("Description must be at least 10 characters.");
+      return;
+    }
+    if (!dateTime.trim()) {
+      setValidationError("Event date & time is required.");
+      return;
+    }
+    if (!venue.trim()) {
+      setValidationError("Event venue is required.");
+      return;
+    }
+
+    // Enforce registration logistics only for upcoming or ongoing events
+    if (!isCompleted) {
+      if (!deadline.trim()) {
+        setValidationError("Registration deadline is required for upcoming/ongoing events.");
+        return;
+      }
+      const parsedCap = parseInt(capacity);
+      if (!capacity.trim() || isNaN(parsedCap) || parsedCap <= 0) {
+        setValidationError("Valid maximum capacity (seats) is required for upcoming/ongoing events.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     let finalPosterUrl = posterUrl;
@@ -477,16 +575,20 @@ export function EditEventDialog({
       }
     }
 
+    const parsedCap = capacity.trim() ? parseInt(capacity) : NaN;
+    const finalCapacity = !isNaN(parsedCap) ? parsedCap : (isCompleted ? 0 : 200);
+    const finalDeadline = deadline.trim() ? new Date(deadline).toISOString() : null;
+
     const result = await updateEventAction(event.id, {
       title: title.trim(),
       category: category.trim(),
       description: description.trim(),
       venue: venue.trim(),
       poster_url: finalPosterUrl,
-      max_capacity: parseInt(capacity) || 200,
+      max_capacity: finalCapacity,
       status,
-      ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
-      ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
+      date_time: new Date(dateTime).toISOString(),
+      registration_deadline: finalDeadline,
     });
     setLoading(false);
 
@@ -498,10 +600,10 @@ export function EditEventDialog({
         description: description.trim(),
         venue: venue.trim(),
         poster_url: finalPosterUrl,
-        max_capacity: parseInt(capacity) || 200,
+        max_capacity: finalCapacity,
         status,
-        ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
-        ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
+        date_time: new Date(dateTime).toISOString(),
+        registration_deadline: finalDeadline || undefined,
       });
       onOpenChange(false);
     } else {
@@ -532,7 +634,9 @@ export function EditEventDialog({
 
         <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
           <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Event Title *</label>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Event Title <span className="text-rose-400">*</span>
+            </label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -564,40 +668,74 @@ export function EditEventDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Venue</label>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Venue <span className="text-rose-400">*</span>
+              </label>
               <Input value={venue} onChange={(e) => setVenue(e.target.value)} required disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Max Capacity</label>
-              <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} required disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Max Capacity (Seats){" "}
+                {isCompleted ? (
+                  <span className="text-[11px] font-normal text-neutral-400">(Optional)</span>
+                ) : (
+                  <span className="text-rose-400">*</span>
+                )}
+              </label>
+              <Input
+                type="number"
+                placeholder={isCompleted ? "Optional (past event)" : "e.g. 400"}
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+                required={!isCompleted}
+                disabled={loading}
+                className={`text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200 ${
+                  isCompleted ? "opacity-75 focus:opacity-100" : ""
+                }`}
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Date &amp; Time</label>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Date &amp; Time <span className="text-rose-400">*</span>
+              </label>
               <Input
                 type="datetime-local"
                 value={dateTime}
                 onChange={(e) => setDateTime(e.target.value)}
+                required
                 disabled={loading}
                 className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1 text-neutral-300">Registration Deadline</label>
+              <label className="text-xs font-semibold block mb-1 text-neutral-300">
+                Registration Deadline{" "}
+                {isCompleted ? (
+                  <span className="text-[11px] font-normal text-neutral-400">(Optional)</span>
+                ) : (
+                  <span className="text-rose-400">*</span>
+                )}
+              </label>
               <Input
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
+                required={!isCompleted}
                 disabled={loading}
-                className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
+                className={`text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200 ${
+                  isCompleted ? "opacity-75 focus:opacity-100" : ""
+                }`}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Description *</label>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Description <span className="text-rose-400">*</span>
+            </label>
             <textarea
               className="flex w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 min-h-[70px] focus:outline-none"
               value={description}

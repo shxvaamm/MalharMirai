@@ -63,10 +63,10 @@ function mapDbEvent(d: any): ClubEvent {
     date_time: d.date_time || new Date().toISOString(),
     venue: d.venue || "",
     poster_url: d.poster_url || MOCK_EVENTS[0]?.poster_url,
-    max_capacity: d.max_capacity || 300,
+    max_capacity: d.max_capacity !== undefined && d.max_capacity !== null ? d.max_capacity : (d.status === "completed" ? 0 : 300),
     registered_count: d.registered_count ?? 0,
     status: d.status || "upcoming",
-    registration_deadline: d.registration_deadline || "",
+    registration_deadline: d.registration_deadline || undefined,
     rules: Array.isArray(d.rules) && d.rules.length > 0 ? d.rules : ["Valid Mirai Student Registration Pass required."],
     prizes: Array.isArray(d.prizes) && d.prizes.length > 0 ? d.prizes : [],
   };

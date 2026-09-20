@@ -58,11 +58,11 @@ export default function EventDetailPage({
   }
 
   const registered = event.registered_count || 0;
-  const maxCap = event.max_capacity || 300;
+  const maxCap = event.max_capacity ?? 0;
 
   const effectiveStatus = getEffectiveEventStatus(event);
   const isPast = effectiveStatus === "completed";
-  const isFull = registered >= maxCap;
+  const isFull = maxCap > 0 && registered >= maxCap;
   const isDeadlinePassed = event.registration_deadline
     ? new Date(event.registration_deadline).getTime() < Date.now()
     : false;
@@ -223,20 +223,22 @@ export default function EventDetailPage({
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <Clock className="h-4 w-4 text-neutral-400 shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-neutral-400 block text-[11px]">Registration Closes</span>
-                  <span className="font-semibold text-neutral-200">
-                    {event.registration_deadline
-                      ? new Date(event.registration_deadline).toLocaleString("en-IN", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })
-                      : "Open until event day"}
-                  </span>
+              {(!isPast || event.registration_deadline) && (
+                <div className="flex items-start gap-3">
+                  <Clock className="h-4 w-4 text-neutral-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-neutral-400 block text-[11px]">Registration Closes</span>
+                    <span className="font-semibold text-neutral-200">
+                      {event.registration_deadline
+                        ? new Date(event.registration_deadline).toLocaleString("en-IN", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })
+                        : "Open until event day"}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 

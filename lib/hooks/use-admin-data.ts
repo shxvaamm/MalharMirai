@@ -155,10 +155,10 @@ export function useAdminData() {
             date_time: d.date_time || new Date().toISOString(),
             venue: d.venue || "Campus Auditorium",
             poster_url: d.poster_url || MOCK_EVENTS[0].poster_url,
-            max_capacity: d.max_capacity || 300,
+            max_capacity: d.max_capacity !== undefined && d.max_capacity !== null ? d.max_capacity : (d.status === "completed" ? 0 : 300),
             registered_count: regData ? regData.filter((r: any) => r.event_id === d.id).length : (d.registered_count || 0),
             status: d.status || "upcoming",
-            registration_deadline: d.registration_deadline || new Date(Date.now() + 86400000 * 7).toISOString(),
+            registration_deadline: d.registration_deadline || (d.status === "completed" ? undefined : new Date(Date.now() + 86400000 * 7).toISOString()),
             rules: Array.isArray(d.rules) && d.rules.length > 0 ? d.rules : ["Valid Mirai Student Registration Pass required.", "Report 20 mins early."],
             prizes: Array.isArray(d.prizes) && d.prizes.length > 0 ? d.prizes : ["1st Prize: Malhar Cultural Trophy", "2nd Prize: Certificate of Distinction"],
           }));

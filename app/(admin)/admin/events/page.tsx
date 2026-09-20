@@ -233,8 +233,8 @@ export default function AdminEventsPage() {
                   filteredEvents.map((ev) => {
                     const eventRegistrations = registrations.filter((r) => r.event_id === ev.id);
                     const registered = eventRegistrations.length;
-                    const maxCap = ev.max_capacity || 300;
-                    const percent = Math.min(100, Math.round((registered / maxCap) * 100));
+                    const maxCap = ev.max_capacity ?? 0;
+                    const percent = maxCap > 0 ? Math.min(100, Math.round((registered / maxCap) * 100)) : 0;
 
                     const effectiveStatus = getEffectiveEventStatus(ev);
                     const isClosed =
