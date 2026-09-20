@@ -197,6 +197,8 @@ export function AddMemberDialog({
       specialty: specialty.trim() || "Department Coordinator",
       bio: bio.trim() || `Active member in ${department}`,
       avatar_url: finalAvatarUrl,
+      instagram: formattedIg || undefined,
+      linkedin: formattedLi || undefined,
     });
     setLoading(false);
 
@@ -653,6 +655,8 @@ export function EditMemberDialog({
         specialty: specialty.trim(),
         bio: bio.trim(),
         avatar_url: finalAvatarUrl,
+        instagram: formattedIg || undefined,
+        linkedin: formattedLi || undefined,
       });
     } catch (err) {
       console.warn("Background member update synced locally:", err);
