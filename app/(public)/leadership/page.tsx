@@ -127,9 +127,11 @@ function CoreCard({ leader }: { leader: ClubMember }) {
           <h3 className="text-lg sm:text-xl font-bold text-neutral-100 tracking-tight group-hover:text-neutral-300 transition-colors line-clamp-1">
             {leader.full_name}
           </h3>
-          <p className="text-xs text-neutral-400 leading-relaxed min-h-[38px] line-clamp-2 px-1">
-            {leader.bio || `${leader.specialty} leading MALHAR cultural initiatives.`}
-          </p>
+          {leader.bio?.trim() ? (
+            <p className="text-xs text-neutral-400 leading-relaxed min-h-[38px] line-clamp-2 px-1">
+              {leader.bio}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -244,17 +246,17 @@ function MemberCard({ member }: { member: ClubMember }) {
             <span>{member.department}</span>
           </div>
 
-          {member.specialty && (
+          {member.specialty?.trim() ? (
             <div className="text-xs text-neutral-300 font-medium pt-0.5 line-clamp-1">
               {member.specialty}
             </div>
-          )}
+          ) : null}
 
-          {member.bio && (
+          {member.bio?.trim() ? (
             <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed pt-0.5">
               {member.bio}
             </p>
-          )}
+          ) : null}
         </div>
       </div>
 

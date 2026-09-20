@@ -123,8 +123,8 @@ export async function createMemberAction(input: MemberInput): Promise<ActionResu
       role: input.role || "member",
       phone: input.phone || "+91 98765 43210",
       avatar_url: input.avatar_url || null,
-      bio: input.bio || `${input.specialty || "Artist"} in ${input.department || "MALHAR"}`,
-      specialty: input.specialty || "Official Member",
+      bio: (input.bio || "").trim(),
+      specialty: (input.specialty || "").trim(),
       year: input.year || "1st Year",
       department: input.department || "General",
       instagram: input.instagram || null,
@@ -148,6 +148,8 @@ export async function createMemberAction(input: MemberInput): Promise<ActionResu
     revalidatePath("/about");
     revalidatePath("/admin/members");
     revalidatePath("/admin/leadership");
+    revalidatePath("/admin/team");
+    revalidatePath("/admin");
 
     return { success: true, data: data || { id: newId, ...payload } };
   } catch (err: any) {
@@ -180,8 +182,8 @@ export async function updateMemberAction(
     if (input.role !== undefined) updates.role = input.role;
     if (input.phone !== undefined) updates.phone = input.phone.trim();
     if (input.avatar_url !== undefined) updates.avatar_url = input.avatar_url || null;
-    if (input.bio !== undefined) updates.bio = input.bio || "";
-    if (input.specialty !== undefined) updates.specialty = input.specialty || "Official Member";
+    if (input.bio !== undefined) updates.bio = (input.bio || "").trim();
+    if (input.specialty !== undefined) updates.specialty = (input.specialty || "").trim();
     if (input.year !== undefined) updates.year = input.year || "";
     if (input.department !== undefined) updates.department = input.department || "General";
     if (input.instagram !== undefined) updates.instagram = input.instagram || null;
@@ -203,6 +205,8 @@ export async function updateMemberAction(
     revalidatePath("/about");
     revalidatePath("/admin/members");
     revalidatePath("/admin/leadership");
+    revalidatePath("/admin/team");
+    revalidatePath("/admin");
 
     return { success: true };
   } catch (err: any) {
@@ -211,34 +215,213 @@ export async function updateMemberAction(
 }
 
 /**
- * Server Action: Delete a member profile.
+ * Helper to extract Supabase Storage path for a member avatar.
  */
-export async function deleteMemberAction(id: string): Promise<ActionResult> {
+function extractAvatarStoragePath(avatarUrl?: string): string | null {
+  if (!avatarUrl) return null;
+  // External google, unsplash or placeholder/data images should not be treated as Supabase Storage objects
+  if (
+    avatarUrl.startsWith("data:") ||
+    avatarUrl.includes("googleusercontent.com") ||
+    avatarUrl.includes("unsplash.com")
+  ) {
+    return null;
+  }
+
+  const mediaIdx = avatarUrl.indexOf("/media/");
+  if (mediaIdx !== -1) {
+    const rel = avatarUrl.substring(mediaIdx + "/media/".length).split("?")[0];
+    return rel.startsWith("avatars/") ? rel : `avatars/${rel}`;
+  }
+
+  const avatarsIdx = avatarUrl.indexOf("/avatars/");
+  if (avatarsIdx !== -1 && avatarUrl.includes("supabase.co")) {
+    return avatarUrl.substring(avatarsIdx + 1).split("?")[0];
+  }
+
+  if (avatarUrl.startsWith("avatars/")) {
+    return avatarUrl.split("?")[0];
+  }
+
+  return null;
+}
+
+/**
+ * Server Action: Delete a member profile, clean up storage avatar,
+ * unlink child registrations (preserving history), and revalidate public routes.
+ */
+export async function deleteMemberAction(id: string, email?: string): Promise<ActionResult> {
   const authCheck = await verifyAdminAuthorization("manage_user_roles");
   if (!authCheck.authorized) {
     return { success: false, error: authCheck.error };
   }
 
-  if (!isValidUUID(id)) {
-    return { success: false, error: "Invalid member ID format." };
+  const cleanEmail = email?.trim().toLowerCase() || (id?.includes("@") ? id.trim().toLowerCase() : undefined);
+  const isUUID = isValidUUID(id);
+
+  if (!isUUID && !cleanEmail) {
+    return { success: false, error: "A valid member UUID or email is required." };
   }
 
   try {
-    const supabase = createAdminClient();
+    const adminClient = createAdminClient();
 
-    // Delete from both tables
-    await (supabase.from("club_members") as any).delete().eq("id", id);
-    await (supabase.from("profiles") as any).delete().eq("id", id);
+    // 1. Look up member records from both club_members and profiles
+    let cmRecord: any = null;
+    let profRecord: any = null;
 
+    if (isUUID) {
+      const { data: cmById, error: cmFetchErr } = await (adminClient.from("club_members") as any)
+        .select("id, email, avatar_url")
+        .eq("id", id)
+        .maybeSingle();
+      if (cmFetchErr) {
+        return { success: false, error: `Failed to query club member: ${cmFetchErr.message}` };
+      }
+      cmRecord = cmById;
+
+      const { data: profById, error: profFetchErr } = await (adminClient.from("profiles") as any)
+        .select("id, email, avatar_url")
+        .eq("id", id)
+        .maybeSingle();
+      if (profFetchErr) {
+        return { success: false, error: `Failed to query member profile: ${profFetchErr.message}` };
+      }
+      profRecord = profById;
+    }
+
+    const resolvedEmail = cleanEmail || cmRecord?.email || profRecord?.email;
+
+    if (!cmRecord && resolvedEmail) {
+      const { data: cmByEmail, error: cmEmailFetchErr } = await (adminClient.from("club_members") as any)
+        .select("id, email, avatar_url")
+        .ilike("email", resolvedEmail)
+        .maybeSingle();
+      if (cmEmailFetchErr) {
+        return { success: false, error: `Failed to query club member by email: ${cmEmailFetchErr.message}` };
+      }
+      cmRecord = cmByEmail;
+    }
+
+    if (!profRecord && resolvedEmail) {
+      const { data: profByEmail, error: profEmailFetchErr } = await (adminClient.from("profiles") as any)
+        .select("id, email, avatar_url")
+        .ilike("email", resolvedEmail)
+        .maybeSingle();
+      if (profEmailFetchErr) {
+        return { success: false, error: `Failed to query profile by email: ${profEmailFetchErr.message}` };
+      }
+      profRecord = profByEmail;
+    }
+
+    // Collect all candidate avatars to delete
+    const avatarPathsToDelete = new Set<string>();
+    [cmRecord?.avatar_url, profRecord?.avatar_url].forEach((url) => {
+      const p = extractAvatarStoragePath(url);
+      if (p) avatarPathsToDelete.add(p);
+    });
+
+    // 2. Remove avatar file(s) from media/avatars/ using admin client and verify deletion
+    for (const avatarPath of Array.from(avatarPathsToDelete)) {
+      const { error: removeErr } = await adminClient.storage
+        .from("media")
+        .remove([avatarPath]);
+
+      if (removeErr) {
+        console.error(`[deleteMemberAction] Failed to remove avatar file "${avatarPath}":`, removeErr);
+        return {
+          success: false,
+          error: `Failed to delete avatar from storage: ${removeErr.message}`,
+        };
+      }
+
+      // Verify the file is actually gone (do not just trust { error: null })
+      const fileName = avatarPath.split("/").pop();
+      if (fileName) {
+        const { data: checkFiles, error: checkErr } = await adminClient.storage
+          .from("media")
+          .list("avatars", { search: fileName });
+
+        if (checkErr) {
+          console.warn(`[deleteMemberAction] Could not list avatars to verify deletion of "${fileName}":`, checkErr);
+        } else if (checkFiles && checkFiles.some((f: any) => f.name === fileName)) {
+          return {
+            success: false,
+            error: `Avatar file "${fileName}" still exists in storage after deletion attempt.`,
+          };
+        }
+      }
+    }
+
+    // Collect all user IDs associated with this member
+    const userIdsToUnlink = new Set<string>();
+    if (isUUID) userIdsToUnlink.add(id);
+    if (cmRecord?.id && isValidUUID(cmRecord.id)) userIdsToUnlink.add(cmRecord.id);
+    if (profRecord?.id && isValidUUID(profRecord.id)) userIdsToUnlink.add(profRecord.id);
+
+    // 3. Decision 2: Preserve registrations — set registrations.user_id = NULL
+    for (const uid of Array.from(userIdsToUnlink)) {
+      const { error: regErr } = await (adminClient.from("registrations") as any)
+        .update({ user_id: null })
+        .eq("user_id", uid);
+
+      if (regErr) {
+        console.error(`[deleteMemberAction] Failed to unlink registrations for user_id "${uid}":`, regErr);
+        return {
+          success: false,
+          error: `Failed to unlink member registrations: ${regErr.message}`,
+        };
+      }
+    }
+
+    // 4. Delete member row(s) from club_members and profiles
+    for (const uid of Array.from(userIdsToUnlink)) {
+      const { error: cmDeleteErr } = await (adminClient.from("club_members") as any)
+        .delete()
+        .eq("id", uid);
+      if (cmDeleteErr) {
+        return { success: false, error: `Failed to delete club member record: ${cmDeleteErr.message}` };
+      }
+
+      const { error: profDeleteErr } = await (adminClient.from("profiles") as any)
+        .delete()
+        .eq("id", uid);
+      if (profDeleteErr) {
+        return { success: false, error: `Failed to delete user profile record: ${profDeleteErr.message}` };
+      }
+    }
+
+    if (resolvedEmail) {
+      const { error: cmEmailDelErr } = await (adminClient.from("club_members") as any)
+        .delete()
+        .ilike("email", resolvedEmail);
+      if (cmEmailDelErr) {
+        return { success: false, error: `Failed to delete club member by email: ${cmEmailDelErr.message}` };
+      }
+
+      const { error: profEmailDelErr } = await (adminClient.from("profiles") as any)
+        .delete()
+        .ilike("email", resolvedEmail);
+      if (profEmailDelErr) {
+        return { success: false, error: `Failed to delete profile by email: ${profEmailDelErr.message}` };
+      }
+    }
+
+    // 5. Revalidate all public and admin routes that display member or team info
     revalidatePath("/");
     revalidatePath("/members");
     revalidatePath("/leadership");
     revalidatePath("/about");
     revalidatePath("/admin/members");
     revalidatePath("/admin/leadership");
+    revalidatePath("/admin/team");
+    revalidatePath("/admin");
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/admin/registrations");
 
     return { success: true };
   } catch (err: any) {
+    console.error("[deleteMemberAction] Unexpected exception:", err);
     return { success: false, error: err?.message || "Failed to delete member." };
   }
 }

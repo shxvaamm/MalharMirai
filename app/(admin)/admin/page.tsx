@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Users,
   Calendar,
   ClipboardList,
   TrendingUp,
@@ -39,58 +38,17 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Top Header & Floating Quick Action Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-neutral-300 text-xs font-medium mb-2">
-            <Shield className="h-3.5 w-3.5 text-neutral-400" /> MALHAR Administrative Console
-          </div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-neutral-100">
-            Executive <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">Dashboard</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-            Real-time analytics, event registration tracking, and society operations.
-          </p>
+      {/* Top Header */}
+      <div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-neutral-300 text-xs font-medium mb-2">
+          <Shield className="h-3.5 w-3.5 text-neutral-400" /> MALHAR Administrative Console
         </div>
-
-        {/* Quick Section Navigation Links */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.07] rounded-full text-xs"
-          >
-            <Link href="/admin/events" className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-neutral-400" />
-              <span>Events Hub &rarr;</span>
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.07] rounded-full text-xs"
-          >
-            <Link href="/admin/communication" className="flex items-center gap-1.5">
-              <Bell className="h-3.5 w-3.5 text-neutral-400" />
-              <span>Notice Center &rarr;</span>
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="border-white/10 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.07] rounded-full text-xs"
-          >
-            <Link href="/admin/members" className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-neutral-400" />
-              <span>Member Directory &rarr;</span>
-            </Link>
-          </Button>
-        </div>
+        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-neutral-100">
+          Executive <span className="text-transparent bg-clip-text bg-gradient-to-b from-neutral-200 via-neutral-300 to-neutral-500">Dashboard</span>
+        </h1>
+        <p className="text-xs sm:text-sm text-neutral-400 mt-1">
+          Real-time analytics, event registration tracking, and society operations.
+        </p>
       </div>
 
       {/* Analytics KPI Overview Grid */}

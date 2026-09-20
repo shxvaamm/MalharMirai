@@ -205,9 +205,9 @@ export function useAdminData() {
               phone: d.phone || cachedMatch?.phone || "+91 98765 00000",
               avatar_url: d.avatar_url || cachedMatch?.avatar_url,
               avatar_initials: initials,
-              bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
+              bio: d.bio ?? (cachedMatch?.bio ?? ""),
               year: d.year || cachedMatch?.year || "1st Year",
-              specialty: d.specialty || cachedMatch?.specialty || "Official Member",
+              specialty: d.specialty ?? (cachedMatch?.specialty ?? ""),
               socials: { instagram: d.instagram || cachedMatch?.socials?.instagram || null, linkedin: d.linkedin || cachedMatch?.socials?.linkedin || null },
             };
           };
@@ -749,9 +749,9 @@ export function useAdminData() {
       phone: newMember.phone || "+91 98765 00000",
       avatar_url: newMember.avatar_url || undefined,
       avatar_initials: initials,
-      bio: newMember.bio || `Active member in ${newMember.department || "MALHAR"}`,
+      bio: (newMember.bio || "").trim(),
       year: newMember.year || "1st Year",
-      specialty: newMember.specialty || "Official Member",
+      specialty: (newMember.specialty || "").trim(),
       socials: newMember.socials || {},
     };
 
@@ -769,9 +769,9 @@ export function useAdminData() {
         role: newMember.role || "member",
         phone: (newMember.phone || "").trim() || "+91 98765 00000",
         avatar_url: newMember.avatar_url || null,
-        bio: newMember.bio || `Active member in ${newMember.department || "MALHAR"}`,
-        // Critical: specialty must always be written so leadership/members public pages work
-        specialty: newMember.specialty || "Official Member",
+        bio: (newMember.bio || "").trim(),
+        // Specialty is optional — store empty string if left blank
+        specialty: (newMember.specialty || "").trim(),
         year: newMember.year || "1st Year",
         instagram: newMember.socials?.instagram || null,
         linkedin: newMember.socials?.linkedin || null,
@@ -833,9 +833,9 @@ export function useAdminData() {
     if (updates.role !== undefined) dbUpdates.role = updates.role;
     if (updates.phone !== undefined) dbUpdates.phone = (updates.phone || "").trim();
     if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url || null;
-    if (updates.bio !== undefined) dbUpdates.bio = updates.bio || "";
+    if (updates.bio !== undefined) dbUpdates.bio = (updates.bio || "").trim();
     // Always sync specialty, year, and socials so public pages stay in sync
-    if (updates.specialty !== undefined) dbUpdates.specialty = updates.specialty || "Official Member";
+    if (updates.specialty !== undefined) dbUpdates.specialty = (updates.specialty || "").trim();
     if (updates.year !== undefined) dbUpdates.year = updates.year || "";
     if (updates.socials?.instagram !== undefined) dbUpdates.instagram = updates.socials.instagram || null;
     if (updates.socials?.linkedin !== undefined) dbUpdates.linkedin = updates.socials.linkedin || null;
@@ -867,34 +867,27 @@ export function useAdminData() {
   };
 
   const deleteMember = async (id: string, email?: string) => {
+    if (!id && !email) {
+      return { success: false, error: "Member ID or email is required." };
+    }
+
+    const res = await deleteMemberAction(id, email);
+    if (!res.success) {
+      throw new Error(res.error || "Failed to delete member from server.");
+    }
+
     setMembers((prev) => {
       const updated = prev.filter((m) => {
-        if (m.id === id) return false;
-        if (email && m.email.toLowerCase().trim() === email.toLowerCase().trim()) return false;
-        if (id && m.email.toLowerCase().trim() === id.toLowerCase().trim()) return false;
+        if (id && m.id === id) return false;
+        if (email && m.email?.toLowerCase().trim() === email.toLowerCase().trim()) return false;
+        if (id && m.email?.toLowerCase().trim() === id.toLowerCase().trim()) return false;
         return true;
       });
       setSyncedData(STORAGE_KEYS.MEMBERS, updated);
       return updated;
     });
 
-    try {
-      const supabase = createClient();
-      if (isValidUUID(id)) {
-        await (supabase.from("profiles") as any).delete().eq("id", id);
-      }
-      if (email) {
-        await (supabase.from("profiles") as any).delete().eq("email", email.toLowerCase().trim());
-      }
-    } catch (e) {
-      console.warn("Member deleted in synchronized state.");
-    }
-
-    if (isValidUUID(id)) {
-      try {
-        deleteMemberAction(id).catch(() => {});
-      } catch {}
-    }
+    return { success: true };
   };
 
   const changeRole = async (id: string, newRole: "super_admin" | "admin" | "member" | "volunteer") => {

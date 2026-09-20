@@ -33,7 +33,6 @@ import {
 import { useAdminData } from "@/lib/hooks/use-admin-data";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth/auth-context";
-import { deleteMemberAction } from "@/lib/actions/members";
 import { ClubMember } from "@/lib/mock-data";
 import {
   AddLeaderDialog,
@@ -91,17 +90,22 @@ export default function AdminLeadershipPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
 
-    deleteMember(deleteTarget.id);
-    toast({
-      title: "Executive Removed",
-      description: `"${deleteTarget.full_name}" (${deleteTarget.specialty}) removed from leadership.`,
-      type: "warning",
-    });
-
+    const target = deleteTarget;
     try {
-      await deleteMemberAction(deleteTarget.id);
-    } catch (e) {
-      console.warn("Background deletion:", e);
+      await deleteMember(target.id, target.email);
+      setDeleteTarget(null);
+      toast({
+        title: "Executive Removed",
+        description: `"${target.full_name}" (${target.specialty}) removed from leadership.`,
+        type: "warning",
+      });
+    } catch (err: any) {
+      console.error("[handleDelete] Leadership delete error:", err);
+      toast({
+        title: "Deletion Failed",
+        description: err?.message || "Could not remove executive. Please try again.",
+        type: "error",
+      });
     }
   };
 

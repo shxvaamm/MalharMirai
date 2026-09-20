@@ -100,9 +100,9 @@ function mapRowToMember(d: any, cachedMatch?: ClubMember): ClubMember {
     phone: d.phone || cachedMatch?.phone || "+91 98765 00000",
     avatar_url: d.avatar_url || cachedMatch?.avatar_url,
     avatar_initials: initials,
-    bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
+    bio: d.bio ?? (cachedMatch?.bio ?? ""),
     year: d.year || cachedMatch?.year || "1st Year",
-    specialty: d.specialty || cachedMatch?.specialty || "Official Member",
+    specialty: d.specialty ?? (cachedMatch?.specialty ?? ""),
     socials: {
       instagram: d.instagram || cachedMatch?.socials?.instagram || null,
       linkedin: d.linkedin || cachedMatch?.socials?.linkedin || null,

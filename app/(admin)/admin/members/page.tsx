@@ -43,7 +43,6 @@ import {
   ChangeRoleDialog,
   DeleteConfirmDialog,
 } from "@/components/admin/member-dialogs";
-import { deleteMemberAction } from "@/lib/actions/members";
 import { ClubMember, MOCK_DEPARTMENTS } from "@/lib/mock-data";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
 import { isLeadershipRole } from "@/lib/leadership";
@@ -142,20 +141,23 @@ export default function AdminMembersPage() {
 
     const targetId = deleteTarget.id;
     const targetName = deleteTarget.full_name;
-
-    deleteMember(targetId);
-    setDeleteTarget(null);
-
-    toast({
-      title: "Member Deleted",
-      description: `"${targetName}" removed from society roster.`,
-      type: "warning",
-    });
+    const targetEmail = deleteTarget.email;
 
     try {
-      await deleteMemberAction(targetId);
-    } catch (e) {
-      console.warn("Background deletion sync:", e);
+      await deleteMember(targetId, targetEmail);
+      setDeleteTarget(null);
+      toast({
+        title: "Member Deleted",
+        description: `"${targetName}" removed from society roster.`,
+        type: "warning",
+      });
+    } catch (err: any) {
+      console.error("[handleDeleteMember] Error:", err);
+      toast({
+        title: "Deletion Failed",
+        description: err?.message || "Could not remove member. Please try again.",
+        type: "error",
+      });
     }
   };
 
@@ -353,7 +355,9 @@ export default function AdminMembersPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-neutral-400">{m.specialty}</div>
+                            {m.specialty?.trim() ? (
+                              <div className="text-[11px] text-neutral-400">{m.specialty}</div>
+                            ) : null}
                           </div>
                         </div>
                       </TableCell>

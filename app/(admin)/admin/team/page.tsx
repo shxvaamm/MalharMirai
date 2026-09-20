@@ -297,30 +297,27 @@ export default function AdminTeamManagementPage() {
     const targetId = deleteTarget.id;
     const targetName = deleteTarget.fullName;
 
-    // 1. Delete from registered credentials store & synced members store
-    deleteRegisteredCredential(targetEmail);
-    deleteMember(targetId, targetEmail);
-
-    // 2. Optimistically update local adminContacts list
-    setAdminContacts((prev) =>
-      prev.filter((a) => a.email.toLowerCase().trim() !== targetEmail && a.id !== targetId)
-    );
-
-    toast({
-      title: "Account Removed",
-      description: `"${targetName}" (${deleteTarget.email}) has been removed.`,
-      type: "warning",
-    });
-
-    setDeleteTarget(null);
-    setProcessing(false);
-
-    // 3. Background deletion on Supabase
     try {
-      const { deleteMemberAction } = await import("@/lib/actions/members");
-      await deleteMemberAction(targetId);
-    } catch (err) {
-      console.warn("Background deletion sync:", err);
+      await deleteMember(targetId, targetEmail);
+      deleteRegisteredCredential(targetEmail);
+      setAdminContacts((prev) =>
+        prev.filter((a) => a.email.toLowerCase().trim() !== targetEmail && a.id !== targetId)
+      );
+      toast({
+        title: "Account Removed",
+        description: `"${targetName}" (${deleteTarget.email}) has been removed.`,
+        type: "warning",
+      });
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.error("[handleDeleteMember] Team delete error:", err);
+      toast({
+        title: "Account Removal Failed",
+        description: err?.message || "Could not remove account. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setProcessing(false);
     }
   };
 

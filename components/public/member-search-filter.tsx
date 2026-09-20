@@ -237,18 +237,18 @@ export function MemberSearchFilter() {
                     </div>
 
                     {/* Specialty Designation */}
-                    {member.specialty && (
+                    {member.specialty?.trim() ? (
                       <div className="text-xs text-neutral-300 font-medium pt-0.5 line-clamp-1">
                         {member.specialty}
                       </div>
-                    )}
+                    ) : null}
 
                     {/* Bio Snippet */}
-                    {member.bio && (
+                    {member.bio?.trim() ? (
                       <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed pt-0.5">
                         {member.bio}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 

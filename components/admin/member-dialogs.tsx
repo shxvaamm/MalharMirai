@@ -35,7 +35,6 @@ import {
   createMemberAction,
   updateMemberAction,
   updateMemberRoleAction,
-  deleteMemberAction,
 } from "@/lib/actions/members";
 
 import { uploadMediaFile, validateMediaFile, fileToOptimizedDataUrl } from "@/lib/supabase/storage";
@@ -194,8 +193,8 @@ export function AddMemberDialog({
       role,
       department,
       year,
-      specialty: specialty.trim() || "Department Coordinator",
-      bio: bio.trim() || `Active member in ${department}`,
+      specialty: specialty.trim(),
+      bio: bio.trim(),
       avatar_url: finalAvatarUrl,
     });
     setLoading(false);
@@ -217,8 +216,8 @@ export function AddMemberDialog({
         role,
         department,
         year,
-        specialty: specialty.trim() || "Department Coordinator",
-        bio: bio.trim() || `Active member in ${department}`,
+        specialty: specialty.trim(),
+        bio: bio.trim(),
         avatar_url: finalAvatarUrl,
         avatar_initials: initials || "MC",
         socials: {
@@ -438,7 +437,9 @@ export function AddMemberDialog({
           </div>
 
           <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Role Designation / Specialty</label>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Role Designation / Specialty <span className="text-neutral-500 font-normal">(Optional)</span>
+            </label>
             <Input
               placeholder="e.g. Lead Cinematographer"
               value={specialty}
@@ -449,7 +450,9 @@ export function AddMemberDialog({
           </div>
 
           <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Short Bio</label>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Short Bio <span className="text-neutral-500 font-normal">(Optional)</span>
+            </label>
             <textarea
               className="flex min-h-[60px] w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
               placeholder="Brief introduction..."
@@ -627,7 +630,7 @@ export function EditMemberDialog({
       department,
       year: year,
       role: member.role || "member",
-      specialty: specialty.trim() || "Department Specialist",
+      specialty: specialty.trim(),
       bio: bio.trim(),
       avatar_url: finalAvatarUrl,
       socials: {
@@ -820,8 +823,29 @@ export function EditMemberDialog({
           </div>
 
           <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Role Designation / Specialty</label>
-            <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Role Designation / Specialty <span className="text-neutral-500 font-normal">(Optional)</span>
+            </label>
+            <Input
+              placeholder="e.g. Lead Cinematographer"
+              value={specialty}
+              onChange={(e) => setSpecialty(e.target.value)}
+              disabled={loading}
+              className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold block mb-1 text-neutral-300">
+              Short Bio <span className="text-neutral-500 font-normal">(Optional)</span>
+            </label>
+            <textarea
+              className="flex min-h-[60px] w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
+              placeholder="Brief introduction..."
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              disabled={loading}
+            />
           </div>
 
           <DialogFooter className="pt-2">
