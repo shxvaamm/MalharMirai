@@ -8,7 +8,6 @@ import {
   Users,
   UserPlus,
   Search,
-  Filter,
   Edit,
   Shield,
   Trash2,
@@ -16,25 +15,14 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  Mail,
-  Phone,
   Loader2,
   Camera,
-  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { useAdminData } from "@/lib/hooks/use-admin-data";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -119,6 +107,7 @@ export default function AdminMembersPage() {
   const [roleMember, setRoleMember] = React.useState<ClubMember | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<ClubMember | null>(null);
 
+  // Filtered + sorted list — sorted by display_order ASC (nulls last), then name
   const filteredMembers = React.useMemo(() => {
     const filtered = members.filter((m) => {
       // Exclude executive leaders (managed in /admin/leadership)
@@ -135,7 +124,6 @@ export default function AdminMembersPage() {
       return matchDept && matchRole && matchQuery;
     });
 
-    // Sort by display_order (nulls last), then by name as stable tiebreaker
     return filtered.sort((a, b) => {
       const oa = a.display_order ?? Infinity;
       const ob = b.display_order ?? Infinity;
@@ -144,7 +132,16 @@ export default function AdminMembersPage() {
     });
   }, [members, deptFilter, roleFilter, searchQuery]);
 
-  // Move a member up or down in display_order relative to its neighbour in the filtered+sorted list
+  /**
+   * Swap the display_order of the clicked member with the one immediately
+   * above (direction="up") or below (direction="down") it in the sorted list.
+   *
+   * We swap the ACTUAL display_order VALUES of the two rows — we do NOT
+   * recompute orders from index. This means only these two rows change in DB.
+   *
+   * Optimistic update: we call updateMember locally first so the UI re-sorts
+   * immediately, then persist both changes to Supabase in parallel.
+   */
   const handleReorder = async (memberId: string, direction: "up" | "down") => {
     const idx = filteredMembers.findIndex((m) => m.id === memberId);
     if (idx < 0) return;
@@ -154,27 +151,29 @@ export default function AdminMembersPage() {
     const current = filteredMembers[idx];
     const neighbour = filteredMembers[swapIdx];
 
-    // Assign new order values: swap their positions (1-based so 0 is never used)
-    const newCurrentOrder = swapIdx + 1;
-    const newNeighbourOrder = idx + 1;
+    // Swap their actual display_order values
+    const currentOrder = current.display_order ?? idx + 1;
+    const neighbourOrder = neighbour.display_order ?? swapIdx + 1;
 
-    // Optimistic update in local state via updateMember
-    updateMember(current.id, { ...current, display_order: newCurrentOrder });
-    updateMember(neighbour.id, { ...neighbour, display_order: newNeighbourOrder });
+    // Optimistic local update — triggers re-sort via useMemo
+    updateMember(current.id, { ...current, display_order: neighbourOrder });
+    updateMember(neighbour.id, { ...neighbour, display_order: currentOrder });
 
     setReorderingId(memberId);
     try {
       await Promise.all([
-        updateMemberOrderAction(current.id, newCurrentOrder),
-        updateMemberOrderAction(neighbour.id, newNeighbourOrder),
+        updateMemberOrderAction(current.id, neighbourOrder),
+        updateMemberOrderAction(neighbour.id, currentOrder),
       ]);
     } catch (e: any) {
+      // Roll back the optimistic update on failure
+      updateMember(current.id, { ...current, display_order: currentOrder });
+      updateMember(neighbour.id, { ...neighbour, display_order: neighbourOrder });
       toast({ title: "Reorder Failed", description: e?.message || "Could not save order.", type: "error" });
     } finally {
       setReorderingId(null);
     }
   };
-
 
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage) || 1;
   const paginatedMembers = filteredMembers.slice((page - 1) * itemsPerPage, page * itemsPerPage);
@@ -226,7 +225,7 @@ export default function AdminMembersPage() {
           >
             <Link href="/admin/team">
               <Shield className="h-4 w-4 text-neutral-400" />
-              <span>Team & Roles</span>
+              <span>Team &amp; Roles</span>
             </Link>
           </Button>
 
@@ -357,7 +356,7 @@ export default function AdminMembersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-white/[0.06] hover:bg-transparent">
-                  <TableHead className="text-neutral-400 w-16">Order</TableHead>
+                  <TableHead className="text-neutral-400 w-16 text-center">Order</TableHead>
                   <TableHead className="text-neutral-400">Member / Coordinator</TableHead>
                   <TableHead className="text-neutral-400">Department</TableHead>
                   <TableHead className="text-neutral-400">Role</TableHead>
@@ -375,126 +374,134 @@ export default function AdminMembersPage() {
                   </TableRow>
                 ) : (
                   paginatedMembers.map((m, pageIdx) => {
-                    // Absolute index within filteredMembers for up/down boundary checks
+                    // Absolute index in filteredMembers for boundary checks
                     const absIdx = (page - 1) * itemsPerPage + pageIdx;
+                    const isFirst = absIdx === 0;
+                    const isLast = absIdx === filteredMembers.length - 1;
+                    const isMoving = reorderingId === m.id;
+
                     return (
-                    <TableRow key={m.id} className="border-b border-white/[0.06] hover:bg-white/[0.02]">
-                      {/* Order column */}
-                      <TableCell className="w-16">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <button
-                            onClick={() => handleReorder(m.id, "up")}
-                            disabled={absIdx === 0 || reorderingId === m.id}
-                            title="Move up"
-                            className="p-0.5 rounded text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                          >
-                            <ChevronUp className="h-3.5 w-3.5" />
-                          </button>
-                          <span className="text-[10px] font-mono text-neutral-500">
-                            {m.display_order ?? "—"}
-                          </span>
-                          <button
-                            onClick={() => handleReorder(m.id, "down")}
-                            disabled={absIdx === filteredMembers.length - 1 || reorderingId === m.id}
-                            title="Move down"
-                            className="p-0.5 rounded text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                          >
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
-                          {m.avatar_url ? (
-                            <div className="relative h-8 w-8 shrink-0 rounded-xl overflow-hidden border border-white/10 bg-neutral-900 shadow-sm">
-                              <Image src={m.avatar_url} alt={m.full_name} fill unoptimized className="object-cover" />
-                            </div>
-                          ) : (
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-neutral-800 border border-white/10 text-neutral-200 font-bold text-xs shadow-sm">
-                              {m.avatar_initials}
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-semibold text-neutral-200 text-xs flex items-center gap-1.5">
-                              <span>{m.full_name}</span>
-                              {m.avatar_url && (
-                                <span title="Photo Attached">
-                                  <Camera className="h-3 w-3 text-neutral-400" />
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-neutral-400">{m.specialty}</div>
+                      <TableRow key={m.id} className="border-b border-white/[0.06] hover:bg-white/[0.02]">
+                        {/* ── Order column: ▲ number ▼ ── */}
+                        <TableCell className="w-16">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <button
+                              onClick={() => handleReorder(m.id, "up")}
+                              disabled={isFirst || isMoving}
+                              title="Move up"
+                              className="p-0.5 rounded text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </button>
+                            <span className="text-[10px] font-mono text-neutral-400 min-w-[1.5rem] text-center">
+                              {m.display_order ?? "—"}
+                            </span>
+                            <button
+                              onClick={() => handleReorder(m.id, "down")}
+                              disabled={isLast || isMoving}
+                              title="Move down"
+                              className="p-0.5 rounded text-neutral-500 hover:text-neutral-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs font-medium text-neutral-300">
-                        {m.department}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={m.role as any}
-                          className="capitalize text-[10px] bg-white/[0.05] text-neutral-300 border-white/10"
-                        >
-                          {m.role}
-                        </Badge>
-                      </TableCell>
+                        </TableCell>
 
-                      <TableCell className="text-xs font-medium text-neutral-300">
-                        {m.year || "1st Year"}
-                      </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            {m.avatar_url ? (
+                              <div className="relative h-8 w-8 shrink-0 rounded-xl overflow-hidden border border-white/10 bg-neutral-900 shadow-sm">
+                                <Image src={m.avatar_url} alt={m.full_name} fill unoptimized className="object-cover" />
+                              </div>
+                            ) : (
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-neutral-800 border border-white/10 text-neutral-200 font-bold text-xs shadow-sm">
+                                {m.avatar_initials}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-semibold text-neutral-200 text-xs flex items-center gap-1.5">
+                                <span>{m.full_name}</span>
+                                {m.avatar_url && (
+                                  <span title="Photo Attached">
+                                    <Camera className="h-3 w-3 text-neutral-400" />
+                                  </span>
+                                )}
+                              </div>
+                              {m.specialty?.trim() ? (
+                                <div className="text-[11px] text-neutral-400">{m.specialty}</div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </TableCell>
 
-                      <TableCell className="text-xs text-neutral-400">
-                        <div>{m.email}</div>
-                        <div className="text-[10px] text-neutral-500">{m.phone}</div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Super Admin Only: Role Slide Panel Trigger */}
-                          {isSuperAdmin && (
+                        <TableCell className="text-xs font-medium text-neutral-300">
+                          {m.department}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={m.role as any}
+                            className="capitalize text-[10px] bg-white/[0.05] text-neutral-300 border-white/10"
+                          >
+                            {m.role}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="text-xs font-medium text-neutral-300">
+                          {m.year || "1st Year"}
+                        </TableCell>
+
+                        <TableCell className="text-xs text-neutral-400">
+                          <div>{m.email}</div>
+                          <div className="text-[10px] text-neutral-500">{m.phone}</div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Super Admin Only: Role Slide Panel Trigger */}
+                            {isSuperAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openRolePanel(m)}
+                                title="Manage Admin Access"
+                                className={`h-8 px-2 text-xs rounded-full transition-colors ${
+                                  m.role === "admin"
+                                    ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-950/20"
+                                    : "text-neutral-500 hover:text-yellow-400 hover:bg-yellow-950/10"
+                                }`}
+                              >
+                                <Star className={`h-3.5 w-3.5 ${m.role === "admin" ? "fill-yellow-400" : ""}`} />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => openRolePanel(m)}
-                              title="Manage Admin Access"
-                              className={`h-8 px-2 text-xs rounded-full transition-colors ${
-                                m.role === "admin"
-                                  ? "text-yellow-400 hover:text-yellow-300 hover:bg-yellow-950/20"
-                                  : "text-neutral-500 hover:text-yellow-400 hover:bg-yellow-950/10"
-                              }`}
+                              onClick={() => setRoleMember(m)}
+                              className="h-8 px-2 text-xs text-neutral-400 hover:text-neutral-200 rounded-full"
+                              title="Change Role"
                             >
-                              <Star className={`h-3.5 w-3.5 ${m.role === "admin" ? "fill-yellow-400" : ""}`} />
+                              <Shield className="h-3.5 w-3.5" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setRoleMember(m)}
-                            className="h-8 px-2 text-xs text-neutral-400 hover:text-neutral-200 rounded-full"
-                            title="Change Role"
-                          >
-                            <Shield className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditMember(m)}
-                            className="h-8 px-2 text-xs text-neutral-400 hover:text-neutral-200 rounded-full"
-                            title="Edit Profile"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteTarget(m)}
-                            className="h-8 px-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 rounded-full"
-                            title="Delete Member"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditMember(m)}
+                              className="h-8 px-2 text-xs text-neutral-400 hover:text-neutral-200 rounded-full"
+                              title="Edit Profile"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteTarget(m)}
+                              className="h-8 px-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 rounded-full"
+                              title="Delete Member"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     );
                   })
                 )}
