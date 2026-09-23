@@ -116,7 +116,7 @@ export function PublicNavbar() {
                   else    linkRefs.current.delete(link.href);
                 }}
                 className={cn(
-                  "relative px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors duration-150 whitespace-nowrap z-10",
+                  "relative px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors duration-150 whitespace-nowrap z-10",
                   isActive
                     ? "text-neutral-950 font-semibold"
                     : "text-neutral-400 hover:text-neutral-200"
@@ -130,7 +130,7 @@ export function PublicNavbar() {
 
 
         {/* Action Button & Seamless Mirai Logo */}
-        <div className="flex items-center gap-4 sm:gap-5 shrink-0">
+        <div className="flex items-center gap-3 sm:gap-4">
           {/* CTA Button: Dashboard when logged in, Login when logged out */}
           {user ? (
             <Link
@@ -151,11 +151,8 @@ export function PublicNavbar() {
             </Link>
           )}
 
-          {/* Visual separator between action button and school logo */}
-          <div className="hidden sm:block h-4 w-px bg-white/15" aria-hidden="true" />
-
           {/* Official Mirai Logo - Seamlessly blended on navbar background */}
-          <div className="hidden sm:flex items-center select-none">
+          <div className="hidden sm:flex items-center pl-1 select-none">
             <Image
               src="/images/mirai-logo.png"
               alt="Mirai School of Technology"

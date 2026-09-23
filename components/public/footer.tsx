@@ -31,7 +31,7 @@ export function PublicFooter() {
                     className="object-contain object-left brightness-110 pointer-events-none select-none"
                   />
                 </div>
-                <span className="text-xs font-medium text-neutral-300">
+                <span className="text-[10px] font-medium text-neutral-400">
                   The Cultural Society of Mirai
                 </span>
               </div>
@@ -44,9 +44,9 @@ export function PublicFooter() {
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-4 border-l-2 border-neutral-500 pl-2.5">
+            <h4 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-4 border-l-2 border-neutral-500 pl-2.5">
               Explore Malhar
-            </h3>
+            </h4>
             <ul className="space-y-2.5 text-xs sm:text-sm">
               <li>
                 <Link href="/" className="hover:text-neutral-200 transition-colors">
@@ -88,9 +88,9 @@ export function PublicFooter() {
 
           {/* Institutional Contact */}
           <div>
-            <h3 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-4 border-l-2 border-neutral-500 pl-2.5">
+            <h4 className="text-xs font-semibold text-neutral-200 uppercase tracking-wider mb-4 border-l-2 border-neutral-500 pl-2.5">
               Society Office
-            </h3>
+            </h4>
             <ul className="space-y-3 text-xs sm:text-sm">
               <li className="flex items-start gap-2.5">
                 <MapPin className="h-4 w-4 text-neutral-400 mt-1 shrink-0" />

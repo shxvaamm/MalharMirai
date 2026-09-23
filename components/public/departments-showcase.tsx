@@ -9,7 +9,6 @@ import { ScrollReveal } from "@/components/public/scroll-reveal";
 import { useDepartments } from "@/lib/hooks/use-departments";
 
 import { Department } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
 
 interface DepartmentsShowcaseProps {
   initialDepartments?: Department[];
@@ -34,15 +33,9 @@ export function DepartmentsShowcase({ initialDepartments }: DepartmentsShowcaseP
 
       {/* Loading State */}
       {loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
-          {[1, 2, 3, 4, 5].map((i, idx) => (
-            <Card
-              key={i}
-              className={cn(
-                "glass-panel border-white/[0.06] p-6 space-y-4 animate-pulse bg-neutral-950 sm:col-span-1 lg:col-span-2",
-                idx === 3 && "lg:col-start-2"
-              )}
-            >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i} className="glass-panel border-white/[0.06] p-6 space-y-4 animate-pulse bg-neutral-950">
               <div className="h-6 w-3/4 bg-neutral-800 rounded" />
               <div className="h-12 w-full bg-neutral-800 rounded" />
             </Card>
@@ -69,16 +62,10 @@ export function DepartmentsShowcase({ initialDepartments }: DepartmentsShowcaseP
           variant="reveal"
           stagger
           threshold={0.1}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
         >
-          {departments.map((dept, idx) => (
-            <div
-              key={dept.id}
-              className={cn(
-                "sm:col-span-1 lg:col-span-2",
-                idx === 3 && "lg:col-start-2"
-              )}
-            >
+          {departments.map((dept) => (
+            <div key={dept.id}>
               <Link
                 href={`/members?department=${encodeURIComponent(dept.name)}`}
                 className="block group h-full"

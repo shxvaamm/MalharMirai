@@ -53,11 +53,10 @@ export function EventsShowcase() {
 
       {!loading && upcomingEvents.length === 0 && (
         <EmptyState
-          icon={<Calendar className="h-5 w-5" />}
+          icon={<Calendar className="h-6 w-6" />}
           headline="No upcoming events right now"
           subtext="Follow us on Instagram for announcements about our next fest or workshop."
           showInstagramCta={true}
-          className="py-8 sm:py-10 gap-3.5"
         />
       )}
 
