@@ -22,7 +22,7 @@ import { Calendar, Users, ArrowRight, Compass } from "lucide-react";
 import { AnimatedCounter } from "@/components/public/animated-counter";
 
 interface HeroAnimationsProps {
-  activeMembers:   string;
+  activeMembers: string;
   eventsOrganised: string;
 }
 
@@ -67,7 +67,8 @@ export function HeroAnimations({ activeMembers, eventsOrganised }: HeroAnimation
       >
         <Link
           href="/members"
-          className="p-6 rounded-3xl glass-card border border-white/[0.08] bg-black/60 hover:border-white/20 hover:bg-black/80 text-center transition-all duration-200 shadow-xl group block card-lift backdrop-blur-xl"
+          aria-label="Active Members: Coordinators and contributors across 5 departments. Click to view all members."
+          className="p-6 rounded-3xl glass-card border border-white/[0.08] bg-black/60 hover:border-white/20 hover:bg-black/80 text-center transition-all duration-200 shadow-xl group block card-lift backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         >
           <div className="flex items-center justify-center gap-2.5 mb-1">
             <div className="p-2.5 rounded-2xl bg-white/[0.08] text-neutral-300 group-hover:scale-110 transition-transform duration-200">
@@ -82,14 +83,19 @@ export function HeroAnimations({ activeMembers, eventsOrganised }: HeroAnimation
           <div className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mt-2 group-hover:text-neutral-200 transition-colors">
             Active Members
           </div>
-          <div className="text-[11px] text-neutral-500 mt-0.5">
-            Coordinators &amp; contributors across 5 departments &rarr;
+          <div className="text-xs text-neutral-500 mt-1">
+            Coordinators &amp; contributors across 5 departments
+          </div>
+          <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-300 group-hover:text-white transition-colors">
+            <span>View Members</span>
+            <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </Link>
 
         <Link
           href="/events"
-          className="p-6 rounded-3xl glass-card border border-white/[0.08] bg-black/60 hover:border-white/20 hover:bg-black/80 text-center transition-all duration-200 shadow-xl group block card-lift backdrop-blur-xl"
+          aria-label="Events Organised: Fests, showcases, workshops and orientation galas. Click to view events."
+          className="p-6 rounded-3xl glass-card border border-white/[0.08] bg-black/60 hover:border-white/20 hover:bg-black/80 text-center transition-all duration-200 shadow-xl group block card-lift backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         >
           <div className="flex items-center justify-center gap-2.5 mb-1">
             <div className="p-2.5 rounded-2xl bg-white/[0.08] text-neutral-300 group-hover:scale-110 transition-transform duration-200">
@@ -104,8 +110,12 @@ export function HeroAnimations({ activeMembers, eventsOrganised }: HeroAnimation
           <div className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mt-2 group-hover:text-neutral-200 transition-colors">
             Events Organised
           </div>
-          <div className="text-[11px] text-neutral-500 mt-0.5">
-            Fests, showcases, workshops &amp; orientation galas &rarr;
+          <div className="text-xs text-neutral-500 mt-1">
+            Fests, showcases, workshops &amp; orientation galas
+          </div>
+          <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-300 group-hover:text-white transition-colors">
+            <span>View Events</span>
+            <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </Link>
       </div>

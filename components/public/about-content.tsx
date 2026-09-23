@@ -16,9 +16,9 @@ import { ScrollReveal } from "@/components/public/scroll-reveal";
 import { AnimatedCounter } from "@/components/public/animated-counter";
 
 interface AboutContentProps {
-  activeMembers:   string;
+  activeMembers: string;
   eventsOrganised: string;
-  aboutText:       string;
+  aboutText: string;
 }
 
 export function AboutContent({ activeMembers, eventsOrganised, aboutText }: AboutContentProps) {
@@ -50,8 +50,8 @@ export function AboutContent({ activeMembers, eventsOrganised, aboutText }: Abou
       {/* Core Statistics — staggered card reveal */}
       <ScrollReveal variant="reveal" stagger threshold={0.2} className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
         {[
-          { icon: Users,    value: activeMembers,   label: "Active Members",    sub: "Coordinators & contributors across 5 departments" },
-          { icon: Calendar, value: eventsOrganised, label: "Events Organised",  sub: "Fests, showcases, workshops & orientation galas" },
+          { icon: Users, value: activeMembers, label: "Active Members", sub: "Coordinators & contributors across 5 departments" },
+          { icon: Calendar, value: eventsOrganised, label: "Events Organised", sub: "Fests, showcases, workshops & orientation galas" },
         ].map(({ icon: Icon, value, label, sub }) => (
           <div
             key={label}
@@ -68,7 +68,7 @@ export function AboutContent({ activeMembers, eventsOrganised, aboutText }: Abou
             <div className="text-xs uppercase tracking-wider font-semibold text-neutral-400 mt-2">
               {label}
             </div>
-            <div className="text-[11px] text-neutral-500 mt-1">{sub}</div>
+            <div className="text-xs text-neutral-500 mt-1">{sub}</div>
           </div>
         ))}
       </ScrollReveal>
