@@ -127,22 +127,19 @@ export function HeroBackgroundSlideshow({
                 loading={loadingAttr}
                 priority={isPriority}
                 sizes="100vw"
-                quality={75}
+                quality={90}
               />
             </div>
           );
         })}
       </div>
 
-      {/* Single uniform dark tint with blur — keeps text readable on all sections.
-          Provides strong contrast across light and dark uploaded photos. */}
+      {/* Uniform dark tint — keeps text readable on all sections without blurring the image */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0,0,0,0.78)",
-          backdropFilter: "blur(6px)",
-          WebkitBackdropFilter: "blur(6px)",
+          background: "rgba(0,0,0,0.60)",
           zIndex: 5,
           pointerEvents: "none",
         }}
