@@ -53,9 +53,9 @@ export default async function HomePage() {
       <ScrollReveal
         variant="reveal-scale"
         threshold={0.1}
-        className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
+        className="px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full"
       >
-        <div className="p-8 sm:p-10 rounded-3xl border border-white/[0.06] hover:border-white/15 transition-all duration-300 bg-gradient-to-br from-white/[0.03] to-white/[0.01] backdrop-blur-xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl card-lift">
+        <div className="p-8 sm:p-10 rounded-3xl border border-white/[0.06] hover:border-white/15 transition-all duration-300 bg-gradient-to-br from-white/[0.03] to-white/[0.01] backdrop-blur-xl flex flex-col md:flex-row items-center justify-between gap-6 md:gap-10 shadow-xl card-lift">
           <div className="space-y-2 text-center md:text-left">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-100">
               Meet the Creative Force of{" "}

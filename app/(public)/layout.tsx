@@ -54,8 +54,8 @@ export default async function PublicLayout({
         {/* Fixed top navbar */}
         <PublicNavbar />
 
-        {/* Main page content - offset for fixed navbar */}
-        <main className="flex-1 flex flex-col bg-transparent pt-16 md:pt-20">
+        {/* Main page content */}
+        <main className="flex-1 flex flex-col bg-transparent">
           <PageTransition>{children}</PageTransition>
         </main>
 

@@ -19,7 +19,7 @@ export function DepartmentsShowcase({ initialDepartments }: DepartmentsShowcaseP
   const { departments, loading, error, refresh } = useDepartments({ initialDepartments });
 
   return (
-    <section id="departments" className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-8">
+    <section id="departments" className="scroll-mt-24 md:scroll-mt-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-8">
       {/* Section header — fade up on scroll */}
       <ScrollReveal variant="reveal" threshold={0.2}>
         <div>
