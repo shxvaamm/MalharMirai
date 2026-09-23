@@ -8,7 +8,6 @@ import {
   Linkedin,
   Sparkles,
   Award,
-  Star,
   Layers,
   Users,
 } from "lucide-react";
@@ -25,6 +24,7 @@ import {
   getLeadershipBadgeColor,
 } from "@/lib/leadership";
 import { ClubMember } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
 
 // ─── Display-time URL normalizer ──────────────────────────────────────────────
 // Fixes stored values like "www.linkedin.com/in/..." that have no scheme —
@@ -102,10 +102,10 @@ function CoreCard({ leader }: { leader: ClubMember }) {
             {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20 pointer-events-none" />
 
-            {/* Badges: role left, admin star + year right */}
+            {/* Badges: role left, year right */}
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
               <Badge
-                className={`text-[10px] uppercase font-semibold tracking-wider px-3 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 backdrop-blur-md ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
+                className={`text-xs uppercase font-semibold tracking-wider px-3 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 backdrop-blur-md ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
               >
                 {rank === 1 ? (
                   <Crown className="h-3 w-3 text-neutral-300" />
@@ -119,19 +119,9 @@ function CoreCard({ leader }: { leader: ClubMember }) {
                 <span>{leader.specialty}</span>
               </Badge>
 
-              <div className="flex items-center gap-1.5">
-                {isAdmin && (
-                  <span
-                    title="Admin Access"
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-neutral-200 shadow-[0_0_8px_rgba(255,255,255,0.25)] border border-white/20"
-                  >
-                    <Star className="h-3 w-3 fill-neutral-950 text-neutral-950" />
-                  </span>
-                )}
-                <span className="text-[10px] font-mono font-medium px-2.5 py-0.5 rounded-full bg-black/85 border border-white/10 text-neutral-400 backdrop-blur-md shadow-sm">
-                  {leader.year || "—"}
-                </span>
-              </div>
+              <span className="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-black/85 border border-white/10 text-neutral-400 backdrop-blur-md shadow-sm">
+                {leader.year || "—"}
+              </span>
             </div>
           </div>
         </div>
@@ -154,7 +144,10 @@ function CoreCard({ leader }: { leader: ClubMember }) {
             href={normalizeSocialUrl(leader.socials!.instagram!)}
             target="_blank"
             rel="noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-neutral-200 hover:text-white hover:bg-white/10 hover:border-white/25 transition-all font-semibold text-xs shadow-sm"
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-neutral-200 hover:text-white hover:bg-white/10 hover:border-white/25 transition-all font-semibold text-xs shadow-sm",
+              hasLinkedIn ? "flex-1" : "w-full max-w-[160px]"
+            )}
           >
             <Instagram className="h-3.5 w-3.5" />
             <span>Instagram</span>
@@ -165,14 +158,17 @@ function CoreCard({ leader }: { leader: ClubMember }) {
             href={normalizeSocialUrl(leader.socials!.linkedin!)}
             target="_blank"
             rel="noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-neutral-200 hover:text-white hover:bg-white/10 hover:border-white/25 transition-all font-semibold text-xs shadow-sm"
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-neutral-200 hover:text-white hover:bg-white/10 hover:border-white/25 transition-all font-semibold text-xs shadow-sm",
+              hasInstagram ? "flex-1" : "w-full max-w-[160px]"
+            )}
           >
             <Linkedin className="h-3.5 w-3.5" />
             <span>LinkedIn</span>
           </a>
         )}
         {!hasInstagram && !hasLinkedIn && (
-          <span className="text-[10px] text-neutral-600 py-1">No socials listed</span>
+          <span className="text-xs text-neutral-600 py-1">No socials listed</span>
         )}
       </div>
     </Card>
@@ -215,57 +211,49 @@ function MemberCard({ member }: { member: ClubMember }) {
             {/* Badges */}
             <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
               {isAdminRole ? (
-                <Badge className="bg-neutral-200 text-neutral-950 font-semibold text-[10px] px-2.5 py-0.5 shadow-sm flex items-center gap-1 backdrop-blur-md border-transparent rounded-full">
+                <Badge className="bg-neutral-200 text-neutral-950 font-semibold text-xs px-2.5 py-0.5 shadow-sm flex items-center gap-1 backdrop-blur-md border-transparent rounded-full">
                   <Crown className="h-3 w-3" />
                   <span>Admin</span>
                 </Badge>
               ) : member.role === "volunteer" ? (
-                <Badge className="bg-neutral-800/80 text-neutral-300 font-medium text-[10px] px-2.5 py-0.5 shadow-sm backdrop-blur-md border-white/10 rounded-full">
+                <Badge className="bg-neutral-800/80 text-neutral-300 font-medium text-xs px-2.5 py-0.5 shadow-sm backdrop-blur-md border-white/10 rounded-full">
                   Volunteer
                 </Badge>
               ) : (
-                <Badge className="bg-black/80 text-neutral-400 border border-white/10 font-medium text-[10px] px-2.5 py-0.5 shadow-sm backdrop-blur-md rounded-full">
+                <Badge className="bg-black/80 text-neutral-400 border border-white/10 font-medium text-xs px-2.5 py-0.5 shadow-sm backdrop-blur-md rounded-full">
                   Member
                 </Badge>
               )}
 
-              <div className="flex items-center gap-1.5">
-                {isAdminRole && (
-                  <span
-                    title="Admin"
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-neutral-200 shadow-[0_0_8px_rgba(255,255,255,0.25)] border border-white/20"
-                  >
-                    <Star className="h-3 w-3 fill-neutral-950 text-neutral-950" />
-                  </span>
-                )}
-                {/* Year badge — the key sorting signal, shown on every card */}
-                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-black/85 border border-white/10 text-neutral-400 backdrop-blur-md shadow-sm">
-                  {member.year || "1st Year"}
-                </span>
-              </div>
+              {/* Year badge — the key sorting signal, shown on every card */}
+              <span className="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-black/85 border border-white/10 text-neutral-400 backdrop-blur-md shadow-sm">
+                {member.year || "1st Year"}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Name, dept, specialty, bio */}
-        <div className="px-4 py-4 text-center space-y-2">
+        <div className="px-5 py-5 text-center space-y-3">
           <h3 className="text-lg sm:text-xl font-bold text-neutral-100 tracking-tight group-hover:text-neutral-300 transition-colors line-clamp-1">
             {member.full_name}
           </h3>
 
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-neutral-300 text-xs font-medium shadow-sm">
-            <Layers className="h-3 w-3 text-neutral-400" />
-            <span>{member.department}</span>
+          <div className="pt-0.5 pb-0.5">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-neutral-300 text-xs font-medium shadow-sm">
+              <Layers className="h-3 w-3 text-neutral-400" />
+              <span>{member.department}</span>
+            </div>
           </div>
 
           {member.specialty && (
-            <div className="text-xs text-neutral-300 font-medium pt-0.5 line-clamp-1">
+            <div className="text-xs text-neutral-400 font-medium line-clamp-1">
               {member.specialty}
             </div>
           )}
 
           {member.bio && (
-            <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed pt-0.5">
+            <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed pt-1">
               {member.bio}
             </p>
           )}
@@ -279,7 +267,10 @@ function MemberCard({ member }: { member: ClubMember }) {
             href={normalizeSocialUrl(member.socials!.instagram!)}
             target="_blank"
             rel="noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm"
+            className={cn(
+              "flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm",
+              hasLinkedIn ? "flex-1" : "w-full max-w-[160px]"
+            )}
           >
             <Instagram className="h-3.5 w-3.5 text-neutral-300" />
             <span>Instagram</span>
@@ -290,14 +281,17 @@ function MemberCard({ member }: { member: ClubMember }) {
             href={normalizeSocialUrl(member.socials!.linkedin!)}
             target="_blank"
             rel="noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm"
+            className={cn(
+              "flex items-center justify-center gap-1.5 py-2 px-3 rounded-full bg-white/[0.03] border border-white/10 text-neutral-300 hover:bg-white/[0.06] hover:text-white hover:border-white/20 transition-all text-xs font-medium shadow-sm",
+              hasInstagram ? "flex-1" : "w-full max-w-[160px]"
+            )}
           >
             <Linkedin className="h-3.5 w-3.5 text-neutral-300" />
             <span>LinkedIn</span>
           </a>
         )}
         {!hasInstagram && !hasLinkedIn && (
-          <span className="text-[10px] text-neutral-600 py-1">No socials listed</span>
+          <span className="text-xs text-neutral-600 py-1">No socials listed</span>
         )}
       </div>
     </Card>

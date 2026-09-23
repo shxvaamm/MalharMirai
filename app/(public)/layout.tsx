@@ -44,7 +44,7 @@ export default async function PublicLayout({
         {/* Global fixed background — renders at z-index:-1, stays anchored to viewport */}
         <HeroBackgroundSlideshow
           intervalMs={4500}
-          opacityClassName="opacity-85"
+          opacityClassName="opacity-45"
           initialSlides={initialSlides}
         />
 

@@ -134,13 +134,15 @@ export function HeroBackgroundSlideshow({
         })}
       </div>
 
-      {/* Single uniform dark tint — keeps text readable on all sections.
-          Provides ~60% black overlay for strong text contrast across light and dark uploaded photos. */}
+      {/* Single uniform dark tint with blur — keeps text readable on all sections.
+          Provides strong contrast across light and dark uploaded photos. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0,0,0,0.60)",
+          background: "rgba(0,0,0,0.78)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
           zIndex: 5,
           pointerEvents: "none",
         }}
