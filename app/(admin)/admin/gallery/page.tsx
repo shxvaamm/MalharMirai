@@ -18,7 +18,6 @@ import { useAdminData } from "@/lib/hooks/use-admin-data";
 import { useToast } from "@/components/ui/toast";
 import { UploadMediaDialog } from "@/components/admin/gallery-dialogs";
 import { DeleteConfirmDialog } from "@/components/admin/member-dialogs";
-import { deleteGalleryMediaAction } from "@/lib/actions/gallery";
 import { GalleryMedia } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
 
@@ -201,20 +200,18 @@ export default function AdminGalleryPage() {
 
       <DeleteConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(op) => !op && setDeleteTarget(null)}
+        onOpenChange={(op) => {
+          if (!op) setDeleteTarget(null);
+        }}
         title="Remove Media Item"
         description={`Are you sure you want to remove "${deleteTarget?.title}" from the gallery?`}
         onConfirm={async () => {
-          if (deleteTarget) {
-            const res = await deleteGalleryMediaAction(deleteTarget.id, deleteTarget.media_url);
-            if (res.success) {
-              deleteGalleryMedia(deleteTarget.id);
-              toast({ title: "Media Removed", description: "Item deleted from gallery and storage.", type: "warning" });
-            } else {
-              deleteGalleryMedia(deleteTarget.id);
-              toast({ title: "Media Removed", description: "Item removed.", type: "warning" });
-            }
-          }
+          if (!deleteTarget) return;
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          // deleteGalleryMedia() already calls deleteGalleryMediaAction internally
+          await deleteGalleryMedia(target.id);
+          toast({ title: "Media Removed", description: `"${target.title}" deleted from gallery and storage.`, type: "warning" });
         }}
       />
     </div>

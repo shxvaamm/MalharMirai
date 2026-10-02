@@ -14,7 +14,7 @@ import {
   Image as ImageIcon,
   Settings,
   LogOut,
-  Sparkles,
+  MonitorPlay,
   ExternalLink,
   ChevronLeft,
   ChevronRight,
@@ -43,7 +43,7 @@ const adminNavItems: NavItem[] = [
   { name: "Registrations", href: "/admin/registrations", icon: ClipboardList },
   { name: "Communication", href: "/admin/communication", icon: MessageSquare, superAdminOnly: true },
   { name: "Gallery", href: "/admin/gallery", icon: ImageIcon },
-  { name: "Home Slideshow", href: "/admin/slideshow", icon: Sparkles },
+  { name: "Home Slideshow", href: "/admin/slideshow", icon: MonitorPlay },
   { name: "Settings", href: "/admin/settings", icon: Settings, superAdminOnly: true },
 ];
 
@@ -153,7 +153,7 @@ export function AdminSidebar({ isMobileOpen = false, onMobileClose }: AdminSideb
                 </div>
 
                 {!collapsed && item.superAdminOnly && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-neutral-400 uppercase font-semibold">
+                  <span className="inline-flex items-center self-center shrink-0 text-[9px] px-1.5 leading-none h-4 rounded bg-white/[0.06] border border-white/10 text-neutral-400 uppercase font-semibold">
                     Super
                   </span>
                 )}

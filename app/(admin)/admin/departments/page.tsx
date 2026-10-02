@@ -22,7 +22,6 @@ import {
   EditDepartmentDialog,
 } from "@/components/admin/department-dialogs";
 import { DeleteConfirmDialog } from "@/components/admin/member-dialogs";
-import { deleteDepartmentAction } from "@/lib/actions/departments";
 import { Department } from "@/lib/mock-data";
 
 export default function AdminDepartmentsPage() {
@@ -42,23 +41,15 @@ export default function AdminDepartmentsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-
-    const result = await deleteDepartmentAction(deleteTarget.id);
-    if (result.success) {
-      deleteDepartment(deleteTarget.id);
-      toast({
-        title: "Department Deleted",
-        description: `"${deleteTarget.name}" has been removed.`,
-        type: "warning",
-      });
-    } else {
-      deleteDepartment(deleteTarget.id);
-      toast({
-        title: "Department Removed",
-        description: `"${deleteTarget.name}" removed from local state.`,
-        type: "warning",
-      });
-    }
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    // deleteDepartment() calls deleteDepartmentAction internally
+    await deleteDepartment(target.id);
+    toast({
+      title: "Department Deleted",
+      description: `"${target.name}" has been removed.`,
+      type: "warning",
+    });
   };
 
   return (

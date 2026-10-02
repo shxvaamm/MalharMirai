@@ -33,7 +33,7 @@ import {
   ChangeRoleDialog,
   DeleteConfirmDialog,
 } from "@/components/admin/member-dialogs";
-import { deleteMemberAction, updateMemberOrderAction } from "@/lib/actions/members";
+import { updateMemberOrderAction } from "@/lib/actions/members";
 import { ClubMember, MOCK_DEPARTMENTS } from "@/lib/mock-data";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
 import { isLeadershipRole } from "@/lib/leadership";
@@ -189,7 +189,8 @@ export default function AdminMembersPage() {
     const targetId = deleteTarget.id;
     const targetName = deleteTarget.full_name;
 
-    deleteMember(targetId);
+    // deleteMember() calls deleteMemberAction internally — no need to call it again
+    await deleteMember(targetId);
     setDeleteTarget(null);
 
     toast({
@@ -197,12 +198,6 @@ export default function AdminMembersPage() {
       description: `"${targetName}" removed from society roster.`,
       type: "warning",
     });
-
-    try {
-      await deleteMemberAction(targetId);
-    } catch (e) {
-      console.warn("Background deletion sync:", e);
-    }
   };
 
   return (

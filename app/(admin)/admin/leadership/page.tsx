@@ -33,7 +33,6 @@ import {
 import { useAdminData } from "@/lib/hooks/use-admin-data";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth/auth-context";
-import { deleteMemberAction } from "@/lib/actions/members";
 import { ClubMember } from "@/lib/mock-data";
 import {
   AddLeaderDialog,
@@ -90,19 +89,16 @@ export default function AdminLeadershipPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
 
-    deleteMember(deleteTarget.id);
+    // deleteMember() calls deleteMemberAction internally — no need to call it again
+    await deleteMember(target.id);
     toast({
       title: "Executive Removed",
-      description: `"${deleteTarget.full_name}" (${deleteTarget.specialty}) removed from leadership.`,
+      description: `"${target.full_name}" (${target.specialty}) removed from leadership.`,
       type: "warning",
     });
-
-    try {
-      await deleteMemberAction(deleteTarget.id);
-    } catch (e) {
-      console.warn("Background deletion:", e);
-    }
   };
 
   const handleToggleAdmin = async (leader: ClubMember) => {

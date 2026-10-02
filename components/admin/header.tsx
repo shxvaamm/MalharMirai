@@ -83,13 +83,13 @@ export function AdminHeader({ onMobileMenuToggle }: AdminHeaderProps) {
           <div className="hidden sm:flex flex-col text-left">
             <span
               suppressHydrationWarning
-              className="text-xs font-medium text-neutral-200 truncate max-w-[140px]"
+              className="text-xs font-medium text-neutral-200 truncate max-w-[180px]"
             >
               {user?.fullName || "Admin User"}
             </span>
             <span
               suppressHydrationWarning
-              className="text-[10px] text-neutral-500 truncate max-w-[140px]"
+              className="text-xs text-neutral-500 truncate max-w-[180px]"
             >
               {currentEmail}
             </span>

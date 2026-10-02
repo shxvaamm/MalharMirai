@@ -21,7 +21,6 @@ import { useAdminData } from "@/lib/hooks/use-admin-data";
 import { useToast } from "@/components/ui/toast";
 import { DraftNoticeDialog, EmailBlastDialog } from "@/components/admin/notice-dialogs";
 import { DeleteConfirmDialog } from "@/components/admin/member-dialogs";
-import { deleteAnnouncementAction } from "@/lib/actions/announcements";
 import { Announcement } from "@/lib/mock-data";
 
 export default function AdminCommunicationPage() {
@@ -239,19 +238,18 @@ export default function AdminCommunicationPage() {
 
       <DeleteConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(op) => !op && setDeleteTarget(null)}
+        onOpenChange={(op) => {
+          if (!op) setDeleteTarget(null);
+        }}
         title="Delete Announcement"
         description={`Remove notice "${deleteTarget?.title}" from circular board?`}
         onConfirm={async () => {
-          if (deleteTarget) {
-            const res = await deleteAnnouncementAction(deleteTarget.id);
-            if (res.success) {
-              deleteAnnouncement(deleteTarget.id);
-              toast({ title: "Notice Deleted", description: "Announcement removed from Supabase.", type: "warning" });
-            } else {
-              toast({ title: "Deletion Failed", description: res.error || "Could not delete notice.", type: "error" });
-            }
-          }
+          if (!deleteTarget) return;
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          // deleteAnnouncement() calls deleteAnnouncementAction internally
+          await deleteAnnouncement(target.id);
+          toast({ title: "Notice Deleted", description: `"${target.title}" removed from board.`, type: "warning" });
         }}
       />
     </div>

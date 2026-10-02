@@ -7,7 +7,7 @@ import {
   Calendar,
   ClipboardList,
   TrendingUp,
-  Sparkles,
+  Info,
   Bell,
   ArrowRight,
   Shield,
@@ -40,7 +40,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Top Header & Floating Quick Action Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-neutral-300 text-xs font-medium mb-2">
             <Shield className="h-3.5 w-3.5 text-neutral-400" /> MALHAR Administrative Console
@@ -97,16 +97,22 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            {/* #7: was h3 (CardTitle default) causing h1→h3 skip. Now a styled <p> with ARIA role */}
+            <p
+              role="heading"
+              aria-level={2}
+              className="text-[11px] font-semibold tracking-wider text-neutral-400"
+            >
               Live Registrations
-            </CardTitle>
+            </p>
             <ClipboardList className="h-4 w-4 text-neutral-400" />
           </CardHeader>
           <CardContent className="p-0 pt-3">
             <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
               {totalRegistrations.toLocaleString()}
             </div>
-            <p className="text-[11px] text-neutral-400 font-medium mt-1 flex items-center gap-1">
+            {/* #4: was text-[11px], now text-xs (12px) */}
+            <p className="text-xs text-neutral-400 font-medium mt-1 flex items-center gap-1">
               <TrendingUp className="h-3 w-3 inline text-neutral-400" /> Dynamic slot updates
             </p>
           </CardContent>
@@ -114,16 +120,20 @@ export default function AdminDashboardPage() {
 
         <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p
+              role="heading"
+              aria-level={2}
+              className="text-[11px] font-semibold tracking-wider text-neutral-400"
+            >
               Scheduled Events
-            </CardTitle>
+            </p>
             <Calendar className="h-4 w-4 text-neutral-400" />
           </CardHeader>
           <CardContent className="p-0 pt-3">
             <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
               {events.length}
             </div>
-            <p className="text-[11px] text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-400 mt-1">
               {events.filter((e) => getEffectiveEventStatus(e) === "upcoming").length} upcoming showcases
             </p>
           </CardContent>
@@ -131,16 +141,20 @@ export default function AdminDashboardPage() {
 
         <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p
+              role="heading"
+              aria-level={2}
+              className="text-[11px] font-semibold tracking-wider text-neutral-400"
+            >
               Departments
-            </CardTitle>
+            </p>
             <Layers className="h-4 w-4 text-neutral-400" />
           </CardHeader>
           <CardContent className="p-0 pt-3">
             <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
               {departments.length}
             </div>
-            <p className="text-[11px] text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-400 mt-1">
               Media, Design, Mgmt, Tech, PR
             </p>
           </CardContent>
@@ -148,16 +162,20 @@ export default function AdminDashboardPage() {
 
         <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 shadow-xl hover:border-white/15 transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-1 p-0">
-            <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p
+              role="heading"
+              aria-level={2}
+              className="text-[11px] font-semibold tracking-wider text-neutral-400"
+            >
               Announcements
-            </CardTitle>
+            </p>
             <Bell className="h-4 w-4 text-neutral-400" />
           </CardHeader>
           <CardContent className="p-0 pt-3">
             <div className="text-2xl sm:text-3xl font-bold text-neutral-100 font-mono">
               {announcements.length}
             </div>
-            <p className="text-[11px] text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-400 mt-1">
               {announcements.filter((a) => a.is_emergency).length > 0 ? "1 Emergency Broadcast" : "Standard notices"}
             </p>
           </CardContent>
@@ -204,18 +222,19 @@ export default function AdminDashboardPage() {
                 <p className="text-[11px] text-neutral-500 mt-0.5">Across {events.length} campus showcases</p>
               </div>
 
+              {/* #10: 'Seats available' contradicts 0% fill. Changed to 'No registrations yet' when empty */}
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
                 <div className="text-[10px] text-neutral-400 uppercase font-semibold tracking-wider">Overall Utilization</div>
                 <div className="text-2xl font-bold text-neutral-100 font-mono mt-1">
                   {overallUtilization}%
                 </div>
                 <p className="text-[11px] text-neutral-500 mt-0.5">
-                  {fullCapacityEventsCount > 0 ? `${fullCapacityEventsCount} event(s) at capacity` : "Seats available"}
+                  {fullCapacityEventsCount > 0 ? `${fullCapacityEventsCount} event(s) at capacity` : totalRegistrations === 0 ? "No registrations yet" : "Seats filling up"}
                 </p>
               </div>
             </div>
 
-            {/* Capacity Progress Bar & Canonical Link Note */}
+            {/* Capacity Progress Bar — #11: h-2.5 → h-3.5 for better visual weight */}
             <div className="space-y-2 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-neutral-300 font-medium flex items-center gap-1.5">
@@ -226,7 +245,7 @@ export default function AdminDashboardPage() {
                   {totalRegistrations} / {totalCapacity} Seats ({overallUtilization}%)
                 </span>
               </div>
-              <div className="w-full h-2.5 bg-neutral-800 rounded-full overflow-hidden">
+              <div className="w-full h-3.5 bg-neutral-800 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     overallUtilization >= 90 ? "bg-rose-500" : "bg-[#E5E5E5]"
@@ -234,11 +253,10 @@ export default function AdminDashboardPage() {
                   style={{ width: `${overallUtilization}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-400">
+              {/* #5: was text-[11px] → text-xs; #15/#16: removed redundant link, replaced with informational span */}
+              <div className="flex items-center justify-between pt-1 text-xs text-neutral-400">
                 <span>{activeEventsCount} upcoming events accepting entries</span>
-                <Link href="/admin/registrations" className="text-neutral-300 hover:text-white underline underline-offset-2">
-                  Full attendee records &amp; CSV export &rarr;
-                </Link>
+                <span className="text-neutral-500 italic">Use View Full Ledger above for export</span>
               </div>
             </div>
           </CardContent>
@@ -254,7 +272,15 @@ export default function AdminDashboardPage() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
-              {announcements.slice(0, 3).map((notice) => (
+            {/* #8/#12: Empty-state message when no announcements */}
+            {announcements.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Bell className="h-8 w-8 text-neutral-600 mb-2" />
+                <p className="text-sm font-medium text-neutral-400">No active notices</p>
+                <p className="text-xs text-neutral-600 mt-0.5">Notices posted from the Notice Center will appear here.</p>
+              </div>
+            ) : (
+              announcements.slice(0, 3).map((notice) => (
                 <div
                   key={notice.id}
                   className={`p-3 rounded-2xl border space-y-1 ${
@@ -279,14 +305,17 @@ export default function AdminDashboardPage() {
                   <h4 className="text-xs font-semibold text-neutral-200 line-clamp-1">{notice.title}</h4>
                   <p className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">{notice.content}</p>
                 </div>
-              ))}
-            </CardContent>
+              ))
+            )}
+          </CardContent>
           </Card>
 
           <Card className="glass-panel border-white/[0.06] bg-[#0D0D0D]/75 rounded-3xl p-5 space-y-3 shadow-xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-semibold text-neutral-300">
-                <Sparkles className="h-4 w-4 text-neutral-400" /> Society Identification
+              {/* #13: added mb-3 for breathing room between header and data list */}
+              <div className="flex items-center gap-2 text-xs font-semibold text-neutral-300 mb-3">
+                {/* #14: Sparkles → Info. Sparkles implies AI/new; Info is semantically correct for profile data */}
+                <Info className="h-4 w-4 text-neutral-400" /> Society Identification
               </div>
               <Badge variant="member" className="text-[9px]">Read-Only</Badge>
             </div>

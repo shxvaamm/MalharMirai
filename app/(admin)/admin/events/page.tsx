@@ -33,7 +33,6 @@ import {
   EditEventDialog,
 } from "@/components/admin/event-dialogs";
 import { DeleteConfirmDialog } from "@/components/admin/member-dialogs";
-import { deleteEventAction } from "@/lib/actions/events";
 import { ClubEvent } from "@/lib/mock-data";
 import { getEffectiveEventStatus } from "@/lib/utils";
 
@@ -76,7 +75,8 @@ export default function AdminEventsPage() {
     const targetId = deleteTarget.id;
     const targetTitle = deleteTarget.title;
 
-    deleteEvent(targetId);
+    // deleteEvent() calls deleteEventAction internally — no need to call it again
+    await deleteEvent(targetId);
     setDeleteTarget(null);
 
     toast({
@@ -84,12 +84,6 @@ export default function AdminEventsPage() {
       description: `"${targetTitle}" deleted.`,
       type: "warning",
     });
-
-    try {
-      await deleteEventAction(targetId);
-    } catch (e) {
-      console.warn("Background event deletion sync:", e);
-    }
   };
 
   return (

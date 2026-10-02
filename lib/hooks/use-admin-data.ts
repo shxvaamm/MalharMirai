@@ -118,6 +118,7 @@ export function useAdminData() {
   // Sync with Supabase on mount
   React.useEffect(() => {
     async function loadSupabaseData() {
+      setLoading(true);
       try {
         const supabase = createClient();
         const queriesPromise = Promise.all([
@@ -361,6 +362,8 @@ export function useAdminData() {
         }
       } catch (err) {
         console.warn("Supabase local sync: using resilient active state.");
+      } finally {
+        setLoading(false);
       }
     }
 
