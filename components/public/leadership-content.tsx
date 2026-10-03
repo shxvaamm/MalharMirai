@@ -387,6 +387,7 @@ export function LeadershipContent({ initialMembers }: LeadershipContentProps = {
           <ScrollReveal
             variant="reveal"
             stagger
+            threshold={0}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
           >
             {coreMembers.map((leader) => (
@@ -428,6 +429,7 @@ export function LeadershipContent({ initialMembers }: LeadershipContentProps = {
           <ScrollReveal
             variant="reveal"
             stagger
+            threshold={0}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
           >
             {regularMembers.map((member) => (

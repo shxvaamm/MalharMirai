@@ -54,7 +54,7 @@ export function ScrollReveal({
   className = "",
   variant   = "reveal",
   delay     = 0,
-  threshold = 0.2,
+  threshold = 0.05,
   as: Tag   = "div",
   stagger   = false,
 }: ScrollRevealProps) {
@@ -63,6 +63,15 @@ export function ScrollReveal({
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    const triggerReveal = () => {
+      el.classList.add("reveal-visible");
+      if (stagger) {
+        el.querySelectorAll<HTMLElement>(":scope > .stagger-item").forEach((child) => {
+          child.classList.add("is-revealed");
+        });
+      }
+    };
 
     // Skip animation entirely for reduced-motion users
     if (prefersReducedMotion()) {
@@ -77,27 +86,46 @@ export function ScrollReveal({
       return;
     }
 
+    if (typeof IntersectionObserver === "undefined") {
+      triggerReveal();
+      return;
+    }
+
+    // Dynamic threshold: If the element is tall relative to the viewport
+    // (e.g. on mobile where cards stack in 1 column creating a 5,000px+ tall grid),
+    // a threshold of 0.2 is physically impossible to reach because the intersection ratio
+    // can never exceed (viewportHeight / elementHeight). In that case, safeThreshold MUST be 0
+    // so it reveals immediately when the element scrolls into view.
+    const isTall = el.offsetHeight > (typeof window !== "undefined" ? window.innerHeight * 0.4 : 400);
+    const safeThreshold = isTall ? 0 : Math.min(threshold, 0.05);
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
         observer.unobserve(el);
-        el.classList.add("reveal-visible");
-        // For stagger containers, trigger each child
-        if (stagger) {
-          el.querySelectorAll<HTMLElement>(":scope > .stagger-item").forEach((child) => {
-            child.classList.add("is-revealed");
-          });
-        }
+        clearTimeout(safetyTimer);
+        triggerReveal();
       },
-      { threshold }
+      { threshold: safeThreshold }
     );
     observer.observe(el);
-    return () => observer.disconnect();
+
+    // Fallback: If for any reason IntersectionObserver callback doesn't fire
+    // (e.g. mobile viewport zoom or browser layout delays), ensure content is never stuck invisible
+    const safetyTimer = setTimeout(() => {
+      observer.disconnect();
+      triggerReveal();
+    }, 2000);
+
+    return () => {
+      clearTimeout(safetyTimer);
+      observer.disconnect();
+    };
   }, [stagger, threshold]);
 
   const variantClass = VARIANT_CLASS[variant];
 
-  // For stagger, children are cloned to inject stagger-item + --reveal-i
+  // For stagger, children are cloned to inject stagger-item + --reveal-i (capped to max 8 items)
   const renderedChildren = stagger
     ? React.Children.map(children, (child, i) => {
         if (!React.isValidElement(child)) return child;
@@ -110,7 +138,7 @@ export function ScrollReveal({
             .trim(),
           style: {
             ...((child.props as any).style ?? {}),
-            "--reveal-i": i,
+            "--reveal-i": Math.min(i, 8),
           },
         });
       })
