@@ -11,7 +11,7 @@ import { usePathname } from "next/navigation";
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   return (
-    <div key={pathname} className="flex flex-col flex-1 min-h-0 page-fade-in" style={{ isolation: "isolate" }}>
+    <div key={pathname} className="flex flex-col flex-1 min-h-0 page-fade-in" style={{ isolation: "isolate", backfaceVisibility: "hidden" }}>
       {children}
     </div>
   );

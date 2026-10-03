@@ -70,7 +70,7 @@ export function DepartmentsShowcase({ initialDepartments }: DepartmentsShowcaseP
                 href={`/members?department=${encodeURIComponent(dept.name)}`}
                 className="block group h-full"
               >
-                <Card className="h-full glass-card border border-white/[0.06] hover:border-white/20 transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between cursor-pointer group-hover:shadow-[0_8px_30px_rgba(255,255,255,0.04)] rounded-3xl">
+                <Card className="h-full glass-card border border-white/[0.06] hover:border-white/20 transition-all duration-250 hover:-translate-y-1.5 flex flex-col justify-between cursor-pointer group-hover:shadow-[0_8px_30px_rgba(255,255,255,0.04)] rounded-3xl" style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}>
                   <CardHeader className="space-y-2.5 p-6 sm:p-8">
                     <CardTitle className="text-xl font-bold text-neutral-100 group-hover:text-neutral-300 transition-colors tracking-tight">
                       {dept.name}

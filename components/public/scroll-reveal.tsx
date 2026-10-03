@@ -99,6 +99,9 @@ export function ScrollReveal({
     const isTall = el.offsetHeight > (typeof window !== "undefined" ? window.innerHeight * 0.4 : 400);
     const safeThreshold = isTall ? 0 : Math.min(threshold, 0.05);
 
+    // rootMargin: pre-trigger 40px before the element reaches the viewport bottom.
+    // This eliminates the "pop in right as you scroll past" feel on mobile by
+    // starting the fade animation slightly before the element is fully on screen.
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
@@ -106,7 +109,7 @@ export function ScrollReveal({
         clearTimeout(safetyTimer);
         triggerReveal();
       },
-      { threshold: safeThreshold }
+      { threshold: safeThreshold, rootMargin: "0px 0px -40px 0px" }
     );
     observer.observe(el);
 
@@ -115,7 +118,7 @@ export function ScrollReveal({
     const safetyTimer = setTimeout(() => {
       observer.disconnect();
       triggerReveal();
-    }, 2000);
+    }, 1500);
 
     return () => {
       clearTimeout(safetyTimer);

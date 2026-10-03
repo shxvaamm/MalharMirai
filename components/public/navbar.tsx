@@ -70,7 +70,7 @@ export function PublicNavbar() {
   }, [pathname]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-black/90 backdrop-blur-xl border-b border-white/[0.06] transition-all duration-300">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-black/90 backdrop-blur-xl border-b border-white/[0.06] transition-all duration-200" style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}>
       <div className="mx-auto flex h-16 md:h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
         {/* Brand: MALHAR Wordmark */}
@@ -184,7 +184,7 @@ export function PublicNavbar() {
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-black/95 backdrop-blur-2xl border-t border-white/[0.06] animate-in slide-in-from-top-2 duration-200">
+        <div className="lg:hidden bg-black/95 backdrop-blur-2xl border-t border-white/[0.06] animate-in slide-in-from-top-1 duration-150 ease-out">
           <div className="space-y-1.5 px-4 pt-3 pb-6 max-h-[80vh] overflow-y-auto">
             {navLinks.map((link) => {
               const Icon = link.icon;

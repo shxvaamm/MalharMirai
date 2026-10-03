@@ -48,7 +48,7 @@ export function EventCard({ event }: EventCardProps) {
   }[effectiveStatus] ?? "border border-white/20 text-neutral-300 bg-transparent";
 
   return (
-    <article className="group flex flex-col bg-[#0D0D0D]/85 border border-white/[0.06] hover:border-white/[0.15] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-0.5 shadow-lg">
+    <article className="group flex flex-col bg-[#0D0D0D]/85 border border-white/[0.06] hover:border-white/[0.15] rounded-2xl overflow-hidden transition-all duration-250 hover:-translate-y-0.5 shadow-lg" style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden', contain: 'paint' }}>
 
       {/* Poster — clean crop, no blurred backdrop */}
       <Link href={`/events/${event.id}`} className="block shrink-0">
@@ -57,7 +57,8 @@ export function EventCard({ event }: EventCardProps) {
             <img
               src={event.poster_url}
               alt={event.title}
-              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+              className={`w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500`}
+              style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}
               loading="lazy"
             />
           ) : (

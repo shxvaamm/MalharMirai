@@ -80,6 +80,8 @@ body {
   letter-spacing: -0.015em;
   text-rendering: optimizeSpeed;
   overflow-x: hidden;
+  /* Prevent bounce/rubber-band scrolling that causes layout jitter on mobile */
+  overscroll-behavior-x: none;
   /* NOTE: transform:translateZ(0) intentionally removed — it creates a stacking context
      on <body> which traps position:fixed children, breaking the global background slideshow.
      Fixed elements must be fixed relative to the viewport (initial containing block), not body. */
@@ -122,90 +124,97 @@ h1, h2, h3, h4, h5, h6 {
    ══════════════════════════════════════════════════════════════════ */
 
 /* ─── Page Transition: Fade + Slide Up ─── */
+/* 240→200ms, translateY 14→8px: faster + lighter */
 @keyframes pageFadeIn {
-  from { opacity: 0; transform: translateY(14px) scale(0.99); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  from { opacity: 0; transform: translateY(8px) translateZ(0); }
+  to   { opacity: 1; transform: translateY(0) translateZ(0);   }
 }
 
 .page-fade-in {
-  animation: pageFadeIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: pageFadeIn 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   will-change: opacity, transform;
-  transform: translateZ(0);
   backface-visibility: hidden;
 }
 
 /* ─── Scroll Reveal System ─── */
+/* translateY reduced 24→14px: smaller distance = smoother, less "pop" feel */
+/* Easing upgraded to (0.22,1,0.36,1) — snappier spring without overshoot */
 .reveal {
   opacity: 0;
-  transform: translateY(24px);
+  transform: translateY(14px) translateZ(0);
   transition:
-    opacity  0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity  0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
+  backface-visibility: hidden;
 }
 .reveal.reveal-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) translateZ(0);
 }
 
 /* Slide from left */
 .reveal-left {
   opacity: 0;
-  transform: translateX(-28px);
+  transform: translateX(-18px) translateZ(0);
   transition:
-    opacity  0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity  0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
+  backface-visibility: hidden;
 }
 .reveal-left.reveal-visible {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateX(0) translateZ(0);
 }
 
 /* Slide from right */
 .reveal-right {
   opacity: 0;
-  transform: translateX(28px);
+  transform: translateX(18px) translateZ(0);
   transition:
-    opacity  0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity  0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
+  backface-visibility: hidden;
 }
 .reveal-right.reveal-visible {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateX(0) translateZ(0);
 }
 
-/* Scale up */
+/* Scale up — scale(0.95→0.97) is subtler so it doesn't feel like a zoom */
 .reveal-scale {
   opacity: 0;
-  transform: scale(0.95);
+  transform: scale(0.97) translateZ(0);
   transition:
-    opacity  0.38s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity  0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
+  backface-visibility: hidden;
 }
 .reveal-scale.reveal-visible {
   opacity: 1;
-  transform: scale(1);
+  transform: scale(1) translateZ(0);
 }
 
-/* Stagger delays for children */
+/* Stagger delays for children — tighter gaps (50→40ms) for faster cascade */
 .stagger-children > *:nth-child(1)  { transition-delay: 0ms;  }
-.stagger-children > *:nth-child(2)  { transition-delay: 50ms;  }
-.stagger-children > *:nth-child(3)  { transition-delay: 100ms; }
-.stagger-children > *:nth-child(4)  { transition-delay: 150ms; }
-.stagger-children > *:nth-child(5)  { transition-delay: 200ms; }
-.stagger-children > *:nth-child(6)  { transition-delay: 250ms; }
-.stagger-children > *:nth-child(7)  { transition-delay: 300ms; }
-.stagger-children > *:nth-child(8)  { transition-delay: 350ms; }
-.stagger-children > *:nth-child(9)  { transition-delay: 400ms; }
-.stagger-children > *:nth-child(10) { transition-delay: 450ms; }
+.stagger-children > *:nth-child(2)  { transition-delay: 40ms;  }
+.stagger-children > *:nth-child(3)  { transition-delay: 80ms; }
+.stagger-children > *:nth-child(4)  { transition-delay: 120ms; }
+.stagger-children > *:nth-child(5)  { transition-delay: 160ms; }
+.stagger-children > *:nth-child(6)  { transition-delay: 200ms; }
+.stagger-children > *:nth-child(7)  { transition-delay: 240ms; }
+.stagger-children > *:nth-child(8)  { transition-delay: 280ms; }
+.stagger-children > *:nth-child(9)  { transition-delay: 320ms; }
+.stagger-children > *:nth-child(10) { transition-delay: 360ms; }
 
 /* ─── Floating Animation ─── */
+/* Float height 8→6px: more subtle = feels lighter */
 @keyframes float {
-  0%, 100% { transform: translateY(0px);   }
-  50%       { transform: translateY(-8px); }
+  0%, 100% { transform: translateY(0px) translateZ(0);   }
+  50%       { transform: translateY(-6px) translateZ(0); }
 }
 .animate-float {
   animation: float 4s ease-in-out infinite;
@@ -245,27 +254,45 @@ h1, h2, h3, h4, h5, h6 {
   width: 0;
   height: 1px;
   background: currentColor;
-  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* 0.3→0.24s: snappier underline */
+  transition: width 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .hover-underline:hover::after {
   width: 100%;
 }
 
 /* ─── Card Lift on Hover ─── */
+/* Only transform + box-shadow (compositor-only) — zero layout reflow on hover */
+/* translateY(-4px) + translateZ(0) keeps element on GPU layer */
 .card-lift {
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 .card-lift:hover {
-  transform: translateY(-4px) scale(1.008);
-  box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+  transform: translateY(-4px) translateZ(0);
+  box-shadow: 0 16px 40px -8px rgba(0,0,0,0.55);
+}
+
+/* ─── Glass Card GPU Promotion ─── */
+/* Promote each glass card to its own compositing layer so neighboring
+   hover transitions don't trigger full-page repaints.
+   contain:paint clips child overflow (hover image scale) without
+   triggering layout on the surrounding page. */
+.glass-card,
+.glass-panel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: paint;
 }
 
 /* ─── Marquee ─── */
 @keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from { transform: translateX(0) translateZ(0); }
+  to   { transform: translateX(-50%) translateZ(0); }
 }
 .animate-marquee {
   animation: marquee 28s linear infinite;
@@ -277,8 +304,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ─── Pulse Glow ─── */
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.08); }
-  50%       { box-shadow: 0 0 28px 4px rgba(255,255,255,0.10); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.07); }
+  50%       { box-shadow: 0 0 24px 4px rgba(255,255,255,0.09); }
 }
 .animate-pulse-glow {
   animation: pulseGlow 3s ease-in-out infinite;
@@ -392,78 +419,83 @@ input:-webkit-autofill:active {
 }
 
 /* ── Hero word-by-word stagger keyframe ── */
-/* duration: 260ms, easing cubic-bezier(0.16,1,0.3,1) — matches former WORD_TRANSITION exactly */
-/* delay per word: 20ms base + word-index × 35ms — matches delayChildren:0.02 + staggerChildren:0.035 */
+/* translateY 14→10px, easing (0.22,1,0.36,1) — same spring feel as reveal system */
+/* delay per word: 20ms base + word-index × 30ms (was 35ms — now snappier) */
 @keyframes heroWordIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  from { opacity: 0; transform: translateY(10px) translateZ(0); }
+  to   { opacity: 1; transform: translateY(0) translateZ(0);    }
 }
 .hero-word {
   display: inline-block;
-  margin-right: 0.28em;          /* matches former marginRight: '0.28em' */
-  opacity: 0;                    /* start hidden; animation fills to visible */
-  animation: heroWordIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(
-    20ms + var(--word-i, 0) * 35ms
-  );                             /* 20ms base + 35ms × index */
+  margin-right: 0.28em;
+  opacity: 0;
+  animation: heroWordIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(20ms + var(--word-i, 0) * 30ms);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+  will-change: opacity, transform;
 }
-/* Last word in a run — no trailing space */
 .hero-word-last {
   margin-right: 0;
 }
 
 /* ── Hero block stagger (subtitle, CTAs, stats) ── */
-/* duration: 380ms (DURATION.base), delays: 420/540/660ms match Framer delay values */
+/* duration 380→340ms, translateY 14→10px — subtler entrance */
 @keyframes heroBlockIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  from { opacity: 0; transform: translateY(10px) translateZ(0); }
+  to   { opacity: 1; transform: translateY(0) translateZ(0);    }
 }
 .hero-block {
   opacity: 0;
-  animation: heroBlockIn 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: heroBlockIn 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: var(--hero-delay, 0ms);
   will-change: opacity, transform;
 }
 
 /* ── On-mount fade-up for above-fold elements (not scroll-triggered) ── */
 @keyframes revealFadeUp {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  from { opacity: 0; transform: translateY(10px) translateZ(0); }
+  to   { opacity: 1; transform: translateY(0) translateZ(0);    }
 }
 .reveal-on-mount {
-  animation: revealFadeUp 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: revealFadeUp 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   will-change: opacity, transform;
 }
 
 /* ── Stagger item — used inside stagger-children containers ── */
-/* Each child gets --reveal-i set via inline style for dynamic delay */
+/* translateY 14→10px, duration 380→320ms, delay step 50→45ms */
 .stagger-item {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(10px) translateZ(0);
   transition:
-    opacity  380ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
-  transition-delay: calc(min(var(--reveal-i, 0), 8) * 50ms);
+    opacity  320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(min(var(--reveal-i, 0), 8) * 45ms);
   will-change: opacity, transform;
+  backface-visibility: hidden;
 }
 .stagger-item.is-revealed {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) translateZ(0);
 }
 
 /* ── Navbar CSS pill — smooth slide between active nav links ── */
+/* 200→180ms: slightly faster pill slide for snappier nav feel */
 .nav-pill {
   position: absolute;
   border-radius: 9999px;
   background: #e5e5e5;
   pointer-events: none;
   transition:
-    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    width     200ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity   150ms ease;
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    width     180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity   120ms ease;
   will-change: transform, width;
+}
+
+/* ── touch-action utility: allow vertical scroll on touch without blocking interactions ── */
+.touch-pan-y {
+  touch-action: pan-y;
 }
 
 /* ── Reduced motion: honour user preference ── */

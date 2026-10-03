@@ -107,9 +107,10 @@ export function HeroBackgroundSlideshow({
                 width: "100%",
                 height: "100%",
                 opacity: isActive ? 1 : 0,
-                transition: "opacity 900ms cubic-bezier(0.4, 0, 0.2, 1)",
+                transition: "opacity 750ms cubic-bezier(0.4, 0, 0.2, 1)",
                 zIndex: isActive ? 2 : 1,
                 willChange: "opacity",
+                backfaceVisibility: "hidden",
                 pointerEvents: "none",
               }}
             >

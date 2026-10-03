@@ -62,6 +62,7 @@ function GalleryCard({ item, index, onClick }: GalleryCardProps) {
             className={`w-full h-auto block object-cover group-hover:scale-105 transition-transform duration-500 ${
               imageLoaded ? "opacity-100" : "opacity-0"
             }`}
+            style={{ willChange: 'transform', backfaceVisibility: 'hidden' }}
             loading="lazy"
             onLoad={() => setImageLoaded(true)}
             onError={() => setHasError(true)}
@@ -78,8 +79,8 @@ function GalleryCard({ item, index, onClick }: GalleryCardProps) {
         )}
 
         {/* Hover overlay — minimal gradient + zoom indicator */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-250 pointer-events-none" />
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-250 pointer-events-none">
           <div className="p-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white shadow-md">
             <ZoomIn className="h-3.5 w-3.5" />
           </div>
