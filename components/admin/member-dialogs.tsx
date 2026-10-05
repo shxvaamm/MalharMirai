@@ -1003,9 +1003,15 @@ export function DeleteConfirmDialog({
 
   const handleConfirm = async () => {
     setLoading(true);
-    await onConfirm();
-    setLoading(false);
-    onOpenChange(false);
+    try {
+      await onConfirm();
+      onOpenChange(false);
+    } catch {
+      // onConfirm is responsible for its own error toasts;
+      // we just make sure the dialog doesn't get stuck.
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -659,22 +659,19 @@ export function useAdminData() {
   };
 
   const deleteEvent = async (id: string) => {
+    // Optimistic removal — instant UI feedback
     setEvents((prev) => {
       const updated = prev.filter((ev) => ev.id !== id);
       setSyncedData(STORAGE_KEYS.EVENTS, updated);
       return updated;
     });
-    if (isValidUUID(id)) {
-      try {
-        const supabase = createClient();
-        await (supabase.from("events") as any).delete().eq("id", id);
-      } catch (e) {
-        console.warn("Event deleted in local state");
-      }
 
-      try {
-        deleteEventAction(id).catch(() => {});
-      } catch {}
+    if (isValidUUID(id)) {
+      // Single authoritative delete via server action (admin client bypasses RLS)
+      const result = await deleteEventAction(id);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to delete event.");
+      }
     }
   };
 
@@ -1090,7 +1087,7 @@ export function useAdminData() {
     category: "general" | "previous_events" | "workshops" = "previous_events",
     mediaType: "image" | "video" = "image"
   ) => {
-    const id = generateSafeUUID();
+    const id = crypto.randomUUID ? crypto.randomUUID() : generateSafeUUID();
     const newMedia: GalleryMedia = {
       id,
       title,
@@ -1102,47 +1099,47 @@ export function useAdminData() {
       thumbnail_color: "from-cyan-600/30 via-blue-600/20 to-slate-950",
     };
 
+    // Optimistic local update first so UI feels instant
     addGalleryMediaToState(newMedia);
 
-    try {
-      const supabase = createClient();
-      await (supabase.from("gallery") as any).insert({
-        id,
-        title,
-        media_url: mediaUrl,
-        category,
-        media_type: mediaType,
+    // Single authoritative write via server action (handles RLS bypass + revalidatePath)
+    const result = await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
+
+    if (!result.success) {
+      // Roll back optimistic state update
+      setGallery((prev) => {
+        const rolled = prev.filter((g) => g.id !== id);
+        setSyncedData(STORAGE_KEYS.GALLERY, rolled);
+        return rolled;
       });
-    } catch (e) {
-      console.warn("Gallery media created in local state");
+      throw new Error(result.error || "Failed to add media to gallery.");
     }
 
-    try {
-      await uploadGalleryMediaAction({ title, media_url: mediaUrl, category, media_type: mediaType });
-    } catch (err) {
-      console.warn("Server action upload gallery media:", err);
+    // If the server action returned a real DB id, update local state to use it
+    if (result.data?.id && result.data.id !== id) {
+      setGallery((prev) => {
+        const updated = prev.map((g) => (g.id === id ? { ...g, id: result.data.id } : g));
+        setSyncedData(STORAGE_KEYS.GALLERY, updated);
+        return updated;
+      });
     }
 
     return newMedia;
   };
 
-  const deleteGalleryMedia = async (id: string) => {
+  const deleteGalleryMedia = async (id: string, mediaUrl?: string) => {
+    // Optimistic local state removal
     setGallery((prev) => {
       const updated = prev.filter((g) => g.id !== id);
       setSyncedData(STORAGE_KEYS.GALLERY, updated);
       return updated;
     });
-    if (isValidUUID(id)) {
-      try {
-        const supabase = createClient();
-        await (supabase.from("gallery") as any).delete().eq("id", id);
-      } catch (e) {
-        console.warn("Gallery media deleted in local state");
-      }
 
-      try {
-        deleteGalleryMediaAction(id).catch(() => {});
-      } catch {}
+    // Single authoritative delete via server action (handles storage + DB + RLS bypass)
+    const result = await deleteGalleryMediaAction(id, mediaUrl);
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to remove media from gallery.");
     }
   };
 

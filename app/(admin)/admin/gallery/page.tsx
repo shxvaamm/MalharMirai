@@ -193,8 +193,16 @@ export default function AdminGalleryPage() {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         onUpload={async (title, url, category, type) => {
-          await addGalleryMedia(title, url, category, type);
-          toast({ title: "Media Added", description: `"${title}" has been published to the gallery.` });
+          try {
+            await addGalleryMedia(title, url, category, type);
+            toast({ title: "Media Added", description: `"${title}" has been published to the gallery.` });
+          } catch (err: any) {
+            toast({
+              title: "Upload Failed",
+              description: err?.message || "Failed to save media to the gallery.",
+              type: "error",
+            });
+          }
         }}
       />
 
@@ -209,9 +217,20 @@ export default function AdminGalleryPage() {
           if (!deleteTarget) return;
           const target = deleteTarget;
           setDeleteTarget(null);
-          // deleteGalleryMedia() already calls deleteGalleryMediaAction internally
-          await deleteGalleryMedia(target.id);
-          toast({ title: "Media Removed", description: `"${target.title}" deleted from gallery and storage.`, type: "warning" });
+          try {
+            await deleteGalleryMedia(target.id, target.media_url);
+            toast({
+              title: "Media Removed",
+              description: `"${target.title}" deleted from gallery and storage.`,
+              type: "warning",
+            });
+          } catch (err: any) {
+            toast({
+              title: "Delete Failed",
+              description: err?.message || "Failed to remove media item.",
+              type: "error",
+            });
+          }
         }}
       />
     </div>

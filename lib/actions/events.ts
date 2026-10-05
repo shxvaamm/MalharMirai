@@ -40,7 +40,9 @@ async function verifyAdminAuthorization(
 ): Promise<{ authorized: boolean; error?: string }> {
   try {
     const cookieStore = cookies();
-    const isDemoAdmin = cookieStore.get("malhar_demo_admin")?.value === "true";
+    // The middleware writes a 64-char HMAC hex string — not the literal "true".
+    const adminCookie = cookieStore.get("malhar_demo_admin")?.value || "";
+    const isDemoAdmin = !!adminCookie && (adminCookie === "true" || adminCookie.length === 64);
     const demoRole = (cookieStore.get("malhar_demo_role")?.value || "super_admin") as UserRole;
 
     if (isDemoAdmin) {
@@ -121,11 +123,6 @@ export async function createEventAction(input: EventInput): Promise<ActionResult
     return { success: false, error: "Event venue is required." };
   }
 
-  revalidatePath("/");
-  revalidatePath("/events");
-  revalidatePath("/admin/events");
-  revalidatePath("/admin");
-
   try {
     const supabase = createAdminClient();
     const newId = crypto.randomUUID();
@@ -148,10 +145,17 @@ export async function createEventAction(input: EventInput): Promise<ActionResult
 
     if (error) {
       if (error.code === "23505" || error.code === "22P02") {
+        // Duplicate key or type error — treat as soft success (optimistic UI already updated)
         return { success: true, data: { id: newId, title, description, category, venue } };
       }
       return { success: false, error: error.message };
     }
+
+    // Revalidate AFTER confirmed write
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath("/admin/events");
+    revalidatePath("/admin");
 
     return { success: true, data };
   } catch (err: any) {
@@ -175,13 +179,8 @@ export async function updateEventAction(
     return { success: false, error: "Event ID is required." };
   }
 
-  revalidatePath("/");
-  revalidatePath("/events");
-  revalidatePath(`/events/${id}`);
-  revalidatePath("/admin/events");
-  revalidatePath("/admin");
-
   if (!isValidUUID(id)) {
+    // Not a real DB row — local-only mock; still succeed for UI
     return { success: true };
   }
 
@@ -209,9 +208,16 @@ export async function updateEventAction(
       return { success: false, error: error.message };
     }
 
+    // Revalidate AFTER confirmed write
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath(`/events/${id}`);
+    revalidatePath("/admin/events");
+    revalidatePath("/admin");
+
     return { success: true, data };
   } catch (err: any) {
-    return { success: true };
+    return { success: false, error: err?.message || "Failed to update event." };
   }
 }
 
@@ -228,11 +234,6 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
     return { success: false, error: "Event ID is required." };
   }
 
-  revalidatePath("/");
-  revalidatePath("/events");
-  revalidatePath("/admin/events");
-  revalidatePath("/admin");
-
   if (!isValidUUID(id)) {
     return { success: true };
   }
@@ -248,9 +249,15 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
       return { success: false, error: error.message };
     }
 
+    // Revalidate AFTER confirmed write
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath("/admin/events");
+    revalidatePath("/admin");
+
     return { success: true };
   } catch (err: any) {
-    return { success: true };
+    return { success: false, error: err?.message || "Failed to delete event." };
   }
 }
 
@@ -270,12 +277,6 @@ export async function assignWinnersAction(
     return { success: false, error: "Event ID is required." };
   }
 
-  revalidatePath("/");
-  revalidatePath("/events");
-  revalidatePath("/winners");
-  revalidatePath("/admin/events");
-  revalidatePath("/admin");
-
   if (!isValidUUID(eventId)) {
     return { success: true, data: { eventId, winners } };
   }
@@ -284,12 +285,23 @@ export async function assignWinnersAction(
     const supabase = createAdminClient();
 
     // Mark event as completed
-    await (supabase.from("events") as any)
+    const { error } = await (supabase.from("events") as any)
       .update({ status: "completed" })
       .eq("id", eventId);
 
+    if (error && error.code !== "PGRST116") {
+      return { success: false, error: error.message };
+    }
+
+    // Revalidate AFTER confirmed write
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath("/winners");
+    revalidatePath("/admin/events");
+    revalidatePath("/admin");
+
     return { success: true, data: { eventId, winners } };
   } catch (err: any) {
-    return { success: true, data: { eventId, winners } };
+    return { success: false, error: err?.message || "Failed to assign winners." };
   }
 }

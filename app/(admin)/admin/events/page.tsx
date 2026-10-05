@@ -74,16 +74,22 @@ export default function AdminEventsPage() {
 
     const targetId = deleteTarget.id;
     const targetTitle = deleteTarget.title;
-
-    // deleteEvent() calls deleteEventAction internally — no need to call it again
-    await deleteEvent(targetId);
     setDeleteTarget(null);
 
-    toast({
-      title: "Event Removed",
-      description: `"${targetTitle}" deleted.`,
-      type: "warning",
-    });
+    try {
+      await deleteEvent(targetId);
+      toast({
+        title: "Event Removed",
+        description: `"${targetTitle}" deleted.`,
+        type: "warning",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Delete Failed",
+        description: err?.message || "Failed to delete event. Please try again.",
+        type: "error",
+      });
+    }
   };
 
   return (
