@@ -47,17 +47,38 @@ export function useGallery(categoryFilter?: string) {
   const fetchGallery = useCallback(async () => {
     try {
       const supabase = createClient();
-      const queryPromise = (supabase.from("gallery") as any)
-        .select("*")
-        .order("created_at", { ascending: false });
-      const timeoutPromise = new Promise<{ data: null }>((resolve) =>
-        setTimeout(() => resolve({ data: null }), 15000)
+
+      // Fetch gallery rows AND event poster URLs in parallel.
+      // The event poster URLs are used to prevent deleted-event posters from
+      // resurrecting as orphaned storage items in the gallery (Root-Cause 3).
+      const [galleryRes, eventsRes] = await Promise.all([
+        Promise.race([
+          (supabase.from("gallery") as any)
+            .select("*")
+            .order("created_at", { ascending: false }),
+          new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 15000)
+          ),
+        ]),
+        Promise.race([
+          (supabase.from("events") as any).select("poster_url"),
+          new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 5000)
+          ),
+        ]),
+      ]);
+
+      if (!galleryRes || !("data" in galleryRes) || galleryRes.data === null) return;
+
+      // Build a set of all known event poster URLs so we can exclude them
+      // from the storage-listing fallback.
+      const eventPosterUrls = new Set<string>(
+        ((eventsRes as any)?.data || [])
+          .map((e: any) => e.poster_url)
+          .filter(Boolean)
       );
 
-      const res = await Promise.race([queryPromise, timeoutPromise]);
-      if (!res || !("data" in res) || res.data === null) return;
-
-      let remoteList: GalleryMedia[] = (res.data || []).map((d: any) => ({
+      let remoteList: GalleryMedia[] = (galleryRes.data || []).map((d: any) => ({
         id: d.id,
         title: d.title || "Gallery Item",
         media_url: d.media_url,
@@ -94,6 +115,10 @@ export function useGallery(categoryFilter?: string) {
               .getPublicUrl(`gallery/${f.name}`);
             const publicUrl = urlData?.publicUrl;
             if (!publicUrl || existingUrls.has(publicUrl)) continue;
+
+            // KEY FIX: skip storage files whose URL matches a known event poster.
+            // This prevents deleted events' posters from resurrecting in the gallery.
+            if (eventPosterUrls.has(publicUrl)) continue;
 
             const cleanTitle = f.name
               .replace(/^\d+_/, "")
