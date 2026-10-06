@@ -27,6 +27,69 @@ export interface ActionResult<T = any> {
   error?: string;
 }
 
+/**
+ * Server Action: Upload an event poster (or any media file) to Supabase Storage
+ * using the service-role admin client, bypassing Storage RLS entirely.
+ *
+ * The browser cannot upload directly because the `media` bucket's RLS blocks
+ * anonymous and unauthenticated requests. Routing through a Server Action lets us
+ * use createAdminClient() (SUPABASE_SERVICE_ROLE_KEY) which is RLS-exempt.
+ */
+export async function uploadEventPosterAction(
+  formData: FormData
+): Promise<ActionResult<{ url: string; path: string }>> {
+  const authCheck = await verifyAdminAuthorization("create_event");
+  if (!authCheck.authorized) {
+    return { success: false, error: authCheck.error };
+  }
+
+  const file = formData.get("file") as File | null;
+  const folder = (formData.get("folder") as string) || "events";
+
+  if (!file || typeof file === "string") {
+    return { success: false, error: "No file provided." };
+  }
+
+  const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
+  if (!ALLOWED.includes(file.type)) {
+    return { success: false, error: `Invalid file type: ${file.type}` };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { success: false, error: "File exceeds 10 MB limit." };
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const fileExt = (file.name.split(".").pop() || "png").toLowerCase();
+    const cleanBase = file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .toLowerCase();
+    const filePath = `${folder}/${Date.now()}_${cleanBase}.${fileExt}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const { error: uploadError } = await supabase.storage
+      .from("media")
+      .upload(filePath, buffer, {
+        contentType: file.type,
+        cacheControl: "31536000",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      return { success: false, error: `Storage upload failed: ${uploadError.message}` };
+    }
+
+    const { data: urlData } = supabase.storage.from("media").getPublicUrl(filePath);
+
+    return { success: true, data: { url: urlData.publicUrl, path: filePath } };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Upload failed." };
+  }
+}
+
 function isValidUUID(str: string): boolean {
   if (!str) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);

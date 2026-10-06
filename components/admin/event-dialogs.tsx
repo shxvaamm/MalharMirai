@@ -31,8 +31,9 @@ import {
   createEventAction,
   updateEventAction,
   assignWinnersAction,
+  uploadEventPosterAction,
 } from "@/lib/actions/events";
-import { uploadMediaFile, validateMediaFile } from "@/lib/supabase/storage";
+import { validateMediaFile } from "@/lib/supabase/storage";
 
 // ─── Auto-status helper ─────────────────────────────────────────────────────
 /**
@@ -148,15 +149,18 @@ export function CreateEventDialog({
 
     if (selectedFile) {
       setUploadingPoster(true);
-      const uploadRes = await uploadMediaFile(selectedFile, "events");
+      const fd = new FormData();
+      fd.append("file", selectedFile);
+      fd.append("folder", "events");
+      const uploadRes = await uploadEventPosterAction(fd);
       setUploadingPoster(false);
 
-      if (!uploadRes.success || !uploadRes.url) {
+      if (!uploadRes.success || !uploadRes.data?.url) {
         setLoading(false);
         setValidationError(uploadRes.error || "Failed to upload poster to Supabase Storage.");
         return;
       }
-      finalPosterUrl = uploadRes.url;
+      finalPosterUrl = uploadRes.data.url;
     }
 
     const computedStatus = deriveStatusFromDate(dateTime);
@@ -492,11 +496,14 @@ export function EditEventDialog({
 
     if (selectedFile) {
       setUploadingPoster(true);
-      const uploadRes = await uploadMediaFile(selectedFile, "events");
+      const fd = new FormData();
+      fd.append("file", selectedFile);
+      fd.append("folder", "events");
+      const uploadRes = await uploadEventPosterAction(fd);
       setUploadingPoster(false);
 
-      if (uploadRes.success && uploadRes.url) {
-        finalPosterUrl = uploadRes.url;
+      if (uploadRes.success && uploadRes.data?.url) {
+        finalPosterUrl = uploadRes.data.url;
       }
     }
 
