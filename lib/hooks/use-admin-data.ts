@@ -33,6 +33,7 @@ import { createEventAction, updateEventAction, deleteEventAction } from "@/lib/a
 import { createDepartmentAction, updateDepartmentAction, deleteDepartmentAction } from "@/lib/actions/departments";
 import { postAnnouncementAction, deleteAnnouncementAction } from "@/lib/actions/announcements";
 import { uploadGalleryMediaAction, deleteGalleryMediaAction } from "@/lib/actions/gallery";
+import { getMemberRole } from "@/lib/utils/member-role";
 
 export interface StudentRegistration {
   id: string;
@@ -208,8 +209,8 @@ export function useAdminData() {
               avatar_initials: initials,
               bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
               year: d.year || cachedMatch?.year || "1st Year",
-              specialty: d.specialty || cachedMatch?.specialty || "Official Member",
-              socials: { instagram: d.instagram || cachedMatch?.socials?.instagram || null, linkedin: d.linkedin || cachedMatch?.socials?.linkedin || null },
+              specialty: getMemberRole(d.specialty || cachedMatch?.specialty),
+              socials: { instagram: d.instagram ?? cachedMatch?.socials?.instagram ?? null, linkedin: d.linkedin ?? cachedMatch?.socials?.linkedin ?? null },
             };
           };
 
@@ -789,7 +790,7 @@ export function useAdminData() {
       avatar_initials: initials,
       bio: newMember.bio || `Active member in ${newMember.department || "MALHAR"}`,
       year: newMember.year || "1st Year",
-      specialty: newMember.specialty || "Official Member",
+      specialty: getMemberRole(newMember.specialty),
       socials: newMember.socials || {},
     };
 
@@ -809,7 +810,7 @@ export function useAdminData() {
         avatar_url: newMember.avatar_url || null,
         bio: newMember.bio || `Active member in ${newMember.department || "MALHAR"}`,
         // Critical: specialty must always be written so leadership/members public pages work
-        specialty: newMember.specialty || "Official Member",
+        specialty: getMemberRole(newMember.specialty),
         year: newMember.year || "1st Year",
         instagram: newMember.socials?.instagram || null,
         linkedin: newMember.socials?.linkedin || null,
@@ -873,7 +874,7 @@ export function useAdminData() {
     if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url || null;
     if (updates.bio !== undefined) dbUpdates.bio = updates.bio || "";
     // Always sync specialty, year, and socials so public pages stay in sync
-    if (updates.specialty !== undefined) dbUpdates.specialty = updates.specialty || "Official Member";
+    if (updates.specialty !== undefined) dbUpdates.specialty = getMemberRole(updates.specialty);
     if (updates.year !== undefined) dbUpdates.year = updates.year || "";
     if (updates.socials?.instagram !== undefined) dbUpdates.instagram = updates.socials.instagram || null;
     if (updates.socials?.linkedin !== undefined) dbUpdates.linkedin = updates.socials.linkedin || null;

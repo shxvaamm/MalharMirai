@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { hasPermission, AdminPermission, UserRole, isSuperAdminEmail } from "@/lib/auth/rbac";
+import { getMemberRole } from "@/lib/utils/member-role";
 
 export interface MemberInput {
   full_name: string;
@@ -116,6 +117,7 @@ export async function createMemberAction(input: MemberInput): Promise<ActionResu
     const supabase = createAdminClient();
     const newId = crypto.randomUUID();
 
+    const resolvedSpecialty = getMemberRole(input.specialty);
     const payload: any = {
       id: newId,
       full_name: fullName,
@@ -123,8 +125,8 @@ export async function createMemberAction(input: MemberInput): Promise<ActionResu
       role: input.role || "member",
       phone: input.phone || "+91 98765 43210",
       avatar_url: input.avatar_url || null,
-      bio: input.bio || `${input.specialty || "Artist"} in ${input.department || "MALHAR"}`,
-      specialty: input.specialty || "Official Member",
+      bio: input.bio || `${resolvedSpecialty} in ${input.department || "MALHAR"}`,
+      specialty: resolvedSpecialty,
       year: input.year || "1st Year",
       department: input.department || "General",
       instagram: input.instagram || null,
@@ -142,7 +144,7 @@ export async function createMemberAction(input: MemberInput): Promise<ActionResu
       return { success: false, error: insertError.message };
     }
 
-    revalidatePath("/");
+    revalidatePath("/", "layout");
     revalidatePath("/members");
     revalidatePath("/leadership");
     revalidatePath("/about");
@@ -181,23 +183,33 @@ export async function updateMemberAction(
     if (input.phone !== undefined) updates.phone = input.phone.trim();
     if (input.avatar_url !== undefined) updates.avatar_url = input.avatar_url || null;
     if (input.bio !== undefined) updates.bio = input.bio || "";
-    if (input.specialty !== undefined) updates.specialty = input.specialty || "Official Member";
+    if (input.specialty !== undefined) updates.specialty = getMemberRole(input.specialty);
     if (input.year !== undefined) updates.year = input.year || "";
     if (input.department !== undefined) updates.department = input.department || "General";
     if (input.instagram !== undefined) updates.instagram = input.instagram || null;
     if (input.linkedin !== undefined) updates.linkedin = input.linkedin || null;
 
-    // Try club_members first (admin-added members)
-    const { error: cmErr } = await (supabase.from("club_members") as any)
+    // Update club_members (admin-added members) and verify a row was actually touched.
+    const { error: cmErr, data: cmRows } = await (supabase.from("club_members") as any)
       .update(updates)
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
 
-    // Also try profiles (for users who registered via auth)
-    await (supabase.from("profiles") as any)
-      .update(updates)
-      .eq("id", id);
+    if (cmErr) {
+      return { success: false, error: cmErr.message };
+    }
 
-    revalidatePath("/");
+    // If club_members had no matching row, try profiles (auth-registered users).
+    if (!cmRows || cmRows.length === 0) {
+      const { error: profErr } = await (supabase.from("profiles") as any)
+        .update(updates)
+        .eq("id", id);
+      if (profErr) {
+        return { success: false, error: profErr.message };
+      }
+    }
+
+    revalidatePath("/", "layout");
     revalidatePath("/members");
     revalidatePath("/leadership");
     revalidatePath("/about");
@@ -230,7 +242,7 @@ export async function deleteMemberAction(id: string): Promise<ActionResult> {
     await (supabase.from("club_members") as any).delete().eq("id", id);
     await (supabase.from("profiles") as any).delete().eq("id", id);
 
-    revalidatePath("/");
+    revalidatePath("/", "layout");
     revalidatePath("/members");
     revalidatePath("/leadership");
     revalidatePath("/about");

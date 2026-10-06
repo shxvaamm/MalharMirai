@@ -42,6 +42,7 @@ import { uploadMediaFile, validateMediaFile, fileToOptimizedDataUrl } from "@/li
 import { registerAccountCredential } from "@/lib/auth/credentials-store";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { validateEmail, validatePhoneNumber } from "@/lib/validation/phone-email";
+import { getMemberRole } from "@/lib/utils/member-role";
 
 // ===================== ADD MEMBER DIALOG =====================
 function formatInstagramUrl(val: string): string {
@@ -194,7 +195,8 @@ export function AddMemberDialog({
       role,
       department,
       year,
-      specialty: specialty.trim() || "Department Coordinator",
+      // Pass raw trimmed value — getMemberRole in the server action resolves to "Member" if empty.
+      specialty: specialty.trim(),
       bio: bio.trim() || `Active member in ${department}`,
       avatar_url: finalAvatarUrl,
       instagram: formattedIg || undefined,
@@ -219,7 +221,7 @@ export function AddMemberDialog({
         role,
         department,
         year,
-        specialty: specialty.trim() || "Department Coordinator",
+        specialty: getMemberRole(specialty.trim()),
         bio: bio.trim() || `Active member in ${department}`,
         avatar_url: finalAvatarUrl,
         avatar_initials: initials || "MC",
@@ -442,7 +444,7 @@ export function AddMemberDialog({
           <div>
             <label className="text-xs font-semibold block mb-1 text-neutral-300">Role Designation / Specialty</label>
             <Input
-              placeholder="e.g. Lead Cinematographer"
+              placeholder="Member"
               value={specialty}
               onChange={(e) => setSpecialty(e.target.value)}
               disabled={loading}
@@ -621,15 +623,47 @@ export function EditMemberDialog({
     const formattedIg = formatInstagramUrl(instagram);
     const formattedLi = formatLinkedInUrl(linkedin);
 
+    // 1. Persist to database first — await the result before updating UI.
+    try {
+      const dbResult = await updateMemberAction(member.id, {
+        full_name: name.trim(),
+        email: emailValidation.normalizedEmail,
+        phone: formattedPhone,
+        department,
+        year,
+        role: member.role as any,
+        // Pass raw trimmed value — getMemberRole in the server action resolves to "Member" if empty.
+        specialty: specialty.trim(),
+        bio: bio.trim(),
+        avatar_url: finalAvatarUrl,
+        instagram: formattedIg || undefined,
+        linkedin: formattedLi || undefined,
+      });
+
+      if (!dbResult.success) {
+        setLoading(false);
+        if (onError) onError(dbResult.error || "Failed to save member.");
+        setValidationError(dbResult.error || "Failed to save member. Please try again.");
+        return;
+      }
+    } catch (err: any) {
+      setLoading(false);
+      const msg = err?.message || "Failed to save member.";
+      if (onError) onError(msg);
+      setValidationError(msg);
+      return;
+    }
+
+    // 2. DB write succeeded — now build the optimistic object and update UI.
     const updatedMemberObj: ClubMember = {
       ...member,
       full_name: name.trim(),
       email: emailValidation.normalizedEmail,
       phone: formattedPhone,
       department,
-      year: year,
+      year,
       role: member.role || "member",
-      specialty: specialty.trim() || "Department Specialist",
+      specialty: getMemberRole(specialty.trim()),
       bio: bio.trim(),
       avatar_url: finalAvatarUrl,
       socials: {
@@ -638,29 +672,9 @@ export function EditMemberDialog({
       },
     };
 
-    // 1. Instantly update React state in table and cache
     onSuccess(updatedMemberObj);
-    onOpenChange(false);
     setLoading(false);
-
-    // 2. Persist to database in background
-    try {
-      await updateMemberAction(member.id, {
-        full_name: name.trim(),
-        email: emailValidation.normalizedEmail,
-        phone: formattedPhone,
-        department,
-        year: year,
-        role: member.role as any,
-        specialty: specialty.trim(),
-        bio: bio.trim(),
-        avatar_url: finalAvatarUrl,
-        instagram: formattedIg || undefined,
-        linkedin: formattedLi || undefined,
-      });
-    } catch (err) {
-      console.warn("Background member update synced locally:", err);
-    }
+    onOpenChange(false);
   };
 
   return (
@@ -825,7 +839,7 @@ export function EditMemberDialog({
 
           <div>
             <label className="text-xs font-semibold block mb-1 text-neutral-300">Role Designation / Specialty</label>
-            <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
+            <Input placeholder="Member" value={specialty} onChange={(e) => setSpecialty(e.target.value)} disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
           </div>
 
           <DialogFooter className="pt-2">

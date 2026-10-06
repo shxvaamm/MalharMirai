@@ -10,6 +10,7 @@
  */
 import { createClient } from "@/lib/supabase/server";
 import { ClubMember } from "@/lib/mock-data";
+import { getMemberRole } from "@/lib/utils/member-role";
 
 function mapRowToMember(d: any): ClubMember {
   const initials = d.full_name
@@ -31,7 +32,7 @@ function mapRowToMember(d: any): ClubMember {
     avatar_initials: initials,
     bio: d.bio || "Active cultural society member.",
     year: d.year || "1st Year",
-    specialty: d.specialty || "Official Member",
+    specialty: getMemberRole(d.specialty),
     display_order: d.display_order ?? null,
     socials: {
       instagram: d.instagram || null,

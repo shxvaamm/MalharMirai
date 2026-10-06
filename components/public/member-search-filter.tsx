@@ -11,6 +11,7 @@ import { useMembers } from "@/lib/hooks/use-members";
 import { useDepartments } from "@/lib/hooks/use-departments";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
 import { isLeadershipRole } from "@/lib/leadership";
+import { getMemberRole } from "@/lib/utils/member-role";
 
 // Display-time URL normalizer — see leadership-content.tsx for rationale.
 // Fixes stored "www." values that have no scheme (browsers treat as relative paths).
@@ -246,12 +247,10 @@ export function MemberSearchFilter() {
                       <span>{member.department}</span>
                     </div>
 
-                    {/* Specialty Designation */}
-                    {member.specialty && (
-                      <div className="text-xs text-neutral-300 font-medium pt-0.5 line-clamp-1">
-                        {member.specialty}
-                      </div>
-                    )}
+                    {/* Specialty Designation — always shows "Member" when empty */}
+                    <div className="text-xs text-neutral-300 font-medium pt-0.5 line-clamp-1">
+                      {getMemberRole(member.specialty)}
+                    </div>
 
                     {/* Bio Snippet */}
                     {member.bio && (

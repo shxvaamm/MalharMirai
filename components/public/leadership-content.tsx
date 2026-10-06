@@ -25,6 +25,7 @@ import {
 } from "@/lib/leadership";
 import { ClubMember } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { getMemberRole } from "@/lib/utils/member-role";
 
 // ─── Display-time URL normalizer ──────────────────────────────────────────────
 // Fixes stored values like "www.linkedin.com/in/..." that have no scheme —
@@ -116,7 +117,7 @@ function CoreCard({ leader }: { leader: ClubMember }) {
                 ) : (
                   <Sparkles className="h-3 w-3 text-neutral-400" />
                 )}
-                <span>{leader.specialty}</span>
+                <span>{getMemberRole(leader.specialty)}</span>
               </Badge>
 
               <span className="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-black/85 border border-white/10 text-neutral-400 backdrop-blur-md shadow-sm">
@@ -132,7 +133,7 @@ function CoreCard({ leader }: { leader: ClubMember }) {
             {leader.full_name}
           </h3>
           <p className="text-xs text-neutral-400 leading-relaxed min-h-[38px] line-clamp-2 px-1">
-            {leader.bio || `${leader.specialty} leading MALHAR cultural initiatives.`}
+            {leader.bio || `${getMemberRole(leader.specialty)} leading MALHAR cultural initiatives.`}
           </p>
         </div>
       </div>
@@ -246,11 +247,9 @@ function MemberCard({ member }: { member: ClubMember }) {
             </div>
           </div>
 
-          {member.specialty && (
-            <div className="text-xs text-neutral-400 font-medium line-clamp-1">
-              {member.specialty}
-            </div>
-          )}
+          <div className="text-xs text-neutral-400 font-medium line-clamp-1">
+            {getMemberRole(member.specialty)}
+          </div>
 
           {member.bio && (
             <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed pt-1">

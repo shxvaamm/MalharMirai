@@ -33,6 +33,7 @@ import {
   subscribeSync,
 } from "@/lib/store/sync-store";
 import { isSuperAdminEmail } from "@/lib/auth/rbac";
+import { getMemberRole } from "@/lib/utils/member-role";
 
 // ─── Cache version ────────────────────────────────────────────────────────────
 // Bump this string whenever the schema of what belongs in the members cache
@@ -102,11 +103,11 @@ function mapRowToMember(d: any, cachedMatch?: ClubMember): ClubMember {
     avatar_initials: initials,
     bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
     year: d.year || cachedMatch?.year || "1st Year",
-    specialty: d.specialty || cachedMatch?.specialty || "Official Member",
+    specialty: getMemberRole(d.specialty || cachedMatch?.specialty),
     display_order: d.display_order ?? cachedMatch?.display_order ?? null,
     socials: {
-      instagram: d.instagram || cachedMatch?.socials?.instagram || null,
-      linkedin: d.linkedin || cachedMatch?.socials?.linkedin || null,
+      instagram: d.instagram ?? cachedMatch?.socials?.instagram ?? null,
+      linkedin: d.linkedin ?? cachedMatch?.socials?.linkedin ?? null,
     },
   };
 }
@@ -162,9 +163,10 @@ export function useMembers(
         }
       }
 
-      // Always write back — even for empty results — so a stale cache is
-      // overwritten rather than kept when club_members legitimately has 0 rows.
+      // Always replace state with the fresh DB snapshot — never merge with cache,
+      // so a stale / empty cache never contaminates the live list.
       setAllMembers(merged);
+      // Replace localStorage cache fully with the fetched list.
       setSyncedData(STORAGE_KEYS.MEMBERS, merged);
       stampCacheVersion();
     } catch {
@@ -212,9 +214,34 @@ export function useMembers(
     // Listen on club_members only (profiles is excluded from the public member list)
     const channel = supabase
       .channel(channelId.current)
-      .on("postgres_changes", { event: "*", schema: "public", table: "club_members" }, () => {
-        fetchMembers();
-      })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "club_members" },
+        () => { fetchMembers(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "club_members" },
+        () => { fetchMembers(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "club_members" },
+        (payload: any) => {
+          // Optimistically replace just the updated member by id so the UI
+          // reflects the change without waiting for a full re-fetch.
+          const updated = payload.new;
+          if (updated?.id) {
+            setAllMembers((prev) =>
+              prev.map((m) =>
+                m.id === updated.id ? mapRowToMember(updated, m) : m
+              )
+            );
+          }
+          // Still do a full refresh to sync order / other fields.
+          fetchMembers();
+        }
+      )
       .subscribe();
     channelRef.current = channel;
 
