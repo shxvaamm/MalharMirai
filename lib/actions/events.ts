@@ -12,13 +12,23 @@ export interface EventInput {
   category: string;
   date_time: string;
   venue: string;
-  poster_url?: string;
+  poster_url?: string | null;
   max_capacity?: number;
   status?: EventStatus;
-  registration_deadline?: string;
+  registration_deadline?: string | null;
   rules?: string[];
   prizes?: string[];
   coordinators?: { name: string; phone: string }[];
+  is_free?: boolean;
+  ticket_price?: number;
+  individual_fee?: number;
+  team_fee?: number;
+  payment_upi?: string | null;
+  payment_qr_url?: string | null;
+  event_options?: string[];
+  ask_custom_question?: boolean;
+  custom_question?: string | null;
+  allowed_registration_type?: "individual" | "team" | "both" | null;
 }
 
 export interface ActionResult<T = any> {
@@ -190,7 +200,7 @@ export async function createEventAction(input: EventInput): Promise<ActionResult
     const supabase = createAdminClient();
     const newId = crypto.randomUUID();
 
-    const { data, error } = await (supabase.from("events") as any)
+    let { data, error } = await (supabase.from("events") as any)
       .insert({
         id: newId,
         title,
@@ -202,9 +212,61 @@ export async function createEventAction(input: EventInput): Promise<ActionResult
         max_capacity: Number(input.max_capacity) || 100,
         status: input.status || "upcoming",
         registration_deadline: input.registration_deadline || new Date(Date.now() + 86400000 * 5).toISOString(),
+        is_free: input.is_free !== undefined ? input.is_free : true,
+        ticket_price: Number(input.ticket_price) || 0,
+        individual_fee: Number(input.individual_fee) || 0,
+        team_fee: Number(input.team_fee) || 0,
+        payment_upi: input.payment_upi || "malharmirai01@okaxis",
+        payment_qr_url: input.payment_qr_url || null,
+        event_options: input.event_options || [],
+        ask_custom_question: !!input.ask_custom_question,
+        custom_question: input.custom_question || null,
+        allowed_registration_type: input.allowed_registration_type || "both",
       })
       .select()
       .single();
+
+    if (error && (error.message?.includes("column") || error.message?.includes("schema cache"))) {
+      // Fallback: PostgREST schema cache lacks new ticketing columns. Pack into rules JSONB array.
+      const ticketingMeta = {
+        __ticketing__: true,
+        is_free: input.is_free !== undefined ? input.is_free : true,
+        ticket_price: Number(input.ticket_price) || 0,
+        individual_fee: Number(input.individual_fee) || 0,
+        team_fee: Number(input.team_fee) || 0,
+        payment_upi: input.payment_upi || "malharmirai01@okaxis",
+        payment_qr_url: input.payment_qr_url || null,
+        event_options: input.event_options || [],
+        ask_custom_question: !!input.ask_custom_question,
+        custom_question: input.custom_question || null,
+        allowed_registration_type: input.allowed_registration_type || "both",
+      };
+
+      const fallbackRes = await (supabase.from("events") as any)
+        .insert({
+          id: newId,
+          title,
+          description,
+          category,
+          date_time: input.date_time || new Date(Date.now() + 86400000 * 7).toISOString(),
+          venue,
+          poster_url: input.poster_url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=80",
+          max_capacity: Number(input.max_capacity) || 100,
+          status: input.status || "upcoming",
+          registration_deadline: input.registration_deadline || new Date(Date.now() + 86400000 * 5).toISOString(),
+          rules: [JSON.stringify(ticketingMeta), ...(input.rules || [])],
+          prizes: input.prizes || [],
+        })
+        .select()
+        .single();
+
+      if (!fallbackRes.error) {
+        data = fallbackRes.data || { id: newId, title, description, category, venue, ...ticketingMeta };
+        error = null;
+      } else {
+        error = fallbackRes.error;
+      }
+    }
 
     if (error) {
       if (error.code === "23505" || error.code === "22P02") {
@@ -260,12 +322,77 @@ export async function updateEventAction(
     if (input.status) updates.status = input.status;
     if (input.date_time) updates.date_time = input.date_time;
     if (input.registration_deadline) updates.registration_deadline = input.registration_deadline;
+    if (input.is_free !== undefined) updates.is_free = input.is_free;
+    if (input.ticket_price !== undefined) updates.ticket_price = Number(input.ticket_price);
+    if (input.individual_fee !== undefined) updates.individual_fee = Number(input.individual_fee);
+    if (input.team_fee !== undefined) updates.team_fee = Number(input.team_fee);
+    if (input.payment_upi !== undefined) updates.payment_upi = input.payment_upi;
+    if (input.payment_qr_url !== undefined) updates.payment_qr_url = input.payment_qr_url;
+    if (input.event_options !== undefined) updates.event_options = input.event_options;
+    if (input.ask_custom_question !== undefined) updates.ask_custom_question = input.ask_custom_question;
+    if (input.custom_question !== undefined) updates.custom_question = input.custom_question;
+    if (input.allowed_registration_type !== undefined) updates.allowed_registration_type = input.allowed_registration_type;
 
-    const { data, error } = await (supabase.from("events") as any)
+    let { data, error } = await (supabase.from("events") as any)
       .update(updates)
       .eq("id", id)
       .select()
       .single();
+
+    if (error && (error.message?.includes("column") || error.message?.includes("schema cache"))) {
+      // Schema cache fallback: remote PostgreSQL table doesn't have the new ticketing columns yet.
+      // Pack ticketing metadata into the rules JSONB array so zero data is lost.
+      const ticketingMeta = {
+        __ticketing__: true,
+        is_free: input.is_free !== undefined ? input.is_free : true,
+        ticket_price: Number(input.ticket_price) || 0,
+        individual_fee: Number(input.individual_fee) || 0,
+        team_fee: Number(input.team_fee) || 0,
+        payment_upi: input.payment_upi || "malharmirai01@okaxis",
+        payment_qr_url: input.payment_qr_url || null,
+        event_options: input.event_options || [],
+        ask_custom_question: !!input.ask_custom_question,
+        custom_question: input.custom_question || null,
+        allowed_registration_type: input.allowed_registration_type || "both",
+      };
+
+      const { data: existingRow } = await (supabase.from("events") as any)
+        .select("rules")
+        .eq("id", id)
+        .maybeSingle();
+
+      const existingRules = Array.isArray(existingRow?.rules)
+        ? existingRow.rules.filter((r: any) => typeof r !== "string" || !r.includes('"__ticketing__":true'))
+        : [];
+
+      const packedRules = [JSON.stringify(ticketingMeta), ...existingRules];
+
+      const safeUpdates: Record<string, any> = {
+        rules: packedRules,
+      };
+      if (input.title) safeUpdates.title = input.title.trim();
+      if (input.description) safeUpdates.description = input.description.trim();
+      if (input.category) safeUpdates.category = input.category.trim();
+      if (input.venue) safeUpdates.venue = input.venue.trim();
+      if (input.poster_url) safeUpdates.poster_url = input.poster_url;
+      if (input.max_capacity !== undefined) safeUpdates.max_capacity = Number(input.max_capacity);
+      if (input.status) safeUpdates.status = input.status;
+      if (input.date_time) safeUpdates.date_time = input.date_time;
+      if (input.registration_deadline) safeUpdates.registration_deadline = input.registration_deadline;
+
+      const fallbackRes = await (supabase.from("events") as any)
+        .update(safeUpdates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (fallbackRes.error && fallbackRes.error.code !== "22P02" && fallbackRes.error.code !== "PGRST116") {
+        return { success: false, error: fallbackRes.error.message };
+      }
+
+      data = fallbackRes.data || { id, ...safeUpdates, ...ticketingMeta };
+      error = null;
+    }
 
     if (error && error.code !== "22P02" && error.code !== "PGRST116") {
       return { success: false, error: error.message };

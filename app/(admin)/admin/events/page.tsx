@@ -250,9 +250,21 @@ export default function AdminEventsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="member" className="text-[10px]">
-                            {ev.category}
-                          </Badge>
+                          <div className="space-y-1">
+                            <Badge variant="member" className="text-[10px]">
+                              {ev.category}
+                            </Badge>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
+                                ev.is_free !== false ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-amber-400 border-amber-500/20 bg-amber-500/10"
+                              }`}>
+                                {ev.is_free !== false ? "Free" : "Paid"}
+                              </span>
+                              <span className="text-[9px] font-medium text-neutral-400 border border-white/5 bg-white/[0.02] px-1.5 py-0.5 rounded">
+                                {ev.allowed_registration_type === "team" ? "Team Only" : ev.allowed_registration_type === "individual" ? "Solo Only" : "Solo/Team"}
+                              </span>
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge

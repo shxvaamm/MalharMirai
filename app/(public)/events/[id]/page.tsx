@@ -81,12 +81,35 @@ export default function EventDetailPage({
 
       {/* Title & Badges Header */}
       <div className="space-y-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Badge variant={effectiveStatus as "upcoming" | "ongoing" | "completed"} className="capitalize text-xs">
             {effectiveStatus === "completed" ? "Past" : effectiveStatus}
           </Badge>
           <span className="text-xs font-medium text-neutral-300 bg-white/[0.04] px-3 py-1 rounded-full border border-white/10">
             {event.category}
+          </span>
+          <span className="text-xs font-medium text-neutral-300 bg-white/[0.04] px-3 py-1 rounded-full border border-white/10">
+            {event.allowed_registration_type === "individual"
+              ? "👤 Solo Only"
+              : event.allowed_registration_type === "team"
+              ? "👥 Team Only"
+              : "🌐 Solo or Team"}
+          </span>
+          <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${
+            event.is_free !== false
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              : "bg-amber-500/10 text-amber-300 border-amber-500/20"
+          }`}>
+            {event.is_free !== false
+              ? "Free Entry"
+              : event.allowed_registration_type === "team"
+              ? `₹${event.team_fee || 0} Team Pass`
+              : event.allowed_registration_type === "individual"
+              ? `₹${event.individual_fee || event.ticket_price || 0} Solo Pass`
+              : `₹${event.individual_fee || event.ticket_price || 0} Solo • ₹${event.team_fee || 0} Team`}
+          </span>
+          <span className="text-xs font-mono font-medium text-neutral-400 bg-white/[0.04] px-3 py-1 rounded-full border border-white/10">
+            {maxCap ? `${Math.max(0, maxCap - registered)} spots left` : "Unlimited Capacity"}
           </span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-neutral-100 leading-tight">

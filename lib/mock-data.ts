@@ -13,6 +13,16 @@ export interface ClubEvent {
   prizes: string[];
   registration_deadline?: string;
   coordinators?: { name: string; phone: string }[];
+  is_free?: boolean;
+  ticket_price?: number;
+  individual_fee?: number;
+  team_fee?: number;
+  payment_upi?: string;
+  payment_qr_url?: string;
+  event_options?: string[];
+  ask_custom_question?: boolean;
+  custom_question?: string;
+  allowed_registration_type?: "individual" | "team" | "both";
 }
 
 export interface ClubMember {

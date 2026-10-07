@@ -15,6 +15,7 @@ import {
   Info,
   Users,
   LayoutDashboard,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -24,6 +25,7 @@ const navLinks = [
   { name: "About",         href: "/about",        icon: Info       },
   { name: "Team",          href: "/leadership",   icon: Users      },
   { name: "Events",        href: "/events",       icon: Calendar   },
+  { name: "Tickets",       href: "/my-tickets",   icon: Ticket     },
   { name: "Gallery",       href: "/gallery",      icon: ImageIcon  },
   { name: "Announcements", href: "/announcements",icon: Bell       },
   { name: "Contact",       href: "/contact",      icon: Mail       },
@@ -33,6 +35,11 @@ export function PublicNavbar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // One ref per nav link so we can measure the active one
   const linkRefs = React.useRef<Map<string, HTMLAnchorElement>>(new Map());
@@ -132,7 +139,7 @@ export function PublicNavbar() {
         {/* Action Button & Seamless Mirai Logo */}
         <div className="flex items-center gap-3 sm:gap-4">
           {/* CTA Button: Dashboard when logged in, Login when logged out */}
-          {user ? (
+          {mounted && user ? (
             <Link
               href="/dashboard"
               id="navbar-dashboard-btn"
@@ -208,7 +215,7 @@ export function PublicNavbar() {
             })}
 
             <div className="pt-3 border-t border-white/[0.06] space-y-2">
-              {user ? (
+              {mounted && user ? (
                 <>
                   <Link
                     href="/dashboard"

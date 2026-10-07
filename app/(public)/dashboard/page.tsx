@@ -278,14 +278,22 @@ export default function MemberProfilePage() {
 
           {/* My Tickets section */}
           <div className="px-6 py-5 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <Ticket className="h-4 w-4 text-neutral-400" />
-              <h2 className="text-sm font-bold text-neutral-100">My Tickets</h2>
-              {registrations.length > 0 && (
-                <span className="ml-auto text-[10px] font-mono text-neutral-500 border border-white/[0.08] px-2 py-0.5 rounded-full">
-                  {registrations.length}
-                </span>
-              )}
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <Ticket className="h-4 w-4 text-amber-400" />
+                <h2 className="text-sm font-bold text-neutral-100">My Tickets</h2>
+                {registrations.length > 0 && (
+                  <span className="text-[10px] font-mono text-neutral-400 border border-white/[0.08] px-2 py-0.5 rounded-full">
+                    {registrations.length}
+                  </span>
+                )}
+              </div>
+              <Link
+                href="/my-tickets"
+                className="text-xs font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+              >
+                Passes & QR <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
 
             {regLoading ? (
@@ -299,7 +307,7 @@ export default function MemberProfilePage() {
                 </div>
                 <div>
                   <p className="text-sm text-neutral-400 font-medium">No tickets yet</p>
-                  <p className="text-xs text-neutral-600 mt-0.5">Register for an event to see your pass here.</p>
+                  <p className="text-xs text-neutral-600 mt-0.5">Register for an event to get your dynamic QR pass.</p>
                 </div>
                 <Button asChild size="sm" variant="outline" className="rounded-full border-white/10 text-xs">
                   <Link href="/events">Browse Events</Link>
@@ -308,16 +316,17 @@ export default function MemberProfilePage() {
             ) : (
               <div className="space-y-2.5">
                 {registrations.map((reg) => (
-                  <div
+                  <Link
                     key={reg.id}
-                    className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] flex items-center justify-between gap-3"
+                    href="/my-tickets"
+                    className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.04] hover:border-amber-500/20 transition-all flex items-center justify-between gap-3 block group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                        <QrCode className="h-4 w-4 text-indigo-400" />
+                      <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 group-hover:border-amber-500/40 flex items-center justify-center shrink-0 transition-colors">
+                        <QrCode className="h-4 w-4 text-amber-400" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-neutral-100 truncate">{reg.event_title}</p>
+                        <p className="text-sm font-semibold text-neutral-100 truncate group-hover:text-amber-300 transition-colors">{reg.event_title}</p>
                         {reg.created_at && (
                           <p className="text-[10px] text-neutral-600">
                             {new Date(reg.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
@@ -329,17 +338,19 @@ export default function MemberProfilePage() {
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
                         reg.status === "confirmed" || !reg.status
                           ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : reg.status === "rejected"
+                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                           : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                       }`}>
                         <CheckCircle2 className="h-2.5 w-2.5" />
-                        {reg.status === "confirmed" || !reg.status ? "Confirmed" : reg.status}
+                        {reg.status === "confirmed" || !reg.status ? "Confirmed" : reg.status === "rejected" ? "Rejected" : "Pending"}
                       </span>
                       <div className="flex items-center gap-1">
                         <Receipt className="h-3 w-3 text-neutral-600" />
                         <span className="text-[9px] text-neutral-600 font-mono">#{reg.id.slice(0, 8).toUpperCase()}</span>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

@@ -33,6 +33,7 @@ import { createEventAction, updateEventAction, deleteEventAction } from "@/lib/a
 import { createDepartmentAction, updateDepartmentAction, deleteDepartmentAction } from "@/lib/actions/departments";
 import { postAnnouncementAction, deleteAnnouncementAction } from "@/lib/actions/announcements";
 import { uploadGalleryMediaAction, deleteGalleryMediaAction } from "@/lib/actions/gallery";
+import { normalizeEventFromDb, normalizeRegistrationFromDb } from "@/lib/utils/event-normalizer";
 import { getMemberRole } from "@/lib/utils/member-role";
 
 export interface StudentRegistration {
@@ -43,11 +44,35 @@ export interface StudentRegistration {
   student_email: string;
   student_phone?: string | null;
   user_id?: string | null;
+  college_id?: string | null;
   created_at?: string;
   registered_at: string;
   department?: string | null;
   year?: string | null;
   status?: string;
+  registration_type?: "individual" | "team";
+  team_name?: string | null;
+  leader?: {
+    name: string;
+    email: string;
+    phone?: string;
+    collegeId?: string;
+    year?: string;
+    branch?: string;
+  } | null;
+  team_members?: Array<{
+    name: string;
+    email: string;
+    phone?: string;
+    collegeId?: string;
+  }>;
+  selected_options?: string[];
+  custom_answer?: string | null;
+  payment_screenshot?: string | null;
+  issue_reason?: string | null;
+  ticket_code?: string | null;
+  checked_in_at?: string | null;
+  checked_in_by?: string | null;
 }
 
 const INITIAL_REGISTRATIONS: StudentRegistration[] = [];
@@ -149,21 +174,14 @@ export function useAdminData() {
         ] = await Promise.race([queriesPromise, timeoutPromise]);
 
         if (evData && Array.isArray(evData)) {
-          const mappedEvents = evData.map((d: any) => ({
-            id: d.id,
-            title: d.title || "",
-            description: d.description || "",
-            category: d.category || "Festival",
-            date_time: d.date_time || new Date().toISOString(),
-            venue: d.venue || "Campus Auditorium",
-            poster_url: d.poster_url || MOCK_EVENTS[0].poster_url,
-            max_capacity: d.max_capacity || 300,
-            registered_count: regData ? regData.filter((r: any) => r.event_id === d.id).length : (d.registered_count || 0),
-            status: d.status || "upcoming",
-            registration_deadline: d.registration_deadline || new Date(Date.now() + 86400000 * 7).toISOString(),
-            rules: Array.isArray(d.rules) && d.rules.length > 0 ? d.rules : ["Valid Mirai Student Registration Pass required.", "Report 20 mins early."],
-            prizes: Array.isArray(d.prizes) && d.prizes.length > 0 ? d.prizes : ["1st Prize: Malhar Cultural Trophy", "2nd Prize: Certificate of Distinction"],
-          }));
+          const mappedEvents = evData.map((d: any) => {
+            const normalized = normalizeEventFromDb(d);
+            const regCount = regData ? regData.filter((r: any) => r.event_id === d.id).length : (d.registered_count || 0);
+            return {
+              ...normalized,
+              registered_count: regCount,
+            };
+          });
           setEvents(mappedEvents);
           setSyncedData(STORAGE_KEYS.EVENTS, mappedEvents);
         }
@@ -311,20 +329,35 @@ export function useAdminData() {
 
         // Load registrations from DB (Supabase sole source of truth)
         if (regData && Array.isArray(regData)) {
-          const mappedRegs: StudentRegistration[] = regData.map((d: any) => ({
-            id: d.id,
-            event_id: d.event_id,
-            event_title: d.event_title || d.events?.title || "",
-            student_name: d.student_name,
-            student_email: d.student_email,
-            student_phone: d.student_phone || null,
-            user_id: d.user_id || null,
-            created_at: d.created_at,
-            registered_at: d.created_at || d.registered_at || new Date().toISOString(),
-            department: d.department || null,
-            year: d.year_of_study || d.year || null,
-            status: d.status || "confirmed",
-          }));
+          const mappedRegs: StudentRegistration[] = regData.map((d: any) => {
+            const n = normalizeRegistrationFromDb(d);
+            return {
+              id: n.id,
+              event_id: n.event_id,
+              event_title: n.event_title || n.events?.title || "",
+              student_name: n.student_name,
+              student_email: n.student_email,
+              student_phone: n.student_phone || null,
+              user_id: n.user_id || null,
+              college_id: n.college_id || n.leader?.collegeId || null,
+              created_at: n.created_at,
+              registered_at: n.created_at || n.registered_at || new Date().toISOString(),
+              department: n.department || null,
+              year: n.year_of_study || n.year || null,
+              status: n.status || "confirmed",
+              registration_type: n.registration_type || "individual",
+              team_name: n.team_name || null,
+              leader: n.leader || null,
+              team_members: Array.isArray(n.team_members) ? n.team_members : [],
+              selected_options: Array.isArray(n.selected_options) ? n.selected_options : [],
+              custom_answer: n.custom_answer || null,
+              payment_screenshot: n.payment_screenshot || null,
+              issue_reason: n.issue_reason || null,
+              ticket_code: n.ticket_code || null,
+              checked_in_at: n.checked_in_at || null,
+              checked_in_by: n.checked_in_by || null,
+            };
+          });
           setRegistrations(mappedRegs);
           setSyncedData(STORAGE_KEYS.REGISTRATIONS, mappedRegs);
         }
@@ -600,27 +633,9 @@ export function useAdminData() {
 
     addEventToState(fullEvent);
 
+    // Call privileged server action with automatic schema fallback & SSR revalidation
     try {
-      const supabase = createClient();
-      await (supabase.from("events") as any).insert({
-        id,
-        title: newEvent.title,
-        description: newEvent.description,
-        category: newEvent.category,
-        date_time: newEvent.date_time,
-        venue: newEvent.venue,
-        poster_url: newEvent.poster_url,
-        max_capacity: newEvent.max_capacity,
-        status: newEvent.status,
-        registration_deadline: newEvent.registration_deadline,
-      });
-    } catch (e) {
-      console.warn("Event created in local state");
-    }
-
-    // Call privileged server action for SSR revalidation & RLS bypass
-    try {
-      createEventAction({
+      await createEventAction({
         title: newEvent.title,
         description: newEvent.description,
         category: newEvent.category,
@@ -632,8 +647,20 @@ export function useAdminData() {
         registration_deadline: newEvent.registration_deadline,
         rules: newEvent.rules,
         prizes: newEvent.prizes,
-      }).catch(() => {});
-    } catch {}
+        is_free: newEvent.is_free,
+        ticket_price: newEvent.ticket_price,
+        individual_fee: newEvent.individual_fee,
+        team_fee: newEvent.team_fee,
+        payment_upi: newEvent.payment_upi,
+        payment_qr_url: newEvent.payment_qr_url,
+        event_options: newEvent.event_options,
+        ask_custom_question: newEvent.ask_custom_question,
+        custom_question: newEvent.custom_question,
+        allowed_registration_type: newEvent.allowed_registration_type,
+      });
+    } catch (e) {
+      console.warn("Event created in local state, action error:", e);
+    }
 
     return fullEvent;
   };
@@ -647,15 +674,10 @@ export function useAdminData() {
 
     if (isValidUUID(id)) {
       try {
-        const supabase = createClient();
-        await (supabase.from("events") as any).update(updates).eq("id", id);
+        await updateEventAction(id, updates as any);
       } catch (e) {
-        console.warn("Event updated in local state");
+        console.warn("Event updated in local state, action error:", e);
       }
-
-      try {
-        updateEventAction(id, updates as any).catch(() => {});
-      } catch {}
     }
   };
 
@@ -1156,14 +1178,18 @@ export function useAdminData() {
         ? registrations
         : registrations.filter((r) => r.event_id === eventId);
 
-    const headers = ["Pass ID", "Student Name", "Email", "Phone", "Event Title", "Department", "Registered At"];
+    const headers = ["Pass ID", "Ticket Code", "Status", "Type", "Team Name", "Applicant Name", "Email", "Phone", "Event Title", "Custom Answer", "Registered At"];
     const rows = targetRegistrations.map((r) => [
       r.id,
+      r.ticket_code || "N/A",
+      r.status?.toUpperCase() || "PENDING",
+      r.registration_type?.toUpperCase() || "INDIVIDUAL",
+      `"${r.team_name || ""}"`,
       `"${r.student_name}"`,
       r.student_email,
       r.student_phone || "N/A",
       `"${r.event_title}"`,
-      `"${r.department || "General"}"`,
+      `"${(r.custom_answer || "").replace(/"/g, '""')}"`,
       new Date(r.created_at || r.registered_at || Date.now()).toLocaleString("en-IN"),
     ]);
 
@@ -1189,6 +1215,39 @@ export function useAdminData() {
           const evUpdated = evPrev.map((ev) =>
             ev.id === target.event_id ||
             (ev.title && target.event_title && ev.title.trim().toLowerCase() === target.event_title.trim().toLowerCase())
+              ? { ...ev, registered_count: Math.max(0, (ev.registered_count || 0) - 1) }
+              : ev
+          );
+          setSyncedData(STORAGE_KEYS.EVENTS, evUpdated);
+          return evUpdated;
+        });
+      }
+      return updated;
+    });
+  };
+
+  const confirmRegistration = (id: string) => {
+    setRegistrations((prev) => {
+      const updated = prev.map((r) =>
+        r.id === id ? { ...r, status: "confirmed", issue_reason: null } : r
+      );
+      setSyncedData(STORAGE_KEYS.REGISTRATIONS, updated);
+      return updated;
+    });
+  };
+
+  const rejectRegistration = (id: string, reason?: string) => {
+    setRegistrations((prev) => {
+      const target = prev.find((r) => r.id === id);
+      const updated = prev.map((r) =>
+        r.id === id ? { ...r, status: "rejected", issue_reason: reason || "Declined by admin." } : r
+      );
+      setSyncedData(STORAGE_KEYS.REGISTRATIONS, updated);
+
+      if (target?.event_id) {
+        setEvents((evPrev) => {
+          const evUpdated = evPrev.map((ev) =>
+            ev.id === target.event_id
               ? { ...ev, registered_count: Math.max(0, (ev.registered_count || 0) - 1) }
               : ev
           );
@@ -1348,6 +1407,8 @@ export function useAdminData() {
     deleteGalleryMedia,
     exportRegistrationsCSV,
     deleteRegistration,
+    confirmRegistration,
+    rejectRegistration,
     // Hero Slides
     addHeroSlide,
     updateHeroSlide,

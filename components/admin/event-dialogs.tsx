@@ -26,6 +26,10 @@ import {
   X,
   Loader2,
   AlertCircle,
+  User,
+  Users,
+  Layers,
+  QrCode,
 } from "lucide-react";
 import {
   createEventAction,
@@ -104,7 +108,20 @@ export function CreateEventDialog({
   const [loading, setLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
+  // Ticketing & Payment state
+  const [isFree, setIsFree] = React.useState(true);
+  const [allowedRegistrationType, setAllowedRegistrationType] = React.useState<"individual" | "team" | "both">("both");
+  const [individualFee, setIndividualFee] = React.useState("0");
+  const [teamFee, setTeamFee] = React.useState("0");
+  const [paymentUpi, setPaymentUpi] = React.useState("malharmirai01@okaxis");
+  const [paymentQrUrl, setPaymentQrUrl] = React.useState("");
+  const [uploadingQr, setUploadingQr] = React.useState(false);
+  const [askCustomQuestion, setAskCustomQuestion] = React.useState(false);
+  const [customQuestion, setCustomQuestion] = React.useState("");
+  const [eventOptions, setEventOptions] = React.useState("");
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const qrFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -127,6 +144,38 @@ export function CreateEventDialog({
     setPosterUrl("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateMediaFile(file);
+    if (!validation.valid) {
+      setValidationError(validation.error || "Invalid image format or size.");
+      return;
+    }
+
+    setUploadingQr(true);
+    setValidationError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("folder", "events");
+    const uploadRes = await uploadEventPosterAction(fd);
+    setUploadingQr(false);
+
+    if (uploadRes.success && uploadRes.data?.url) {
+      setPaymentQrUrl(uploadRes.data.url);
+    } else {
+      setValidationError(uploadRes.error || "Failed to upload QR code image.");
+    }
+  };
+
+  const handleRemoveQr = () => {
+    setPaymentQrUrl("");
+    if (qrFileInputRef.current) {
+      qrFileInputRef.current.value = "";
     }
   };
 
@@ -166,6 +215,14 @@ export function CreateEventDialog({
     const computedStatus = deriveStatusFromDate(dateTime);
     console.log("[CreateEvent] dateTime:", dateTime, "→ status:", computedStatus);
 
+    const parsedOptions = eventOptions
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const indFeeVal = isFree || allowedRegistrationType === "team" ? 0 : (parseFloat(individualFee) || 0);
+    const teamFeeVal = isFree || allowedRegistrationType === "individual" ? 0 : (parseFloat(teamFee) || 0);
+
     const result = await createEventAction({
       title: title.trim(),
       category: category.trim(),
@@ -176,6 +233,16 @@ export function CreateEventDialog({
       max_capacity: parseInt(capacity) || 200,
       status: computedStatus,
       registration_deadline: new Date(deadline).toISOString(),
+      is_free: isFree,
+      allowed_registration_type: allowedRegistrationType,
+      ticket_price: indFeeVal,
+      individual_fee: indFeeVal,
+      team_fee: teamFeeVal,
+      payment_upi: paymentUpi.trim(),
+      payment_qr_url: paymentQrUrl.trim() || null,
+      event_options: parsedOptions,
+      ask_custom_question: askCustomQuestion,
+      custom_question: askCustomQuestion ? customQuestion.trim() : null,
     });
     setLoading(false);
 
@@ -194,6 +261,16 @@ export function CreateEventDialog({
         registration_deadline: new Date(deadline).toISOString(),
         rules: ["Valid college ID required.", "Report 30 mins early."],
         prizes: ["1st Prize: Champion Trophy", "2nd Prize: Silver Trophy"],
+        is_free: isFree,
+        allowed_registration_type: allowedRegistrationType,
+        ticket_price: indFeeVal,
+        individual_fee: indFeeVal,
+        team_fee: teamFeeVal,
+        payment_upi: paymentUpi.trim(),
+        payment_qr_url: paymentQrUrl.trim() || undefined,
+        event_options: parsedOptions,
+        ask_custom_question: askCustomQuestion,
+        custom_question: askCustomQuestion ? customQuestion.trim() : undefined,
       };
 
       if (onCreate) {
@@ -206,6 +283,7 @@ export function CreateEventDialog({
       setTitle("");
       setDescription("");
       handleRemovePoster();
+      handleRemoveQr();
     } else {
       setValidationError(result.error || "Failed to create event.");
       if (onError) onError(result.error || "Failed to create event.");
@@ -214,7 +292,7 @@ export function CreateEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-[#0D0D0D] border border-white/10 rounded-3xl">
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto overflow-x-hidden bg-[#0D0D0D] border border-white/10 rounded-3xl p-5 sm:p-7 shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-neutral-100 font-bold flex items-center gap-2">
             <Plus className="h-5 w-5 text-neutral-300" />
@@ -262,7 +340,7 @@ export function CreateEventDialog({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="text-xs font-semibold block mb-1 text-neutral-300">Date &amp; Time</label>
               <Input
@@ -287,7 +365,7 @@ export function CreateEventDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="text-xs font-semibold block mb-1 text-neutral-300">Venue</label>
               <Input
@@ -369,6 +447,238 @@ export function CreateEventDialog({
             />
           </div>
 
+          {/* Ticketing, Participation Mode, Pricing & Custom Form Rules */}
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-neutral-200 block">Registration Fee &amp; Mode</label>
+                <p className="text-[11px] text-neutral-400">Specify fee structure and participation criteria.</p>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 bg-black/60 rounded-xl border border-white/10 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsFree(true)}
+                  className={`px-3 py-1 rounded-lg font-semibold transition-all ${isFree ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-400 hover:text-white"}`}
+                >
+                  Free
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFree(false)}
+                  className={`px-3 py-1 rounded-lg font-semibold transition-all ${!isFree ? "bg-emerald-500 text-white shadow-sm" : "text-neutral-400 hover:text-white"}`}
+                >
+                  Paid (UPI)
+                </button>
+              </div>
+            </div>
+
+            {/* Participation Type (Individual, Team, Both) */}
+            <div className="space-y-1.5 pt-2 border-t border-white/10">
+              <label className="text-[11px] font-semibold text-neutral-300 block">
+                Allowed Participation Type
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAllowedRegistrationType("individual")}
+                  className={`p-2.5 sm:p-3 rounded-2xl border text-xs font-semibold flex sm:flex-col flex-row items-center justify-center gap-2 transition-all ${
+                    allowedRegistrationType === "individual"
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-300 shadow-sm"
+                      : "bg-white/[0.02] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  <User className="h-4 w-4" />
+                  <span>Individual Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllowedRegistrationType("team")}
+                  className={`p-2.5 sm:p-3 rounded-2xl border text-xs font-semibold flex sm:flex-col flex-row items-center justify-center gap-2 transition-all ${
+                    allowedRegistrationType === "team"
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-300 shadow-sm"
+                      : "bg-white/[0.02] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  <Users className="h-4 w-4" />
+                  <span>Team Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllowedRegistrationType("both")}
+                  className={`p-2.5 sm:p-3 rounded-2xl border text-xs font-semibold flex sm:flex-col flex-row items-center justify-center gap-2 transition-all ${
+                    allowedRegistrationType === "both"
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-300 shadow-sm"
+                      : "bg-white/[0.02] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span>Both (Solo / Team)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Dynamic Fees based on allowedRegistrationType & isFree */}
+            {!isFree && (
+              <div className="space-y-3 pt-2 border-t border-white/10">
+                <div className={`grid ${allowedRegistrationType === "both" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"} gap-3.5`}>
+                  {(allowedRegistrationType === "individual" || allowedRegistrationType === "both") && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Individual Fee (₹)</label>
+                      <Input
+                        type="number"
+                        placeholder="100"
+                        value={individualFee}
+                        onChange={(e) => setIndividualFee(e.target.value)}
+                        className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                      />
+                    </div>
+                  )}
+                  {(allowedRegistrationType === "team" || allowedRegistrationType === "both") && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Team Fee (₹)</label>
+                      <Input
+                        type="number"
+                        placeholder="300"
+                        value={teamFee}
+                        onChange={(e) => setTeamFee(e.target.value)}
+                        className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Club UPI ID</label>
+                    <Input
+                      placeholder="malharmirai01@okaxis"
+                      value={paymentUpi}
+                      onChange={(e) => setPaymentUpi(e.target.value)}
+                      className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                    />
+                  </div>
+
+                  {/* UPI QR Code Upload Button & Preview */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-300 block mb-1.5">Club UPI QR Code</label>
+                    <input
+                      ref={qrFileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleQrUpload}
+                      className="hidden"
+                    />
+
+                    {paymentQrUrl ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] p-2.5 flex items-center gap-3">
+                        <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-black/80 border border-white/10 flex items-center justify-center">
+                          <Image
+                            src={paymentQrUrl}
+                            alt="UPI QR Code"
+                            fill
+                            className="object-contain p-1"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 text-xs">
+                          <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                            <QrCode className="h-3.5 w-3.5" />
+                            UPI QR Code Attached
+                          </div>
+                          <p className="text-[11px] text-neutral-400 truncate mt-0.5 font-mono">{paymentQrUrl}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={uploadingQr}
+                            onClick={() => qrFileInputRef.current?.click()}
+                            className="h-8 px-2.5 text-xs text-neutral-300 hover:text-white rounded-lg border border-white/10"
+                          >
+                            Replace
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveQr}
+                            className="h-8 w-8 p-0 text-rose-400 hover:text-rose-300 rounded-lg"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uploadingQr || loading}
+                          onClick={() => qrFileInputRef.current?.click()}
+                          className="rounded-xl border-dashed border-white/20 hover:border-amber-400/50 bg-white/[0.02] text-xs font-medium text-neutral-200 hover:text-white flex items-center justify-center gap-2 py-2"
+                        >
+                          {uploadingQr ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span>Uploading QR...</span>
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-3.5 w-3.5 text-amber-400" />
+                              <span>Upload UPI QR Code Image</span>
+                            </>
+                          )}
+                        </Button>
+                        <div className="flex-1">
+                          <Input
+                            placeholder="Or paste direct QR image URL..."
+                            value={paymentQrUrl}
+                            onChange={(e) => setPaymentQrUrl(e.target.value)}
+                            className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200 h-9"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Question Toggle */}
+            <div className="pt-2 border-t border-white/10 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={askCustomQuestion}
+                  onChange={(e) => setAskCustomQuestion(e.target.checked)}
+                  className="rounded border-white/20 bg-black text-amber-500 focus:ring-0"
+                />
+                <span className="text-xs font-semibold text-neutral-300">Ask Custom Question during RSVP</span>
+              </label>
+
+              {askCustomQuestion && (
+                <Input
+                  placeholder="e.g. What is your performance track or song name?"
+                  value={customQuestion}
+                  onChange={(e) => setCustomQuestion(e.target.value)}
+                  className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                />
+              )}
+            </div>
+
+            {/* Tracks / Options */}
+            <div className="pt-2 border-t border-white/10">
+              <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Event Tracks / Categories (Comma-separated)</label>
+              <Input
+                placeholder="e.g. Solo Vocals, Duet, Group Instrumental"
+                value={eventOptions}
+                onChange={(e) => setEventOptions(e.target.value)}
+                className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="text-xs font-semibold block mb-1 text-neutral-300">Event Description *</label>
             <textarea
@@ -440,7 +750,20 @@ export function EditEventDialog({
   const [loading, setLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
+  // Ticketing state
+  const [isFree, setIsFree] = React.useState(true);
+  const [allowedRegistrationType, setAllowedRegistrationType] = React.useState<"individual" | "team" | "both">("both");
+  const [individualFee, setIndividualFee] = React.useState("0");
+  const [teamFee, setTeamFee] = React.useState("0");
+  const [paymentUpi, setPaymentUpi] = React.useState("malharmirai01@okaxis");
+  const [paymentQrUrl, setPaymentQrUrl] = React.useState("");
+  const [uploadingQr, setUploadingQr] = React.useState(false);
+  const [askCustomQuestion, setAskCustomQuestion] = React.useState(false);
+  const [customQuestion, setCustomQuestion] = React.useState("");
+  const [eventOptions, setEventOptions] = React.useState("");
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const qrFileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (event && open) {
@@ -450,6 +773,16 @@ export function EditEventDialog({
       setVenue(event.venue || "");
       setCapacity(String(event.max_capacity) || "400");
       setPosterUrl(event.poster_url || "");
+      setIsFree(event.is_free !== undefined ? event.is_free : true);
+      setAllowedRegistrationType(event.allowed_registration_type || "both");
+      setIndividualFee(String(event.individual_fee ?? event.ticket_price ?? 0));
+      setTeamFee(String(event.team_fee ?? 0));
+      setPaymentUpi(event.payment_upi || "malharmirai01@okaxis");
+      setPaymentQrUrl(event.payment_qr_url || "");
+      setAskCustomQuestion(!!event.ask_custom_question);
+      setCustomQuestion(event.custom_question || "");
+      setEventOptions(Array.isArray(event.event_options) ? event.event_options.join(", ") : "");
+
       // Format ISO string to datetime-local input value (YYYY-MM-DDTHH:mm)
       const toLocal = (iso: string) => iso ? iso.slice(0, 16) : "";
       setDateTime(toLocal(event.date_time || ""));
@@ -486,6 +819,38 @@ export function EditEventDialog({
     }
   };
 
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateMediaFile(file);
+    if (!validation.valid) {
+      setValidationError(validation.error || "Invalid image format or size.");
+      return;
+    }
+
+    setUploadingQr(true);
+    setValidationError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("folder", "events");
+    const uploadRes = await uploadEventPosterAction(fd);
+    setUploadingQr(false);
+
+    if (uploadRes.success && uploadRes.data?.url) {
+      setPaymentQrUrl(uploadRes.data.url);
+    } else {
+      setValidationError(uploadRes.error || "Failed to upload QR code image.");
+    }
+  };
+
+  const handleRemoveQr = () => {
+    setPaymentQrUrl("");
+    if (qrFileInputRef.current) {
+      qrFileInputRef.current.value = "";
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
@@ -510,6 +875,14 @@ export function EditEventDialog({
     const computedStatus = deriveStatusFromDate(dateTime || event.date_time?.slice(0, 16) || "");
     console.log("[EditEvent] dateTime:", dateTime, "→ status:", computedStatus);
 
+    const parsedOptions = eventOptions
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const indFeeVal = isFree || allowedRegistrationType === "team" ? 0 : (parseFloat(individualFee) || 0);
+    const teamFeeVal = isFree || allowedRegistrationType === "individual" ? 0 : (parseFloat(teamFee) || 0);
+
     const result = await updateEventAction(event.id, {
       title: title.trim(),
       category: category.trim(),
@@ -518,6 +891,16 @@ export function EditEventDialog({
       poster_url: finalPosterUrl,
       max_capacity: parseInt(capacity) || 200,
       status: computedStatus,
+      is_free: isFree,
+      allowed_registration_type: allowedRegistrationType,
+      ticket_price: indFeeVal,
+      individual_fee: indFeeVal,
+      team_fee: teamFeeVal,
+      payment_upi: paymentUpi.trim(),
+      payment_qr_url: paymentQrUrl.trim() || null,
+      event_options: parsedOptions,
+      ask_custom_question: askCustomQuestion,
+      custom_question: askCustomQuestion ? customQuestion.trim() : null,
       ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
       ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
     });
@@ -533,6 +916,16 @@ export function EditEventDialog({
         poster_url: finalPosterUrl,
         max_capacity: parseInt(capacity) || 200,
         status: computedStatus,
+        is_free: isFree,
+        allowed_registration_type: allowedRegistrationType,
+        ticket_price: indFeeVal,
+        individual_fee: indFeeVal,
+        team_fee: teamFeeVal,
+        payment_upi: paymentUpi.trim(),
+        payment_qr_url: paymentQrUrl.trim() || undefined,
+        event_options: parsedOptions,
+        ask_custom_question: askCustomQuestion,
+        custom_question: askCustomQuestion ? customQuestion.trim() : undefined,
         ...(dateTime ? { date_time: new Date(dateTime).toISOString() } : {}),
         ...(deadline ? { registration_deadline: new Date(deadline).toISOString() } : {}),
       });
@@ -545,7 +938,7 @@ export function EditEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-[#0D0D0D] border border-white/10 rounded-3xl">
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto overflow-x-hidden bg-[#0D0D0D] border border-white/10 rounded-3xl p-5 sm:p-7 shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-neutral-100 font-bold flex items-center gap-2">
             <Edit className="h-5 w-5 text-neutral-300" />
@@ -580,7 +973,7 @@ export function EditEventDialog({
             <Input value={category} onChange={(e) => setCategory(e.target.value)} disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="text-xs font-semibold block mb-1 text-neutral-300">Venue</label>
               <Input value={venue} onChange={(e) => setVenue(e.target.value)} required disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
@@ -591,7 +984,7 @@ export function EditEventDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="text-xs font-semibold block mb-1 text-neutral-300">Date &amp; Time</label>
               <Input
@@ -610,6 +1003,238 @@ export function EditEventDialog({
                 onChange={(e) => setDeadline(e.target.value)}
                 disabled={loading}
                 className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
+              />
+            </div>
+          </div>
+
+          {/* Ticketing, Participation Mode, Pricing & Custom Form Rules */}
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-neutral-200 block">Registration Fee &amp; Mode</label>
+                <p className="text-[11px] text-neutral-400">Specify fee structure and participation criteria.</p>
+              </div>
+              <div className="flex items-center gap-1.5 p-1 bg-black/60 rounded-xl border border-white/10 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsFree(true)}
+                  className={`px-3 py-1 rounded-lg font-semibold transition-all ${isFree ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-400 hover:text-white"}`}
+                >
+                  Free
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFree(false)}
+                  className={`px-3 py-1 rounded-lg font-semibold transition-all ${!isFree ? "bg-emerald-500 text-white shadow-sm" : "text-neutral-400 hover:text-white"}`}
+                >
+                  Paid (UPI)
+                </button>
+              </div>
+            </div>
+
+            {/* Participation Type (Individual, Team, Both) */}
+            <div className="space-y-1.5 pt-2 border-t border-white/10">
+              <label className="text-[11px] font-semibold text-neutral-300 block">
+                Allowed Participation Type
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAllowedRegistrationType("individual")}
+                  className={`p-2.5 sm:p-3 rounded-2xl border text-xs font-semibold flex sm:flex-col flex-row items-center justify-center gap-2 transition-all ${
+                    allowedRegistrationType === "individual"
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-300 shadow-sm"
+                      : "bg-white/[0.02] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  <User className="h-4 w-4" />
+                  <span>Individual Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllowedRegistrationType("team")}
+                  className={`p-2.5 sm:p-3 rounded-2xl border text-xs font-semibold flex sm:flex-col flex-row items-center justify-center gap-2 transition-all ${
+                    allowedRegistrationType === "team"
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-300 shadow-sm"
+                      : "bg-white/[0.02] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  <Users className="h-4 w-4" />
+                  <span>Team Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllowedRegistrationType("both")}
+                  className={`p-2.5 sm:p-3 rounded-2xl border text-xs font-semibold flex sm:flex-col flex-row items-center justify-center gap-2 transition-all ${
+                    allowedRegistrationType === "both"
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-300 shadow-sm"
+                      : "bg-white/[0.02] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
+                  }`}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span>Both (Solo / Team)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Dynamic Fees based on allowedRegistrationType & isFree */}
+            {!isFree && (
+              <div className="space-y-3 pt-2 border-t border-white/10">
+                <div className={`grid ${allowedRegistrationType === "both" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"} gap-3.5`}>
+                  {(allowedRegistrationType === "individual" || allowedRegistrationType === "both") && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Individual Fee (₹)</label>
+                      <Input
+                        type="number"
+                        placeholder="100"
+                        value={individualFee}
+                        onChange={(e) => setIndividualFee(e.target.value)}
+                        className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                      />
+                    </div>
+                  )}
+                  {(allowedRegistrationType === "team" || allowedRegistrationType === "both") && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Team Fee (₹)</label>
+                      <Input
+                        type="number"
+                        placeholder="300"
+                        value={teamFee}
+                        onChange={(e) => setTeamFee(e.target.value)}
+                        className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Club UPI ID</label>
+                    <Input
+                      placeholder="malharmirai01@okaxis"
+                      value={paymentUpi}
+                      onChange={(e) => setPaymentUpi(e.target.value)}
+                      className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                    />
+                  </div>
+
+                  {/* UPI QR Code Upload Button & Preview */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-300 block mb-1.5">Club UPI QR Code</label>
+                    <input
+                      ref={qrFileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleQrUpload}
+                      className="hidden"
+                    />
+
+                    {paymentQrUrl ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] p-2.5 flex items-center gap-3">
+                        <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-black/80 border border-white/10 flex items-center justify-center">
+                          <Image
+                            src={paymentQrUrl}
+                            alt="UPI QR Code"
+                            fill
+                            className="object-contain p-1"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 text-xs">
+                          <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                            <QrCode className="h-3.5 w-3.5" />
+                            UPI QR Code Attached
+                          </div>
+                          <p className="text-[11px] text-neutral-400 truncate mt-0.5 font-mono">{paymentQrUrl}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={uploadingQr}
+                            onClick={() => qrFileInputRef.current?.click()}
+                            className="h-8 px-2.5 text-xs text-neutral-300 hover:text-white rounded-lg border border-white/10"
+                          >
+                            Replace
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveQr}
+                            className="h-8 w-8 p-0 text-rose-400 hover:text-rose-300 rounded-lg"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uploadingQr || loading}
+                          onClick={() => qrFileInputRef.current?.click()}
+                          className="rounded-xl border-dashed border-white/20 hover:border-amber-400/50 bg-white/[0.02] text-xs font-medium text-neutral-200 hover:text-white flex items-center justify-center gap-2 py-2"
+                        >
+                          {uploadingQr ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span>Uploading QR...</span>
+                            </>
+                          ) : (
+                            <>
+                              <UploadCloud className="h-3.5 w-3.5 text-amber-400" />
+                              <span>Upload UPI QR Code Image</span>
+                            </>
+                          )}
+                        </Button>
+                        <div className="flex-1">
+                          <Input
+                            placeholder="Or paste direct QR image URL..."
+                            value={paymentQrUrl}
+                            onChange={(e) => setPaymentQrUrl(e.target.value)}
+                            className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200 h-9"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Question Toggle */}
+            <div className="pt-2 border-t border-white/10 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={askCustomQuestion}
+                  onChange={(e) => setAskCustomQuestion(e.target.checked)}
+                  className="rounded border-white/20 bg-black text-amber-500 focus:ring-0"
+                />
+                <span className="text-xs font-semibold text-neutral-300">Ask Custom Question during RSVP</span>
+              </label>
+
+              {askCustomQuestion && (
+                <Input
+                  placeholder="e.g. What is your performance track or song name?"
+                  value={customQuestion}
+                  onChange={(e) => setCustomQuestion(e.target.value)}
+                  className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
+                />
+              )}
+            </div>
+
+            {/* Tracks / Options */}
+            <div className="pt-2 border-t border-white/10">
+              <label className="text-[11px] font-semibold text-neutral-300 block mb-1">Event Tracks / Categories (Comma-separated)</label>
+              <Input
+                placeholder="e.g. Solo Vocals, Duet, Group Instrumental"
+                value={eventOptions}
+                onChange={(e) => setEventOptions(e.target.value)}
+                className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200"
               />
             </div>
           </div>
@@ -689,7 +1314,7 @@ export function AssignWinnersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-[#0D0D0D] border border-white/10 rounded-3xl">
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto overflow-x-hidden bg-[#0D0D0D] border border-white/10 rounded-3xl p-5 sm:p-7 shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-neutral-100 font-bold flex items-center gap-2">
             <Trophy className="h-5 w-5 text-neutral-300" />
