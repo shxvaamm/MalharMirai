@@ -34,6 +34,7 @@ import { createDepartmentAction, updateDepartmentAction, deleteDepartmentAction 
 import { postAnnouncementAction, deleteAnnouncementAction } from "@/lib/actions/announcements";
 import { uploadGalleryMediaAction, deleteGalleryMediaAction } from "@/lib/actions/gallery";
 import { getAdminRegistrationsAction } from "@/lib/actions/registrations";
+import { deleteHeroSlideAction } from "@/lib/actions/slideshow";
 import { normalizeEventFromDb, normalizeRegistrationFromDb } from "@/lib/utils/event-normalizer";
 import { getMemberRole } from "@/lib/utils/member-role";
 
@@ -1341,16 +1342,16 @@ export function useAdminData() {
   };
 
   const deleteHeroSlide = (id: string) => {
-    // Delete from Supabase
-    try {
-      const supabase = createClient();
-      (supabase.from("hero_slides") as any).delete().eq("id", id).then(() => {});
-    } catch {}
-
+    // Optimistically remove from UI state first
     setHeroSlides((prev) => {
       const updated = prev.filter((s) => s.id !== id);
       setSyncedData(STORAGE_KEYS.HERO_SLIDES, updated);
       return updated;
+    });
+
+    // Delete from Supabase DB + Storage via server action (bypasses RLS, cleans up storage)
+    deleteHeroSlideAction(id).catch((err) => {
+      console.warn("[deleteHeroSlide] server action failed:", err?.message);
     });
   };
 

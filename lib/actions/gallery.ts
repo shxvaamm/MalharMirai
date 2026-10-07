@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { hasPermission, UserRole, isSuperAdminEmail } from "@/lib/auth/rbac";
 import { MediaType, GalleryCategory } from "@/lib/types/database";
+import { deleteMediaByUrl } from "@/lib/storage/delete-media";
 
 export interface GalleryInput {
   title: string;
@@ -139,26 +140,6 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
 }
 
 /**
- * Helper to extract bucket file path from mediaUrl or synthetic storage ID.
- */
-function extractStoragePath(mediaUrl?: string, id?: string): string | null {
-  if (id && id.startsWith("storage-")) {
-    const rawName = id.replace(/^storage-/, "");
-    return rawName.startsWith("gallery/") ? rawName : `gallery/${rawName}`;
-  }
-  if (!mediaUrl) return null;
-  const mediaIdx = mediaUrl.indexOf("/media/");
-  if (mediaIdx !== -1) {
-    return mediaUrl.substring(mediaIdx + "/media/".length).split("?")[0];
-  }
-  const galleryIdx = mediaUrl.indexOf("/gallery/");
-  if (galleryIdx !== -1) {
-    return mediaUrl.substring(galleryIdx + 1).split("?")[0];
-  }
-  return null;
-}
-
-/**
  * Server Action: Delete gallery media from database and Supabase Storage.
  */
 export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): Promise<ActionResult> {
@@ -170,42 +151,22 @@ export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): P
   revalidatePath("/admin/gallery");
   revalidatePath("/admin");
 
-  const filePath = extractStoragePath(mediaUrl, id);
-
-  // 1. Delete the underlying file from Supabase Storage if found
-  if (filePath) {
-    try {
-      const userClient = await createClient();
-      await userClient.storage.from("media").remove([filePath]);
-    } catch {}
-
+  // 1. Delete the DB row first so the ref-check in deleteMediaByUrl sees it as gone
+  if (isValidUUID(id)) {
     try {
       const adminClient = createAdminClient();
-      await adminClient.storage.from("media").remove([filePath]);
+      await (adminClient.from("gallery") as any).delete().eq("id", id);
     } catch {}
   }
 
-  // 2. If valid UUID, delete the row from Postgres gallery table
-  if (isValidUUID(id)) {
+  // 2. Delete the underlying file from Supabase Storage via shared helper
+  //    skipRefCheck: true because we just removed the row above
+  if (mediaUrl) {
     try {
-      const userClient = await createClient();
-      const { error } = await (userClient.from("gallery") as any)
-        .delete()
-        .eq("id", id);
-      if (!error) return { success: true };
-    } catch {}
-
-    try {
-      const adminClient = createAdminClient();
-      const { error } = await (adminClient.from("gallery") as any)
-        .delete()
-        .eq("id", id);
-
-      if (error && error.code !== "22P02" && error.code !== "PGRST116") {
-        return { success: false, error: error.message };
-      }
+      await deleteMediaByUrl(mediaUrl, { skipRefCheck: true });
     } catch (err: any) {
-      // ignore
+      // Log but don't fail — DB row is already gone
+      console.warn("[deleteGalleryMediaAction] storage cleanup failed:", err?.message);
     }
   }
 

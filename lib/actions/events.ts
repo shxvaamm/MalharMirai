@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { hasPermission, AdminPermission, UserRole, isSuperAdminEmail } from "@/lib/auth/rbac";
 import { EventStatus } from "@/lib/types/database";
+import { deleteMediaUrls } from "@/lib/storage/delete-media";
 
 export interface EventInput {
   title: string;
@@ -435,50 +436,30 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
   try {
     const supabase = createAdminClient();
 
-    // ── Step 1: Fetch the event row so we can clean up its poster from storage ──
+    // ── Step 1: Fetch the event row so we can clean up its images from storage ──
     let posterUrl: string | null = null;
+    let qrUrl: string | null = null;
     try {
       const { data: eventRow } = await (supabase.from("events") as any)
-        .select("poster_url")
+        .select("poster_url, payment_qr_url")
         .eq("id", id)
         .maybeSingle();
       posterUrl = eventRow?.poster_url || null;
+      qrUrl = eventRow?.payment_qr_url || null;
     } catch {}
 
     // ── Step 2: Delete linked gallery rows (event_id FK or matching poster_url) ──
     try {
-      // Delete gallery rows explicitly tied to this event
-      await (supabase.from("gallery") as any)
-        .delete()
-        .eq("event_id", id);
+      await (supabase.from("gallery") as any).delete().eq("event_id", id);
     } catch {}
 
     if (posterUrl) {
       try {
-        // Also delete any gallery rows whose media_url is the event's poster
-        await (supabase.from("gallery") as any)
-          .delete()
-          .eq("media_url", posterUrl);
+        await (supabase.from("gallery") as any).delete().eq("media_url", posterUrl);
       } catch {}
     }
 
-    // ── Step 3: Delete the event's poster from Supabase Storage ──────────────
-    if (posterUrl) {
-      try {
-        // Extract the storage path relative to the bucket root
-        // Poster URLs look like: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
-        const storageMarker = "/object/public/media/";
-        const markerIdx = posterUrl.indexOf(storageMarker);
-        if (markerIdx !== -1) {
-          const filePath = posterUrl.substring(markerIdx + storageMarker.length).split("?")[0];
-          if (filePath) {
-            await supabase.storage.from("media").remove([filePath]);
-          }
-        }
-      } catch {}
-    }
-
-    // ── Step 4: Hard-delete the event row — use .select() to verify it happened ──
+    // ── Step 3: Hard-delete the event row ────────────────────────────────────
     const { data: deleted, error } = await (supabase.from("events") as any)
       .delete()
       .eq("id", id)
@@ -488,20 +469,17 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
       return { success: false, error: error.message };
     }
 
-    // deleted is [] if the row didn't exist or RLS blocked it.
-    // We still treat "already gone" as success (idempotent delete).
-    // But if error is null AND deleted is empty, flag it so the caller
-    // can distinguish a genuine delete from a service-role key misconfiguration.
     if (Array.isArray(deleted) && deleted.length === 0 && !error) {
-      // Row either already deleted (by optimistic state) or service_role key is wrong.
-      // Return success so the UI stays consistent, but log a warning.
       console.warn(`[deleteEventAction] 0 rows deleted for id=${id}. Check SUPABASE_SERVICE_ROLE_KEY if event still appears on public site.`);
     }
+
+    // ── Step 4: Delete images from Supabase Storage (row is gone, safe to skip ref-check) ──
+    await deleteMediaUrls([posterUrl, qrUrl], { skipRefCheck: true });
 
     // ── Step 5: Revalidate ALL pages that render event data ──────────────────
     revalidatePath("/", "layout");
     revalidatePath("/events", "layout");
-    revalidatePath("/gallery", "layout");     // ← was missing; gallery shows event posters
+    revalidatePath("/gallery", "layout");
     revalidatePath("/admin/events", "layout");
     revalidatePath("/admin", "layout");
     revalidatePath("/admin/gallery", "layout");

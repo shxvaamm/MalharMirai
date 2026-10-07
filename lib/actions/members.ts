@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { hasPermission, AdminPermission, UserRole, isSuperAdminEmail } from "@/lib/auth/rbac";
 import { getMemberRole } from "@/lib/utils/member-role";
+import { deleteMediaByUrl } from "@/lib/storage/delete-media";
 
 export interface MemberInput {
   full_name: string;
@@ -189,6 +190,18 @@ export async function updateMemberAction(
     if (input.instagram !== undefined) updates.instagram = input.instagram || null;
     if (input.linkedin !== undefined) updates.linkedin = input.linkedin || null;
 
+    // Fetch old avatar_url before updating (needed for storage cleanup)
+    let oldAvatarUrl: string | null = null;
+    if (input.avatar_url !== undefined) {
+      try {
+        const { data: existing } = await (supabase.from("club_members") as any)
+          .select("avatar_url")
+          .eq("id", id)
+          .maybeSingle();
+        oldAvatarUrl = existing?.avatar_url || null;
+      } catch {}
+    }
+
     // Update club_members (admin-added members) and verify a row was actually touched.
     const { error: cmErr, data: cmRows } = await (supabase.from("club_members") as any)
       .update(updates)
@@ -203,6 +216,17 @@ export async function updateMemberAction(
 
     // If club_members had no matching row, try profiles (auth-registered users).
     if (!updatedRow) {
+      // Fetch old avatar from profiles
+      if (input.avatar_url !== undefined && !oldAvatarUrl) {
+        try {
+          const { data: existing } = await (supabase.from("profiles") as any)
+            .select("avatar_url")
+            .eq("id", id)
+            .maybeSingle();
+          oldAvatarUrl = existing?.avatar_url || null;
+        } catch {}
+      }
+
       const { error: profErr, data: profRows } = await (supabase.from("profiles") as any)
         .update(updates)
         .eq("id", id)
@@ -214,6 +238,16 @@ export async function updateMemberAction(
         return { success: false, error: "Member record not found in database." };
       }
       updatedRow = profRows[0];
+    }
+
+    // Delete old avatar from storage if a new different one was uploaded
+    const newAvatarUrl = updates.avatar_url as string | null | undefined;
+    if (
+      oldAvatarUrl &&
+      newAvatarUrl !== undefined &&
+      oldAvatarUrl !== newAvatarUrl
+    ) {
+      deleteMediaByUrl(oldAvatarUrl, { skipRefCheck: true }).catch(() => {});
     }
 
     revalidatePath("/", "layout");
@@ -245,9 +279,32 @@ export async function deleteMemberAction(id: string): Promise<ActionResult> {
   try {
     const supabase = createAdminClient();
 
+    // Fetch avatar URLs before deleting rows
+    let avatarUrl: string | null = null;
+    try {
+      const { data: cm } = await (supabase.from("club_members") as any)
+        .select("avatar_url")
+        .eq("id", id)
+        .maybeSingle();
+      avatarUrl = cm?.avatar_url || null;
+
+      if (!avatarUrl) {
+        const { data: prof } = await (supabase.from("profiles") as any)
+          .select("avatar_url")
+          .eq("id", id)
+          .maybeSingle();
+        avatarUrl = prof?.avatar_url || null;
+      }
+    } catch {}
+
     // Delete from both tables
     await (supabase.from("club_members") as any).delete().eq("id", id);
     await (supabase.from("profiles") as any).delete().eq("id", id);
+
+    // Delete avatar from storage (row is gone — skip ref check)
+    if (avatarUrl) {
+      deleteMediaByUrl(avatarUrl, { skipRefCheck: true }).catch(() => {});
+    }
 
     revalidatePath("/", "layout");
     revalidatePath("/members");
