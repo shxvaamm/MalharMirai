@@ -584,9 +584,7 @@ export function CreateEventDialog({
                             <QrCode className="h-3.5 w-3.5" />
                             UPI QR Code Attached
                           </div>
-                          <a href={paymentQrUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-neutral-400 hover:text-amber-400 truncate mt-0.5 font-mono block hover:underline">
-                            {paymentQrUrl}
-                          </a>
+
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <Button
@@ -1138,9 +1136,7 @@ export function EditEventDialog({
                             <QrCode className="h-3.5 w-3.5" />
                             UPI QR Code Attached
                           </div>
-                          <a href={paymentQrUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-neutral-400 hover:text-amber-400 truncate mt-0.5 font-mono block hover:underline">
-                            {paymentQrUrl}
-                          </a>
+
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <Button
