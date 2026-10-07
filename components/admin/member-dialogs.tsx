@@ -126,11 +126,8 @@ export function AddMemberDialog({
     try {
       const dataUrl = await fileToOptimizedDataUrl(file);
       setPreviewUrl(dataUrl);
-      setAvatarUrl(dataUrl);
     } catch {
-      const fallbackUrl = URL.createObjectURL(file);
-      setPreviewUrl(fallbackUrl);
-      setAvatarUrl(fallbackUrl);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
@@ -173,6 +170,9 @@ export function AddMemberDialog({
 
     setLoading(true);
 
+    // Start with the existing stored URL (empty string for a new member).
+    // avatarUrl is never a data URL — it is only ever a real Supabase Storage URL
+    // or an empty string. previewUrl holds the local data URL for preview only.
     let finalAvatarUrl = avatarUrl.trim();
 
     if (selectedFile) {
@@ -181,7 +181,15 @@ export function AddMemberDialog({
       setUploadingAvatar(false);
 
       if (uploadRes.success && uploadRes.url) {
+        // Upload succeeded — use the real public Storage URL.
         finalAvatarUrl = uploadRes.url;
+      } else {
+        // Upload failed — surface the error and abort. Don't save a data URL.
+        setLoading(false);
+        const errMsg = uploadRes.error || "Photo upload failed. Please try again.";
+        setValidationError(errMsg);
+        if (onError) onError(errMsg);
+        return;
       }
     }
 
@@ -558,14 +566,14 @@ export function EditMemberDialog({
     setValidationError(null);
     setSelectedFile(file);
 
+    // Only set previewUrl for local display — do NOT update avatarUrl here.
+    // avatarUrl holds the Supabase Storage URL and is only updated after a
+    // successful upload. This prevents a data URL from leaking into the DB.
     try {
       const dataUrl = await fileToOptimizedDataUrl(file);
       setPreviewUrl(dataUrl);
-      setAvatarUrl(dataUrl);
     } catch {
-      const fallbackUrl = URL.createObjectURL(file);
-      setPreviewUrl(fallbackUrl);
-      setAvatarUrl(fallbackUrl);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
@@ -608,6 +616,9 @@ export function EditMemberDialog({
 
     setLoading(true);
 
+    // avatarUrl is the current stored Supabase Storage URL (or empty string).
+    // previewUrl is the local data URL used only for the dialog preview.
+    // We never write a data URL to the DB.
     let finalAvatarUrl = avatarUrl.trim();
 
     if (selectedFile) {
@@ -616,7 +627,15 @@ export function EditMemberDialog({
       setUploadingAvatar(false);
 
       if (uploadRes.success && uploadRes.url) {
+        // Upload succeeded — use the real public Storage URL.
         finalAvatarUrl = uploadRes.url;
+      } else {
+        // Upload failed — surface the error and abort. Don't save a data URL.
+        setLoading(false);
+        const errMsg = uploadRes.error || "Photo upload failed. Please try again.";
+        setValidationError(errMsg);
+        if (onError) onError(errMsg);
+        return;
       }
     }
 

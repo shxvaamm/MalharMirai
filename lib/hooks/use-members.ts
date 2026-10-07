@@ -99,7 +99,7 @@ function mapRowToMember(d: any, cachedMatch?: ClubMember): ClubMember {
         : cachedMatch?.role || "member",
     department: d.department || d.departments?.name || cachedMatch?.department || "General",
     phone: d.phone || cachedMatch?.phone || "+91 98765 00000",
-    avatar_url: d.avatar_url || cachedMatch?.avatar_url,
+    avatar_url: d.avatar_url !== undefined ? d.avatar_url : (cachedMatch?.avatar_url ?? null),
     avatar_initials: initials,
     bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
     year: d.year || cachedMatch?.year || "1st Year",
@@ -178,23 +178,22 @@ export function useMembers(
 
   // ── Mount effect: version-gate the cache before using it ─────────────────
   useEffect(() => {
-    // If the server already provided fresh data, skip localStorage read and
-    // initial fetch on mount — server data is more up-to-date than any cache.
-    // fetchMembers is still called by the Realtime subscription on any change.
-    if (serverProvided) return;
-
-    if (!isCacheVersionCurrent()) {
-      // Wipe the stale/polluted cache immediately so nothing bad renders
-      wipeMembersCache();
-      setAllMembers(MOCK_MEMBERS); // start from empty while fetch runs
-    } else {
-      // Cache is from the current schema: use it for the instant render,
-      // but filter out any synthetic credentials-store entries just in case
-      const cached = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
-      const clean = cached.filter((m) => !isSyntheticEntry(m));
-      if (clean.length > 0) setAllMembers(clean);
+    if (!serverProvided) {
+      if (!isCacheVersionCurrent()) {
+        // Wipe the stale/polluted cache immediately so nothing bad renders
+        wipeMembersCache();
+        setAllMembers(MOCK_MEMBERS); // start from empty while fetch runs
+      } else {
+        // Cache is from the current schema: use it for the instant render,
+        // but filter out any synthetic credentials-store entries just in case
+        const cached = getSyncedData<ClubMember[]>(STORAGE_KEYS.MEMBERS, MOCK_MEMBERS);
+        const clean = cached.filter((m) => !isSyntheticEntry(m));
+        if (clean.length > 0) setAllMembers(clean);
+      }
     }
 
+    // Always fetch fresh DB data in background to ensure latest state is shown
+    // even if SSR served a cached ISR page.
     fetchMembers();
   }, [fetchMembers, serverProvided]);
 
@@ -234,7 +233,7 @@ export function useMembers(
           if (updated?.id) {
             setAllMembers((prev) =>
               prev.map((m) =>
-                m.id === updated.id ? mapRowToMember(updated, m) : m
+                m.id === updated.id ? mapRowToMember(updated) : m
               )
             );
           }

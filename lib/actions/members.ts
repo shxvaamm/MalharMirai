@@ -193,20 +193,27 @@ export async function updateMemberAction(
     const { error: cmErr, data: cmRows } = await (supabase.from("club_members") as any)
       .update(updates)
       .eq("id", id)
-      .select("id");
+      .select("id, avatar_url");
 
     if (cmErr) {
       return { success: false, error: cmErr.message };
     }
 
+    let updatedRow = cmRows && cmRows.length > 0 ? cmRows[0] : null;
+
     // If club_members had no matching row, try profiles (auth-registered users).
-    if (!cmRows || cmRows.length === 0) {
-      const { error: profErr } = await (supabase.from("profiles") as any)
+    if (!updatedRow) {
+      const { error: profErr, data: profRows } = await (supabase.from("profiles") as any)
         .update(updates)
-        .eq("id", id);
+        .eq("id", id)
+        .select("id, avatar_url");
       if (profErr) {
         return { success: false, error: profErr.message };
       }
+      if (!profRows || profRows.length === 0) {
+        return { success: false, error: "Member record not found in database." };
+      }
+      updatedRow = profRows[0];
     }
 
     revalidatePath("/", "layout");

@@ -408,6 +408,13 @@ export default function AdminLeadershipPage() {
             type: "success",
           });
         }}
+        onError={(err) => {
+          toast({
+            title: "Appointment Failed",
+            description: err,
+            type: "error",
+          });
+        }}
       />
 
       <EditLeaderDialog
@@ -420,6 +427,13 @@ export default function AdminLeadershipPage() {
             title: "Profile Updated",
             description: `"${updatedLeader.full_name}" leadership records synchronized.`,
             type: "success",
+          });
+        }}
+        onError={(err) => {
+          toast({
+            title: "Update Failed",
+            description: err,
+            type: "error",
           });
         }}
       />

@@ -114,11 +114,9 @@ export function AddLeaderDialog({
     try {
       const dataUrl = await fileToOptimizedDataUrl(file);
       setFilePreview(dataUrl);
-      setAvatarUrl(dataUrl);
     } catch {
       const preview = URL.createObjectURL(file);
       setFilePreview(preview);
-      setAvatarUrl(preview);
     }
   };
 
@@ -174,6 +172,12 @@ export function AddLeaderDialog({
 
       if (uploadRes.success && uploadRes.url) {
         finalAvatarUrl = uploadRes.url;
+      } else {
+        setLoading(false);
+        const errMsg = uploadRes.error || "Photo upload failed. Please try again.";
+        setValidationError(errMsg);
+        if (onError) onError(errMsg);
+        return;
       }
     }
 
@@ -188,44 +192,8 @@ export function AddLeaderDialog({
     const formattedIg = formatInstagramUrl(instagram);
     const formattedLi = formatLinkedInUrl(linkedin);
 
-    const newLeader: ClubMember = {
-      id: `lead-${Date.now()}`,
-      full_name: name.trim(),
-      email: emailValidation.normalizedEmail,
-      phone: formattedPhone,
-      role: "admin",
-      department: "Leadership Board",
-      year: year.trim() || "3rd Year",
-      specialty: effectiveSpecialty,
-      bio: bio.trim() || `${effectiveSpecialty} leading MALHAR cultural initiatives at Mirai.`,
-      avatar_url: finalAvatarUrl,
-      avatar_initials: initials,
-      socials: {
-        instagram: formattedIg || undefined,
-        linkedin: formattedLi || undefined,
-      },
-    };
-
-    // 1. Optimistic UI update
-    if (onSuccess) {
-      onSuccess(newLeader);
-    }
-    onOpenChange(false);
-    setLoading(false);
-
-    // Reset Form
-    setName("");
-    setEmail("");
-    setPhone("");
-    setCountryCode("+91");
-    setBio("");
-    setInstagram("");
-    setLinkedin("");
-    handleRemoveAvatar();
-
-    // 2. Persist to server in background
     try {
-      await createMemberAction({
+      const createRes = await createMemberAction({
         full_name: name.trim(),
         email: emailValidation.normalizedEmail,
         phone: formattedPhone,
@@ -238,8 +206,54 @@ export function AddLeaderDialog({
         instagram: formattedIg || undefined,
         linkedin: formattedLi || undefined,
       });
-    } catch (err) {
-      console.warn("Background leadership creation:", err);
+
+      if (!createRes.success) {
+        setLoading(false);
+        const errMsg = createRes.error || "Failed to create leadership record.";
+        setValidationError(errMsg);
+        if (onError) onError(errMsg);
+        return;
+      }
+
+      const realId = createRes.data?.id || `lead-${Date.now()}`;
+      const newLeader: ClubMember = {
+        id: realId,
+        full_name: name.trim(),
+        email: emailValidation.normalizedEmail,
+        phone: formattedPhone,
+        role: "admin",
+        department: "Leadership Board",
+        year: year.trim() || "3rd Year",
+        specialty: effectiveSpecialty,
+        bio: bio.trim() || `${effectiveSpecialty} leading MALHAR cultural initiatives at Mirai.`,
+        avatar_url: finalAvatarUrl,
+        avatar_initials: initials,
+        socials: {
+          instagram: formattedIg || undefined,
+          linkedin: formattedLi || undefined,
+        },
+      };
+
+      if (onSuccess) {
+        onSuccess(newLeader);
+      }
+      setLoading(false);
+      onOpenChange(false);
+
+      // Reset Form
+      setName("");
+      setEmail("");
+      setPhone("");
+      setCountryCode("+91");
+      setBio("");
+      setInstagram("");
+      setLinkedin("");
+      handleRemoveAvatar();
+    } catch (err: any) {
+      setLoading(false);
+      const errMsg = err?.message || "Failed to create leadership record.";
+      setValidationError(errMsg);
+      if (onError) onError(errMsg);
     }
   };
 
@@ -479,6 +493,7 @@ interface EditLeaderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (leader: ClubMember) => void;
+  onError?: (error: string) => void;
 }
 
 export function EditLeaderDialog({
@@ -486,6 +501,7 @@ export function EditLeaderDialog({
   open,
   onOpenChange,
   onSuccess,
+  onError,
 }: EditLeaderDialogProps) {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -496,6 +512,7 @@ export function EditLeaderDialog({
   const [customSpecialty, setCustomSpecialty] = React.useState("");
   const [bio, setBio] = React.useState("");
   const [avatarUrl, setAvatarUrl] = React.useState("");
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [instagram, setInstagram] = React.useState("");
   const [linkedin, setLinkedin] = React.useState("");
 
@@ -515,6 +532,7 @@ export function EditLeaderDialog({
       setYear(leader.year || "3rd Year");
       setBio(leader.bio || "");
       setAvatarUrl(leader.avatar_url || "");
+      setPreviewUrl(leader.avatar_url || null);
       setInstagram(leader.socials?.instagram || "");
       setLinkedin(leader.socials?.linkedin || "");
 
@@ -534,7 +552,7 @@ export function EditLeaderDialog({
 
   if (!leader) return null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -546,12 +564,17 @@ export function EditLeaderDialog({
 
     setValidationError(null);
     setSelectedFile(file);
-    const localUrl = URL.createObjectURL(file);
-    setAvatarUrl(localUrl);
+    try {
+      const dataUrl = await fileToOptimizedDataUrl(file);
+      setPreviewUrl(dataUrl);
+    } catch {
+      setPreviewUrl(URL.createObjectURL(file));
+    }
   };
 
   const handleRemoveAvatar = () => {
     setSelectedFile(null);
+    setPreviewUrl(null);
     setAvatarUrl("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -596,18 +619,48 @@ export function EditLeaderDialog({
 
     if (selectedFile) {
       setUploadingAvatar(true);
-      try {
-        const uploadResult = await uploadMediaFile(selectedFile, "avatars");
-        if (uploadResult.success && uploadResult.url) {
-          finalAvatarUrl = uploadResult.url;
-        } else {
-          finalAvatarUrl = await fileToOptimizedDataUrl(selectedFile);
-        }
-      } catch {
-        finalAvatarUrl = await fileToOptimizedDataUrl(selectedFile);
-      } finally {
-        setUploadingAvatar(false);
+      const uploadRes = await uploadMediaFile(selectedFile, "avatars");
+      setUploadingAvatar(false);
+
+      if (uploadRes.success && uploadRes.url) {
+        finalAvatarUrl = uploadRes.url;
+      } else {
+        setLoading(false);
+        const errMsg = uploadRes.error || "Photo upload failed. Please try again.";
+        setValidationError(errMsg);
+        if (onError) onError(errMsg);
+        return;
       }
+    }
+
+    try {
+      const dbResult = await updateMemberAction(leader.id, {
+        full_name: name.trim(),
+        email: emailValidation.normalizedEmail,
+        phone: formattedPhone,
+        department: "Leadership Board",
+        year: year.trim(),
+        role: "admin",
+        specialty: effectiveSpecialty,
+        bio: bio.trim(),
+        avatar_url: finalAvatarUrl,
+        instagram: formatInstagramUrl(instagram) || undefined,
+        linkedin: formatLinkedInUrl(linkedin) || undefined,
+      });
+
+      if (!dbResult.success) {
+        setLoading(false);
+        const errMsg = dbResult.error || "Failed to update leadership profile.";
+        setValidationError(errMsg);
+        if (onError) onError(errMsg);
+        return;
+      }
+    } catch (err: any) {
+      setLoading(false);
+      const errMsg = err?.message || "Failed to update leadership profile.";
+      setValidationError(errMsg);
+      if (onError) onError(errMsg);
+      return;
     }
 
     const updatedLeader: ClubMember = {
@@ -627,31 +680,11 @@ export function EditLeaderDialog({
       },
     };
 
-    // 1. Optimistic local update
     if (onSuccess) {
       onSuccess(updatedLeader);
     }
-    onOpenChange(false);
     setLoading(false);
-
-    // 2. Persist in background
-    try {
-      await updateMemberAction(leader.id, {
-        full_name: name.trim(),
-        email: emailValidation.normalizedEmail,
-        phone: formattedPhone,
-        department: "Leadership Board",
-        year: year.trim(),
-        role: "admin",
-        specialty: effectiveSpecialty,
-        bio: bio.trim(),
-        avatar_url: finalAvatarUrl,
-        instagram: formatInstagramUrl(instagram) || undefined,
-        linkedin: formatLinkedInUrl(linkedin) || undefined,
-      });
-    } catch (err) {
-      console.warn("Background leader update error:", err);
-    }
+    onOpenChange(false);
   };
 
   return (
@@ -687,8 +720,8 @@ export function EditLeaderDialog({
 
             <div className="flex items-center gap-4">
               <div className="relative h-16 w-16 shrink-0 rounded-2xl overflow-hidden border border-white/10 bg-neutral-900 flex items-center justify-center">
-                {avatarUrl ? (
-                  <Image src={avatarUrl} alt="Preview" fill className="object-cover" />
+                {previewUrl ? (
+                  <Image src={previewUrl} alt="Preview" fill className="object-cover" />
                 ) : (
                   <Crown className="h-7 w-7 text-neutral-500" />
                 )}
@@ -711,9 +744,9 @@ export function EditLeaderDialog({
                     className="h-8 text-xs rounded-full border-white/10 bg-white/[0.03] text-neutral-300 hover:text-white"
                   >
                     <Upload className="mr-1.5 h-3.5 w-3.5" />
-                    {avatarUrl ? "Change Photo" : "Upload Picture"}
+                    {previewUrl ? "Change Photo" : "Upload Picture"}
                   </Button>
-                  {avatarUrl && (
+                  {previewUrl && (
                     <Button
                       type="button"
                       variant="ghost"

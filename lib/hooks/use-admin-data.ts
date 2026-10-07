@@ -205,7 +205,7 @@ export function useAdminData() {
               role: d.role === "super_admin" || d.role === "admin" ? "admin" : d.role === "volunteer" ? "volunteer" : (cachedMatch?.role || "member"),
               department: d.department || d.departments?.name || cachedMatch?.department || "General",
               phone: d.phone || cachedMatch?.phone || "+91 98765 00000",
-              avatar_url: d.avatar_url || cachedMatch?.avatar_url,
+              avatar_url: d.avatar_url !== undefined ? d.avatar_url : (cachedMatch?.avatar_url ?? null),
               avatar_initials: initials,
               bio: d.bio || cachedMatch?.bio || "Active cultural society member.",
               year: d.year || cachedMatch?.year || "1st Year",
@@ -873,6 +873,7 @@ export function useAdminData() {
     if (updates.phone !== undefined) dbUpdates.phone = (updates.phone || "").trim();
     if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url || null;
     if (updates.bio !== undefined) dbUpdates.bio = updates.bio || "";
+    if (updates.department !== undefined) dbUpdates.department = updates.department || "General";
     // Always sync specialty, year, and socials so public pages stay in sync
     if (updates.specialty !== undefined) dbUpdates.specialty = getMemberRole(updates.specialty);
     if (updates.year !== undefined) dbUpdates.year = updates.year || "";
@@ -883,8 +884,12 @@ export function useAdminData() {
       try {
         const supabase = createClient();
         if (isValidUUID(id)) {
+          await (supabase.from("club_members") as any).update(dbUpdates).eq("id", id);
           await (supabase.from("profiles") as any).update(dbUpdates).eq("id", id);
         } else if (updates.email) {
+          await (supabase.from("club_members") as any)
+            .update(dbUpdates)
+            .eq("email", updates.email.trim().toLowerCase());
           await (supabase.from("profiles") as any)
             .update(dbUpdates)
             .eq("email", updates.email.trim().toLowerCase());
@@ -895,11 +900,11 @@ export function useAdminData() {
 
       if (isValidUUID(id)) {
         try {
-          updateMemberAction(id, {
+          await updateMemberAction(id, {
             ...dbUpdates,
             instagram: updates.socials?.instagram || undefined,
             linkedin: updates.socials?.linkedin || undefined,
-          }).catch(() => {});
+          });
         } catch {}
       }
     }
