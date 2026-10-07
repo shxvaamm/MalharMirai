@@ -154,7 +154,7 @@ export function useAdminData() {
           (supabase.from("departments") as any).select("*"),
           (supabase.from("announcements") as any).select("*"),
           (supabase.from("gallery") as any).select("*"),
-          (supabase.from("registrations") as any).select("*"),
+          (supabase.from("registrations") as any).select("*").order("created_at", { ascending: false }),
           (supabase.from("hero_slides") as any).select("*").order("sort_order", { ascending: true }),
         ]);
 
@@ -331,10 +331,18 @@ export function useAdminData() {
         if (regData && Array.isArray(regData)) {
           const mappedRegs: StudentRegistration[] = regData.map((d: any) => {
             const n = normalizeRegistrationFromDb(d);
+            
+            // Map event title from evData if possible
+            let evTitle = n.event_title || "";
+            if (!evTitle && evData && Array.isArray(evData)) {
+              const matchedEvent = evData.find((e: any) => e.id === n.event_id);
+              if (matchedEvent) evTitle = matchedEvent.title;
+            }
+
             return {
               id: n.id,
               event_id: n.event_id,
-              event_title: n.event_title || n.events?.title || "",
+              event_title: evTitle,
               student_name: n.student_name,
               student_email: n.student_email,
               student_phone: n.student_phone || null,
