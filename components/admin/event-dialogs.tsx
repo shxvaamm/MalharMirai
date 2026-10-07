@@ -38,6 +38,7 @@ import {
   uploadEventPosterAction,
 } from "@/lib/actions/events";
 import { validateMediaFile } from "@/lib/supabase/storage";
+import { useToast } from "@/components/ui/toast";
 
 // ─── Auto-status helper ─────────────────────────────────────────────────────
 /**
@@ -741,6 +742,7 @@ export function EditEventDialog({
   const [uploadingPoster, setUploadingPoster] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
+  const { toast } = useToast();
 
   // Ticketing state
   const [isFree, setIsFree] = React.useState(true);
@@ -899,6 +901,14 @@ export function EditEventDialog({
     setLoading(false);
 
     if (result.success) {
+      // Warn (but don't block) if storage cleanup of the old file failed
+      if (result.storageError) {
+        toast({
+          title: "Storage warning",
+          description: result.storageError,
+          type: "warning",
+        });
+      }
       onSuccess({
         ...event,
         title: title.trim(),

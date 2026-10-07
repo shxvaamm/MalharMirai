@@ -19,6 +19,8 @@ export interface ActionResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+  /** Set when the DB operation succeeded but orphaned file cleanup failed. */
+  storageError?: string;
 }
 
 function isValidUUID(str: string): boolean {
@@ -141,17 +143,19 @@ export async function uploadGalleryMediaAction(input: GalleryInput): Promise<Act
 
 /**
  * Server Action: Delete gallery media from database and Supabase Storage.
+ *
+ * Protocol:
+ *  1. Delete the DB row first (so the ref-check sees it as gone).
+ *  2. Call deleteMediaByUrl — ref-check runs, deletes file only if no other
+ *     row references the same URL.
+ *  3. Return { success: true } even if storage cleanup fails; surface the
+ *     failure as storageError so the caller can log / toast it.
  */
 export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): Promise<ActionResult> {
   const auth = await verifyGalleryPermission();
   if (!auth.authorized) return { success: false, error: auth.error };
 
-  revalidatePath("/");
-  revalidatePath("/gallery");
-  revalidatePath("/admin/gallery");
-  revalidatePath("/admin");
-
-  // 1. Delete the DB row first so the ref-check in deleteMediaByUrl sees it as gone
+  // 1. Delete the DB row first
   if (isValidUUID(id)) {
     try {
       const adminClient = createAdminClient();
@@ -159,16 +163,20 @@ export async function deleteGalleryMediaAction(id: string, mediaUrl?: string): P
     } catch {}
   }
 
-  // 2. Delete the underlying file from Supabase Storage via shared helper
-  //    skipRefCheck: true because we just removed the row above
+  revalidatePath("/");
+  revalidatePath("/gallery");
+  revalidatePath("/admin/gallery");
+  revalidatePath("/admin");
+
+  // 2. Delete file from Storage (ref-check now runs against the updated DB)
+  let storageError: string | undefined;
   if (mediaUrl) {
-    try {
-      await deleteMediaByUrl(mediaUrl, { skipRefCheck: true });
-    } catch (err: any) {
-      // Log but don't fail — DB row is already gone
-      console.warn("[deleteGalleryMediaAction] storage cleanup failed:", err?.message);
+    const result = await deleteMediaByUrl(mediaUrl);
+    if (result.storageError) {
+      storageError = result.storageError;
+      console.error("[deleteGalleryMediaAction] storage cleanup failed:", result.storageError);
     }
   }
 
-  return { success: true };
+  return { success: true, ...(storageError && { storageError }) };
 }

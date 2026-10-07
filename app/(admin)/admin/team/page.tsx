@@ -315,10 +315,17 @@ export default function AdminTeamManagementPage() {
     setDeleteTarget(null);
     setProcessing(false);
 
-    // 3. Background deletion on Supabase
+    // 3. Background deletion on Supabase (avatar storage cleanup included)
     try {
       const { deleteMemberAction } = await import("@/lib/actions/members");
-      await deleteMemberAction(targetId);
+      const delResult = await deleteMemberAction(targetId);
+      if (delResult.storageError) {
+        toast({
+          title: "Storage warning",
+          description: delResult.storageError,
+          type: "warning",
+        });
+      }
     } catch (err) {
       console.warn("Background deletion sync:", err);
     }

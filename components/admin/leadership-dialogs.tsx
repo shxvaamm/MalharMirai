@@ -18,6 +18,7 @@ import { uploadMediaFile, validateMediaFile, fileToOptimizedDataUrl } from "@/li
 import { OFFICIAL_LEADERSHIP_ROLES } from "@/lib/leadership";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { validateEmail, validatePhoneNumber } from "@/lib/validation/phone-email";
+import { useToast } from "@/components/ui/toast";
 import {
   Crown,
   Upload,
@@ -520,6 +521,7 @@ export function EditLeaderDialog({
   const [uploadingAvatar, setUploadingAvatar] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
+  const { toast } = useToast();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -654,6 +656,14 @@ export function EditLeaderDialog({
         setValidationError(errMsg);
         if (onError) onError(errMsg);
         return;
+      }
+      // Warn (but don't block) if storage cleanup of the old avatar failed
+      if (dbResult.storageError) {
+        toast({
+          title: "Storage warning",
+          description: dbResult.storageError,
+          type: "warning",
+        });
       }
     } catch (err: any) {
       setLoading(false);

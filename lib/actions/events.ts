@@ -36,6 +36,8 @@ export interface ActionResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+  /** Set when the DB operation succeeded but orphaned file cleanup failed. */
+  storageError?: string;
 }
 
 /**
@@ -313,6 +315,22 @@ export async function updateEventAction(
   try {
     const supabase = createAdminClient();
 
+    // ── Fetch old image URLs before updating (replace-flow cleanup) ───────
+    let oldPosterUrl: string | null = null;
+    let oldQrUrl: string | null = null;
+    const replacingPoster = input.poster_url !== undefined;
+    const replacingQr = input.payment_qr_url !== undefined;
+    if (replacingPoster || replacingQr) {
+      try {
+        const { data: existing } = await (supabase.from("events") as any)
+          .select("poster_url, payment_qr_url")
+          .eq("id", id)
+          .maybeSingle();
+        oldPosterUrl = existing?.poster_url || null;
+        oldQrUrl = existing?.payment_qr_url || null;
+      } catch {}
+    }
+
     const updates: Record<string, any> = {};
     if (input.title) updates.title = input.title.trim();
     if (input.description) updates.description = input.description.trim();
@@ -399,6 +417,20 @@ export async function updateEventAction(
       return { success: false, error: error.message };
     }
 
+    // ── Replace flow: delete old images now that the DB row has the new URLs ─
+    // The ref-check inside deleteMediaUrls will find the OLD url gone from DB
+    // and the NEW url present, so only the old file gets removed.
+    const urlsToClean: (string | null)[] = [];
+    if (replacingPoster && oldPosterUrl && oldPosterUrl !== (input.poster_url ?? null)) {
+      urlsToClean.push(oldPosterUrl);
+    }
+    if (replacingQr && oldQrUrl && oldQrUrl !== (input.payment_qr_url ?? null)) {
+      urlsToClean.push(oldQrUrl);
+    }
+    const storageError = urlsToClean.length > 0
+      ? await deleteMediaUrls(urlsToClean)
+      : undefined;
+
     // Revalidate AFTER confirmed write
     revalidatePath("/");
     revalidatePath("/events");
@@ -406,7 +438,7 @@ export async function updateEventAction(
     revalidatePath("/admin/events");
     revalidatePath("/admin");
 
-    return { success: true, data };
+    return { success: true, data, ...(storageError && { storageError }) };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to update event." };
   }
@@ -473,8 +505,8 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
       console.warn(`[deleteEventAction] 0 rows deleted for id=${id}. Check SUPABASE_SERVICE_ROLE_KEY if event still appears on public site.`);
     }
 
-    // ── Step 4: Delete images from Supabase Storage (row is gone, safe to skip ref-check) ──
-    await deleteMediaUrls([posterUrl, qrUrl], { skipRefCheck: true });
+    // ── Step 4: Delete images from Storage (ref-check runs; rows are gone) ──
+    const storageError = await deleteMediaUrls([posterUrl, qrUrl]);
 
     // ── Step 5: Revalidate ALL pages that render event data ──────────────────
     revalidatePath("/", "layout");
@@ -484,7 +516,7 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
     revalidatePath("/admin", "layout");
     revalidatePath("/admin/gallery", "layout");
 
-    return { success: true };
+    return { success: true, ...(storageError && { storageError }) };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to delete event." };
   }

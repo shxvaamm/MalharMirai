@@ -26,6 +26,8 @@ export interface ActionResult<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+  /** Set when the DB operation succeeded but orphaned file cleanup failed. */
+  storageError?: string;
 }
 
 function isValidUUID(str: string): boolean {
@@ -240,14 +242,17 @@ export async function updateMemberAction(
       updatedRow = profRows[0];
     }
 
-    // Delete old avatar from storage if a new different one was uploaded
+    // Delete old avatar from storage if a new different one was saved
+    // The ref-check runs against the DB which now holds the NEW avatar_url,
+    // so only the old file is removed.
     const newAvatarUrl = updates.avatar_url as string | null | undefined;
-    if (
-      oldAvatarUrl &&
-      newAvatarUrl !== undefined &&
-      oldAvatarUrl !== newAvatarUrl
-    ) {
-      deleteMediaByUrl(oldAvatarUrl, { skipRefCheck: true }).catch(() => {});
+    let storageError: string | undefined;
+    if (oldAvatarUrl && newAvatarUrl !== undefined && oldAvatarUrl !== newAvatarUrl) {
+      const result = await deleteMediaByUrl(oldAvatarUrl);
+      if (result.storageError) {
+        storageError = result.storageError;
+        console.error("[updateMemberAction] old avatar storage cleanup failed:", result.storageError);
+      }
     }
 
     revalidatePath("/", "layout");
@@ -257,7 +262,7 @@ export async function updateMemberAction(
     revalidatePath("/admin/members");
     revalidatePath("/admin/leadership");
 
-    return { success: true };
+    return { success: true, ...(storageError && { storageError }) };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to update member." };
   }
@@ -301,9 +306,14 @@ export async function deleteMemberAction(id: string): Promise<ActionResult> {
     await (supabase.from("club_members") as any).delete().eq("id", id);
     await (supabase.from("profiles") as any).delete().eq("id", id);
 
-    // Delete avatar from storage (row is gone — skip ref check)
+    // Delete avatar from Storage (ref-check runs; rows are gone)
+    let storageError: string | undefined;
     if (avatarUrl) {
-      deleteMediaByUrl(avatarUrl, { skipRefCheck: true }).catch(() => {});
+      const result = await deleteMediaByUrl(avatarUrl);
+      if (result.storageError) {
+        storageError = result.storageError;
+        console.error("[deleteMemberAction] avatar storage cleanup failed:", result.storageError);
+      }
     }
 
     revalidatePath("/", "layout");
@@ -313,7 +323,7 @@ export async function deleteMemberAction(id: string): Promise<ActionResult> {
     revalidatePath("/admin/members");
     revalidatePath("/admin/leadership");
 
-    return { success: true };
+    return { success: true, ...(storageError && { storageError }) };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to delete member." };
   }

@@ -43,6 +43,7 @@ import { registerAccountCredential } from "@/lib/auth/credentials-store";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { validateEmail, validatePhoneNumber } from "@/lib/validation/phone-email";
 import { getMemberRole } from "@/lib/utils/member-role";
+import { useToast } from "@/components/ui/toast";
 
 // ===================== ADD MEMBER DIALOG =====================
 function formatInstagramUrl(val: string): string {
@@ -529,6 +530,7 @@ export function EditMemberDialog({
   const [uploadingAvatar, setUploadingAvatar] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
+  const { toast } = useToast();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -664,6 +666,14 @@ export function EditMemberDialog({
         if (onError) onError(dbResult.error || "Failed to save member.");
         setValidationError(dbResult.error || "Failed to save member. Please try again.");
         return;
+      }
+      // Warn (but don't block) if storage cleanup of the old avatar failed
+      if (dbResult.storageError) {
+        toast({
+          title: "Storage warning",
+          description: dbResult.storageError,
+          type: "warning",
+        });
       }
     } catch (err: any) {
       setLoading(false);

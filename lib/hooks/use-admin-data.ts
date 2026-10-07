@@ -34,7 +34,7 @@ import { createDepartmentAction, updateDepartmentAction, deleteDepartmentAction 
 import { postAnnouncementAction, deleteAnnouncementAction } from "@/lib/actions/announcements";
 import { uploadGalleryMediaAction, deleteGalleryMediaAction } from "@/lib/actions/gallery";
 import { getAdminRegistrationsAction } from "@/lib/actions/registrations";
-import { deleteHeroSlideAction } from "@/lib/actions/slideshow";
+import { deleteHeroSlideAction, updateHeroSlideAction } from "@/lib/actions/slideshow";
 import { normalizeEventFromDb, normalizeRegistrationFromDb } from "@/lib/utils/event-normalizer";
 import { getMemberRole } from "@/lib/utils/member-role";
 
@@ -1305,22 +1305,22 @@ export function useAdminData() {
   };
 
   const updateHeroSlide = (id: string, updates: Partial<HeroSlide>) => {
-    // Write to Supabase
-    try {
-      const supabase = createClient();
-      (supabase.from("hero_slides") as any).update({
-        ...(updates.title !== undefined && { title: updates.title }),
-        ...(updates.caption !== undefined && { subtitle: updates.caption }),
-        ...(updates.is_active !== undefined && { is_active: updates.is_active }),
-        ...(updates.order !== undefined && { sort_order: updates.order }),
-        ...(updates.image_url !== undefined && { image_url: updates.image_url }),
-      }).eq("id", id).then(() => {});
-    } catch {}
-
+    // Optimistic client-side state update first
     setHeroSlides((prev) => {
       const updated = prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
       setSyncedData(STORAGE_KEYS.HERO_SLIDES, updated);
       return updated;
+    });
+
+    // Persist via server action (bypasses RLS, handles image replace-flow cleanup)
+    updateHeroSlideAction(id, {
+      title: updates.title,
+      caption: updates.caption,
+      is_active: updates.is_active,
+      order: updates.order,
+      image_url: updates.image_url,
+    }).catch((err) => {
+      console.warn("[updateHeroSlide] server action failed:", err?.message);
     });
   };
 
