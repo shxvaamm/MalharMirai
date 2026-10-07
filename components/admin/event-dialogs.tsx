@@ -609,14 +609,14 @@ export function CreateEventDialog({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <div className="flex flex-col items-start gap-2">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           disabled={uploadingQr || loading}
                           onClick={() => qrFileInputRef.current?.click()}
-                          className="rounded-xl border-dashed border-white/20 hover:border-amber-400/50 bg-white/[0.02] text-xs font-medium text-neutral-200 hover:text-white flex items-center justify-center gap-2 py-2"
+                          className="w-full sm:w-auto rounded-xl border-dashed border-white/20 hover:border-amber-400/50 bg-white/[0.02] text-xs font-medium text-neutral-200 hover:text-white flex items-center justify-center gap-2 py-2 px-4"
                         >
                           {uploadingQr ? (
                             <>
@@ -630,14 +630,6 @@ export function CreateEventDialog({
                             </>
                           )}
                         </Button>
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Or paste direct QR image URL..."
-                            value={paymentQrUrl}
-                            onChange={(e) => setPaymentQrUrl(e.target.value)}
-                            className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200 h-9"
-                          />
-                        </div>
                       </div>
                     )}
                   </div>
@@ -1169,14 +1161,14 @@ export function EditEventDialog({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <div className="flex flex-col items-start gap-2">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           disabled={uploadingQr || loading}
                           onClick={() => qrFileInputRef.current?.click()}
-                          className="rounded-xl border-dashed border-white/20 hover:border-amber-400/50 bg-white/[0.02] text-xs font-medium text-neutral-200 hover:text-white flex items-center justify-center gap-2 py-2"
+                          className="w-full sm:w-auto rounded-xl border-dashed border-white/20 hover:border-amber-400/50 bg-white/[0.02] text-xs font-medium text-neutral-200 hover:text-white flex items-center justify-center gap-2 py-2 px-4"
                         >
                           {uploadingQr ? (
                             <>
@@ -1190,14 +1182,6 @@ export function EditEventDialog({
                             </>
                           )}
                         </Button>
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Or paste direct QR image URL..."
-                            value={paymentQrUrl}
-                            onChange={(e) => setPaymentQrUrl(e.target.value)}
-                            className="text-xs rounded-xl bg-black/60 border-white/10 text-neutral-200 h-9"
-                          />
-                        </div>
                       </div>
                     )}
                   </div>
