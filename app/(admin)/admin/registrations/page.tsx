@@ -483,6 +483,19 @@ export default function AdminRegistrationsPage() {
                         {/* Actions */}
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {isPending && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                disabled={actionLoading}
+                                onClick={() => handleConfirmRsvp(reg)}
+                                className="h-8 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm flex items-center gap-1 px-2.5"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Approve Pass</span>
+                              </Button>
+                            )}
+
                             <Button
                               variant="outline"
                               size="sm"

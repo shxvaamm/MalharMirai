@@ -46,6 +46,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { getRoleDisplayName, getRoleBadgeColor } from "@/lib/auth/rbac";
+import { getUserTicketsAction } from "@/lib/actions/registrations";
 
 interface UserRegistration {
   id: string;
@@ -80,18 +81,14 @@ export default function MemberProfilePage() {
   React.useEffect(() => {
     if (!user?.email) return;
     setRegLoading(true);
-    const supabase = createClient();
-    (supabase.from("registrations") as any)
-      .select(`id, event_id, student_name, student_email, created_at, status, events (title)`)
-      .eq("student_email", user.email.toLowerCase())
-      .order("created_at", { ascending: false })
-      .then(({ data }: { data: any[] | null }) => {
-        if (data) {
+    getUserTicketsAction(user.email, user.id)
+      .then((res) => {
+        if (res.success && res.data) {
           setRegistrations(
-            data.map((r: any) => ({
+            res.data.map((r: any) => ({
               id: r.id,
               event_id: r.event_id,
-              event_title: r.events?.title || "Event",
+              event_title: r.events?.title || r.event_title || "Event",
               student_name: r.student_name,
               student_email: r.student_email,
               created_at: r.created_at,
@@ -102,7 +99,7 @@ export default function MemberProfilePage() {
         setRegLoading(false);
       })
       .catch(() => setRegLoading(false));
-  }, [user?.email]);
+  }, [user?.email, user?.id]);
 
   // ── Editable display name ────────────────────────────────────────────────
   const [editingName, setEditingName] = React.useState(false);

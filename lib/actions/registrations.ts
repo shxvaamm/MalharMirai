@@ -123,7 +123,7 @@ export async function checkUserRegistrationStatusAction(
       query = query.eq("user_id", userId);
     }
 
-    const { data } = await query.limit(1);
+    const { data } = await query.order("created_at", { ascending: false }).limit(1);
     if (data && data.length > 0) {
       const normalized = normalizeRegistrationFromDb(data[0]);
       return {
@@ -387,35 +387,48 @@ export async function updateRegistrationStatusAction(
 
     const prevStatus = currentReg?.status || "pending";
 
-    // 2. Try direct update first
+    // 2. Prepare metadata update
+    let meta: any = {};
+    let realYear: string | null = null;
+
+    if (typeof currentReg?.year_of_study === "string") {
+      const trimmed = currentReg.year_of_study.trim();
+      if (trimmed.startsWith("{")) {
+        try {
+          meta = JSON.parse(trimmed);
+          realYear = meta.real_year || null;
+        } catch {}
+      } else {
+        realYear = trimmed;
+      }
+    }
+
+    meta.__reg_meta__ = true;
+    meta.workflow_status = status;
+    if (status === "rejected") {
+      meta.issue_reason = issueReason || "Declined by admin.";
+    } else {
+      delete meta.issue_reason;
+    }
+    if (!meta.real_year && realYear && !realYear.startsWith("{")) {
+      meta.real_year = realYear;
+    }
+
+    // 3. Determine database column status safe for check constraint (confirmed / cancelled)
+    const safeDbStatus = status === "rejected" || status === "cancelled" ? "cancelled" : "confirmed";
+
+    // Try update with all columns first
     let updateError: any = null;
     const { error: err1 } = await (supabase.from("registrations") as any)
       .update({
-        status,
+        status: safeDbStatus,
         issue_reason: status === "rejected" ? (issueReason || "Declined by admin.") : null,
+        year_of_study: JSON.stringify(meta),
       })
       .eq("id", id);
 
     if (err1 && (err1.message?.includes("column") || err1.message?.includes("schema cache") || err1.message?.includes("registrations_status_check"))) {
-      // Pack status & issueReason into year_of_study JSON metadata
-      let meta: any = {};
-      let realYear = currentReg?.year_of_study || null;
-      if (typeof currentReg?.year_of_study === "string" && currentReg.year_of_study.includes("__reg_meta__")) {
-        try {
-          meta = JSON.parse(currentReg.year_of_study);
-          realYear = meta.real_year || null;
-        } catch {}
-      }
-      meta.__reg_meta__ = true;
-      meta.workflow_status = status;
-      if (status === "rejected") {
-        meta.issue_reason = issueReason || "Declined by admin.";
-      } else {
-        delete meta.issue_reason;
-      }
-      if (!meta.real_year) meta.real_year = realYear;
-
-      const safeDbStatus = status === "rejected" ? "cancelled" : (status === "pending" ? "confirmed" : status);
+      // Fallback: update only existing schema columns
       const { error: err2 } = await (supabase.from("registrations") as any)
         .update({
           status: safeDbStatus,
@@ -431,7 +444,7 @@ export async function updateRegistrationStatusAction(
       return { success: false, error: updateError.message };
     }
 
-    // 3. If transitioning to 'rejected' from a non-rejected status, decrement registered_count
+    // 4. If transitioning to 'rejected' from a non-rejected status, decrement registered_count
     if (status === "rejected" && prevStatus !== "rejected" && currentReg?.event_id && isValidUUID(currentReg.event_id)) {
       try {
         await supabase.rpc("decrement_registered_count" as any, {
@@ -452,6 +465,9 @@ export async function updateRegistrationStatusAction(
 
     revalidatePath("/admin/registrations");
     revalidatePath("/admin/events");
+    revalidatePath("/admin");
+    revalidatePath("/events");
+    revalidatePath("/");
     revalidatePath("/my-tickets");
     if (currentReg?.event_id) {
       revalidatePath(`/events/${currentReg.event_id}`);
@@ -460,6 +476,52 @@ export async function updateRegistrationStatusAction(
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to update registration status." };
+  }
+}
+
+/**
+ * Server Action: Fetch all registrations for Admin Console using privileged service role client (bypasses RLS).
+ */
+export async function getAdminRegistrationsAction(): Promise<ActionResult<any[]>> {
+  try {
+    const supabase = createAdminClient();
+    const { data: regRows, error } = await (supabase.from("registrations") as any)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (!regRows || regRows.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    // Fetch parent events cleanly without fragile relational joins
+    const eventIds = Array.from(new Set(regRows.map((r: any) => r.event_id).filter(Boolean)));
+    let eventMap = new Map();
+    if (eventIds.length > 0) {
+      const { data: eventRows } = await (supabase.from("events") as any)
+        .select("*")
+        .in("id", eventIds);
+      if (eventRows) {
+        eventMap = new Map(eventRows.map((e: any) => [e.id, normalizeEventFromDb(e)]));
+      }
+    }
+
+    const combined = regRows.map((r: any) => {
+      const normReg = normalizeRegistrationFromDb(r);
+      const ev = eventMap.get(r.event_id);
+      return {
+        ...normReg,
+        event_title: normReg.event_title || ev?.title || "Event",
+        events: ev || null,
+      };
+    });
+
+    return { success: true, data: combined };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to fetch registrations." };
   }
 }
 

@@ -33,6 +33,7 @@ import { createEventAction, updateEventAction, deleteEventAction } from "@/lib/a
 import { createDepartmentAction, updateDepartmentAction, deleteDepartmentAction } from "@/lib/actions/departments";
 import { postAnnouncementAction, deleteAnnouncementAction } from "@/lib/actions/announcements";
 import { uploadGalleryMediaAction, deleteGalleryMediaAction } from "@/lib/actions/gallery";
+import { getAdminRegistrationsAction } from "@/lib/actions/registrations";
 import { normalizeEventFromDb, normalizeRegistrationFromDb } from "@/lib/utils/event-normalizer";
 import { getMemberRole } from "@/lib/utils/member-role";
 
@@ -154,7 +155,7 @@ export function useAdminData() {
           (supabase.from("departments") as any).select("*"),
           (supabase.from("announcements") as any).select("*"),
           (supabase.from("gallery") as any).select("*"),
-          (supabase.from("registrations") as any).select("*").order("created_at", { ascending: false }),
+          getAdminRegistrationsAction().then((res) => ({ data: res.success && res.data ? res.data : [] })).catch(() => ({ data: [] })),
           (supabase.from("hero_slides") as any).select("*").order("sort_order", { ascending: true }),
         ]);
 

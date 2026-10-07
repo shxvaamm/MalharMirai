@@ -101,7 +101,7 @@ export function normalizeRegistrationFromDb(r: any): any {
   let meta: any = null;
   if (
     typeof r.year_of_study === "string" &&
-    r.year_of_study.includes('"__reg_meta__":true')
+    (r.year_of_study.includes('"__reg_meta__":true') || r.year_of_study.trim().startsWith("{"))
   ) {
     try {
       meta = JSON.parse(r.year_of_study);
@@ -132,7 +132,9 @@ export function normalizeRegistrationFromDb(r: any): any {
     issue_reason: r.issue_reason || meta?.issue_reason || null,
     year_of_study: meta
       ? meta.real_year || "1st Year"
-      : r.year_of_study || "1st Year",
+      : (typeof r.year_of_study === "string" && r.year_of_study.trim().startsWith("{")
+          ? "1st Year"
+          : r.year_of_study || "1st Year"),
     college_id: r.college_id || meta?.real_college_id || null,
   };
 }
