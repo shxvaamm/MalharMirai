@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { hasPermission, AdminPermission, UserRole, isSuperAdminEmail } from "@/lib/auth/rbac";
+import { hasPermission, AdminPermission, UserRole, isSuperAdminEmail, resolveUserRole } from "@/lib/auth/rbac";
 import { EventStatus } from "@/lib/types/database";
 import { deleteMediaUrls } from "@/lib/storage/delete-media";
 
@@ -148,15 +148,48 @@ async function verifyAdminAuthorization(
       return { authorized: true };
     }
 
+    // 1. Primary check: match profile strictly by authenticated user ID
     const { data: profile } = (await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single()) as { data: { role: string } | null };
+      .maybeSingle()) as { data: { role: string } | null };
 
-    const role = profile?.role || "member";
+    let assignedRole = profile?.role;
 
-    if (!hasPermission(role, requiredPermission)) {
+    // 2. Fallback check: only if profile has no role, match club_members
+    // strictly by authenticated user's verified email.
+    if (!assignedRole) {
+      const isEmailVerified = Boolean(user.email_confirmed_at);
+
+      if (!isEmailVerified || !user.email) {
+        return {
+          authorized: false,
+          error: "Forbidden: Verified email address required for administrative authorization.",
+        };
+      }
+
+      const verifiedEmail = user.email.trim().toLowerCase();
+      const { data: member } = await (supabase.from("club_members") as any)
+        .select("role")
+        .eq("email", verifiedEmail)
+        .maybeSingle();
+
+      if (!member?.role) {
+        return {
+          authorized: false,
+          error: "Forbidden: Authenticated user is not registered with administrative privileges.",
+        };
+      }
+
+      assignedRole = member.role;
+    }
+
+    // 3. Strictly resolve role: non-super-admins are capped at 'admin' or 'member',
+    // preventing any unauthorized privilege escalation.
+    const effectiveRole = resolveUserRole(user.email, assignedRole);
+
+    if (!hasPermission(effectiveRole, requiredPermission)) {
       return {
         authorized: false,
         error: `Forbidden: Insufficient privileges for action '${requiredPermission}'.`,
@@ -323,12 +356,31 @@ export async function updateEventAction(
     if (replacingPoster || replacingQr) {
       try {
         const { data: existing } = await (supabase.from("events") as any)
-          .select("poster_url, payment_qr_url")
+          .select("poster_url, rules")
           .eq("id", id)
           .maybeSingle();
         oldPosterUrl = existing?.poster_url || null;
-        oldQrUrl = existing?.payment_qr_url || null;
+        if (Array.isArray(existing?.rules)) {
+          for (const r of existing.rules) {
+            if (typeof r === "string" && r.includes('"__ticketing__":true')) {
+              try {
+                const meta = JSON.parse(r);
+                if (meta.payment_qr_url) oldQrUrl = meta.payment_qr_url;
+              } catch {}
+            }
+          }
+        }
       } catch {}
+
+      if (!oldQrUrl) {
+        try {
+          const { data: qrColData } = await (supabase.from("events") as any)
+            .select("payment_qr_url")
+            .eq("id", id)
+            .maybeSingle();
+          if (qrColData?.payment_qr_url) oldQrUrl = qrColData.payment_qr_url;
+        } catch {}
+      }
     }
 
     const updates: Record<string, any> = {};
@@ -472,15 +524,66 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
     let posterUrl: string | null = null;
     let qrUrl: string | null = null;
     try {
+      // Query poster_url and rules (rules holds packed ticketing meta including payment_qr_url)
       const { data: eventRow } = await (supabase.from("events") as any)
-        .select("poster_url, payment_qr_url")
+        .select("poster_url, rules")
         .eq("id", id)
         .maybeSingle();
       posterUrl = eventRow?.poster_url || null;
-      qrUrl = eventRow?.payment_qr_url || null;
+      if (Array.isArray(eventRow?.rules)) {
+        for (const r of eventRow.rules) {
+          if (typeof r === "string" && r.includes('"__ticketing__":true')) {
+            try {
+              const meta = JSON.parse(r);
+              if (meta.payment_qr_url) qrUrl = meta.payment_qr_url;
+            } catch {}
+          }
+        }
+      }
     } catch {}
 
-    // ── Step 2: Delete linked gallery rows (event_id FK or matching poster_url) ──
+    // Check payment_qr_url column if it exists in the schema
+    if (!qrUrl) {
+      try {
+        const { data: qrData } = await (supabase.from("events") as any)
+          .select("payment_qr_url")
+          .eq("id", id)
+          .maybeSingle();
+        if (qrData?.payment_qr_url) qrUrl = qrData.payment_qr_url;
+      } catch {}
+    }
+
+    // ── Step 2: Delete linked registrations FIRST ───────────────────────────
+    // Deleting registrations before deleting the event ensures that if the
+    // registrations cleanup fails, the deletion aborts immediately and leaves
+    // the event intact, preventing orphaned rows.
+    const { error: regError } = await (supabase.from("registrations") as any)
+      .delete()
+      .eq("event_id", id);
+
+    if (regError) {
+      console.error(`[deleteEventAction] Failed to delete registrations for event ${id}:`, regError);
+      return {
+        success: false,
+        error: `Failed to remove event registrations: ${regError.message}. Event deletion was aborted to prevent orphan records.`,
+      };
+    }
+
+    // ── Step 3: Hard-delete the event row LAST ───────────────────────────────
+    const { data: deleted, error: eventError } = await (supabase.from("events") as any)
+      .delete()
+      .eq("id", id)
+      .select("id");
+
+    if (eventError && eventError.code !== "22P02" && eventError.code !== "PGRST116") {
+      console.error(`[deleteEventAction] Failed to delete event ${id}:`, eventError);
+      return { success: false, error: eventError.message };
+    }
+
+    if (Array.isArray(deleted) && deleted.length === 0 && !eventError) {
+      return { success: false, error: `Event with id "${id}" was not found or has already been removed.` };
+    }
+
     try {
       await (supabase.from("gallery") as any).delete().eq("event_id", id);
     } catch {}
@@ -491,26 +594,13 @@ export async function deleteEventAction(id: string): Promise<ActionResult> {
       } catch {}
     }
 
-    // ── Step 3: Hard-delete the event row ────────────────────────────────────
-    const { data: deleted, error } = await (supabase.from("events") as any)
-      .delete()
-      .eq("id", id)
-      .select("id");
-
-    if (error && error.code !== "22P02" && error.code !== "PGRST116") {
-      return { success: false, error: error.message };
-    }
-
-    if (Array.isArray(deleted) && deleted.length === 0 && !error) {
-      console.warn(`[deleteEventAction] 0 rows deleted for id=${id}. Check SUPABASE_SERVICE_ROLE_KEY if event still appears on public site.`);
-    }
-
     // ── Step 4: Delete images from Storage (ref-check runs; rows are gone) ──
     const storageError = await deleteMediaUrls([posterUrl, qrUrl]);
 
     // ── Step 5: Revalidate ALL pages that render event data ──────────────────
     revalidatePath("/", "layout");
     revalidatePath("/events", "layout");
+    revalidatePath(`/events/${id}`, "layout");
     revalidatePath("/gallery", "layout");
     revalidatePath("/admin/events", "layout");
     revalidatePath("/admin", "layout");

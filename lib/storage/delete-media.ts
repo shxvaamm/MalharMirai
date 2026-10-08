@@ -36,7 +36,8 @@ function urlToStoragePath(url: string | null | undefined): string | null {
  *
  * Tables checked:
  *  - events.poster_url
- *  - events.payment_qr_url
+ *  - events.rules (packed ticketing metadata containing payment_qr_url)
+ *  - events.payment_qr_url (if column exists in schema)
  *  - gallery.media_url
  *  - club_members.avatar_url
  *  - profiles.avatar_url
@@ -50,20 +51,51 @@ async function isUrlInUse(url: string): Promise<boolean> {
     // so a caller passing "…foo.jpg?v=123" must still match "…foo.jpg".
     const baseUrl = url.split("?")[0];
 
-    const [evtPoster, evtQr, gal, cm, prof, slides] = await Promise.all([
+    const [evtPoster, gal, cm, prof, slides, allEvtRules] = await Promise.all([
       (supabase.from("events") as any).select("id").eq("poster_url", baseUrl).limit(1),
-      (supabase.from("events") as any).select("id").eq("payment_qr_url", baseUrl).limit(1),
       (supabase.from("gallery") as any).select("id").eq("media_url", baseUrl).limit(1),
       (supabase.from("club_members") as any).select("id").eq("avatar_url", baseUrl).limit(1),
       (supabase.from("profiles") as any).select("id").eq("avatar_url", baseUrl).limit(1),
       (supabase.from("hero_slides") as any).select("id").eq("image_url", baseUrl).limit(1),
+      (supabase.from("events") as any).select("rules"),
     ]);
 
-    return [evtPoster, evtQr, gal, cm, prof, slides].some(
+    // Check standard columns
+    const inStandardCols = [evtPoster, gal, cm, prof, slides].some(
       (r) => Array.isArray(r.data) && r.data.length > 0
     );
-  } catch {
-    // On DB error, play it safe — don't delete
+    if (inStandardCols) return true;
+
+    // Check if the URL is referenced inside any events.rules JSON (packed ticketing payment_qr_url)
+    if (Array.isArray(allEvtRules.data)) {
+      const inRules = allEvtRules.data.some((ev: any) => {
+        if (!Array.isArray(ev.rules)) return false;
+        return ev.rules.some((r: any) => {
+          if (typeof r === "string") return r.includes(baseUrl);
+          if (typeof r === "object" && r) return JSON.stringify(r).includes(baseUrl);
+          return false;
+        });
+      });
+      if (inRules) return true;
+    }
+
+    // Safely check if payment_qr_url column exists in schema and references the URL
+    try {
+      const { data: qrColData, error: qrErr } = await (supabase.from("events") as any)
+        .select("id")
+        .eq("payment_qr_url", baseUrl)
+        .limit(1);
+      if (!qrErr && Array.isArray(qrColData) && qrColData.length > 0) {
+        return true;
+      }
+    } catch {
+      // Column does not exist in schema — safely ignore
+    }
+
+    return false;
+  } catch (err: any) {
+    // On DB error, play it safe — log warning, skip file delete (don't crash, don't delete)
+    console.warn(`[isUrlInUse] Reference check failed for URL "${url}":`, err?.message || err);
     return true;
   }
 }

@@ -692,6 +692,9 @@ export function useAdminData() {
   };
 
   const deleteEvent = async (id: string) => {
+    // Keep snapshot for rollback if remote deletion fails
+    const previousEvents = [...events];
+
     // Optimistic removal — instant UI feedback
     setEvents((prev) => {
       const updated = prev.filter((ev) => ev.id !== id);
@@ -700,10 +703,19 @@ export function useAdminData() {
     });
 
     if (isValidUUID(id)) {
-      // Single authoritative delete via server action (admin client bypasses RLS)
-      const result = await deleteEventAction(id);
-      if (!result.success) {
-        throw new Error(result.error || "Failed to delete event.");
+      try {
+        // Single authoritative delete via server action (admin client bypasses RLS)
+        const result = await deleteEventAction(id);
+        if (!result.success) {
+          setEvents(previousEvents);
+          setSyncedData(STORAGE_KEYS.EVENTS, previousEvents);
+          throw new Error(result.error || "Failed to delete event.");
+        }
+        return result;
+      } catch (err: any) {
+        setEvents(previousEvents);
+        setSyncedData(STORAGE_KEYS.EVENTS, previousEvents);
+        throw err;
       }
     }
   };

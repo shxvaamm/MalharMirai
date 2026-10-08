@@ -69,26 +69,54 @@ export default function AdminEventsPage() {
     return matchStatus && matchQuery;
   });
 
+  const deleteTargetRegCount = React.useMemo(() => {
+    if (!deleteTarget) return 0;
+    return registrations.filter(
+      (r) =>
+        r.event_id === deleteTarget.id ||
+        (r.event_title && deleteTarget.title && r.event_title.trim().toLowerCase() === deleteTarget.title.trim().toLowerCase())
+    ).length;
+  }, [deleteTarget, registrations]);
+
+  const deleteDescription = deleteTarget
+    ? deleteTargetRegCount > 0
+      ? `Are you sure you want to permanently delete "${deleteTarget.title}"? WARNING: This event has ${deleteTargetRegCount} registered student ${
+          deleteTargetRegCount === 1 ? "entry" : "entries"
+        }. Deleting this event will permanently delete all ${deleteTargetRegCount} associated student ${
+          deleteTargetRegCount === 1 ? "registration" : "registrations"
+        } and invalidate their issued tickets.`
+      : `Are you sure you want to permanently delete "${deleteTarget.title}"? This action cannot be undone.`
+    : "";
+
   const handleDeleteEvent = async () => {
     if (!deleteTarget) return;
 
     const targetId = deleteTarget.id;
     const targetTitle = deleteTarget.title;
-    setDeleteTarget(null);
 
     try {
-      await deleteEvent(targetId);
-      toast({
-        title: "Event Removed",
-        description: `"${targetTitle}" deleted.`,
-        type: "warning",
-      });
+      const res = await deleteEvent(targetId);
+      setDeleteTarget(null);
+      if (res && (res as any).storageError) {
+        toast({
+          title: "Event Removed",
+          description: `"${targetTitle}" deleted. Note: ${(res as any).storageError}`,
+          type: "warning",
+        });
+      } else {
+        toast({
+          title: "Event Removed",
+          description: `"${targetTitle}" deleted.`,
+          type: "warning",
+        });
+      }
     } catch (err: any) {
       toast({
         title: "Delete Failed",
         description: err?.message || "Failed to delete event. Please try again.",
         type: "error",
       });
+      throw err;
     }
   };
 
@@ -398,7 +426,7 @@ export default function AdminEventsPage() {
         open={!!deleteTarget}
         onOpenChange={(op) => !op && setDeleteTarget(null)}
         title="Delete Event"
-        description={`Are you sure you want to permanently delete "${deleteTarget?.title}"?`}
+        description={deleteDescription}
         onConfirm={handleDeleteEvent}
       />
 

@@ -55,6 +55,7 @@ const ROLE_PERMISSIONS: Record<UserRole, AdminPermission[]> = {
     "configure_leadership",
     "create_event",
     "edit_event",
+    "delete_event",
     "assign_winners",
     "export_registrations",
     "send_broadcast",
