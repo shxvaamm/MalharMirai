@@ -69,16 +69,11 @@ export function EventCard({ event }: EventCardProps) {
           {/* Subtle top gradient for badge legibility */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent pointer-events-none" />
 
-          {/* Status + Category chips */}
+          {/* Status chip */}
           <div className="absolute top-3 left-3 flex items-center gap-2">
             <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full capitalize backdrop-blur-md ${statusChip}`}>
               {effectiveStatus === "completed" ? "Past" : effectiveStatus}
             </span>
-            {event.category && (
-              <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-black/70 border border-white/10 text-neutral-300 backdrop-blur-md capitalize">
-                {event.category}
-              </span>
-            )}
           </div>
         </div>
       </Link>

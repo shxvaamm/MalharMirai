@@ -488,10 +488,7 @@ export function EventRegistrationModal({ event, trigger }: EventRegistrationModa
             {step === 1 && (
               <div className="space-y-4">
                 <DialogHeader className="space-y-1.5 text-left">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="member" className="text-xs">
-                      {event.category}
-                    </Badge>
+                  <div className="flex items-center justify-end">
                     <span className="text-[11px] font-semibold text-neutral-400">
                       {isFreeEvent ? "Free Entry" : `₹${currentFee} Fee`}
                     </span>

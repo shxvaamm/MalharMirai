@@ -10,7 +10,7 @@ import { deleteMediaUrls } from "@/lib/storage/delete-media";
 export interface EventInput {
   title: string;
   description: string;
-  category: string;
+  category?: string;
   date_time: string;
   venue: string;
   poster_url?: string | null;

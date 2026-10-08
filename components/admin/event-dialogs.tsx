@@ -95,7 +95,6 @@ export function CreateEventDialog({
   onCreate,
 }: CreateEventDialogProps) {
   const [title, setTitle] = React.useState("");
-  const [category, setCategory] = React.useState("Music");
   const [description, setDescription] = React.useState("");
   const [dateTime, setDateTime] = React.useState("2026-11-20T17:00");
   const [venue, setVenue] = React.useState("Main Campus Auditorium");
@@ -226,7 +225,6 @@ export function CreateEventDialog({
 
     const result = await createEventAction({
       title: title.trim(),
-      category: category.trim(),
       description: description.trim(),
       date_time: new Date(dateTime).toISOString(),
       venue: venue.trim(),
@@ -251,7 +249,7 @@ export function CreateEventDialog({
       const createdObj: ClubEvent = {
         id: result.data?.id || `evt-${Date.now()}`,
         title: title.trim(),
-        category,
+        category: result.data?.category || "General",
         description: description.trim(),
         date_time: new Date(dateTime).toISOString(),
         venue: venue.trim(),
@@ -322,23 +320,6 @@ export function CreateEventDialog({
               disabled={loading}
               className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
             />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Wing / Category</label>
-            <select
-              className="flex h-10 w-full rounded-2xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-neutral-200 focus-visible:outline-none"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              disabled={loading}
-            >
-              <option value="Music">Music &amp; Vocals</option>
-              <option value="Dance">Dance &amp; Choreography</option>
-              <option value="Dramatic Arts">Dramatic Arts &amp; Theatre</option>
-              <option value="Fine Arts">Fine Arts &amp; Design</option>
-              <option value="Literary">Literary &amp; Debating</option>
-              <option value="General">General Fest Event</option>
-            </select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -729,7 +710,6 @@ export function EditEventDialog({
   onError,
 }: EditEventDialogProps) {
   const [title, setTitle] = React.useState("");
-  const [category, setCategory] = React.useState("Music");
   const [description, setDescription] = React.useState("");
   const [venue, setVenue] = React.useState("");
   const [capacity, setCapacity] = React.useState("400");
@@ -762,7 +742,6 @@ export function EditEventDialog({
   React.useEffect(() => {
     if (event && open) {
       setTitle(event.title || "");
-      setCategory(event.category || "Music");
       setDescription(event.description || "");
       setVenue(event.venue || "");
       setCapacity(String(event.max_capacity) || "400");
@@ -879,7 +858,6 @@ export function EditEventDialog({
 
     const result = await updateEventAction(event.id, {
       title: title.trim(),
-      category: category.trim(),
       description: description.trim(),
       venue: venue.trim(),
       poster_url: finalPosterUrl,
@@ -912,7 +890,7 @@ export function EditEventDialog({
       onSuccess({
         ...event,
         title: title.trim(),
-        category,
+        category: event.category || "General",
         description: description.trim(),
         venue: venue.trim(),
         poster_url: finalPosterUrl,
@@ -947,7 +925,7 @@ export function EditEventDialog({
             <span>Edit Event: {event.title}</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-neutral-400">
-            Modify event schedule, category, and update poster in Supabase Storage.
+            Modify event schedule, details, and update poster in Supabase Storage.
           </DialogDescription>
         </DialogHeader>
 
@@ -968,11 +946,6 @@ export function EditEventDialog({
               disabled={loading}
               className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200"
             />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold block mb-1 text-neutral-300">Category</label>
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} disabled={loading} className="text-xs rounded-2xl bg-black/60 border-white/10 text-neutral-200" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1329,7 +1302,7 @@ export function AssignWinnersDialog({
             >
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>
-                  {ev.title} ({ev.category})
+                  {ev.title}
                 </option>
               ))}
             </select>

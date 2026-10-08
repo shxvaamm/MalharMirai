@@ -162,7 +162,7 @@ export function useEvents(categoryFilter?: string, statusFilter?: string) {
     const matchCategory =
       !categoryFilter ||
       categoryFilter === "all" ||
-      e.category.toLowerCase() === categoryFilter.toLowerCase();
+      (e.category ? e.category.toLowerCase() === categoryFilter.toLowerCase() : false);
     return matchStatus && matchCategory;
   });
 

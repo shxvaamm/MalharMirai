@@ -86,9 +86,6 @@ export default function EventDetailPage({
             {effectiveStatus === "completed" ? "Past" : effectiveStatus}
           </Badge>
           <span className="text-xs font-medium text-neutral-300 bg-white/[0.04] px-3 py-1 rounded-full border border-white/10">
-            {event.category}
-          </span>
-          <span className="text-xs font-medium text-neutral-300 bg-white/[0.04] px-3 py-1 rounded-full border border-white/10">
             {event.allowed_registration_type === "individual"
               ? "👤 Solo Only"
               : event.allowed_registration_type === "team"

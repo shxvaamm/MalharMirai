@@ -410,7 +410,7 @@ export default function MyTicketsPage() {
               {/* Event Name & Category */}
               <div className="text-center space-y-1 mb-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">
-                  {selectedTicket.events?.category || "Official Showcase"}
+                  Official Showcase
                 </span>
                 <h2 className="text-xl font-extrabold text-white leading-snug line-clamp-2">
                   {selectedTicket.events?.title}

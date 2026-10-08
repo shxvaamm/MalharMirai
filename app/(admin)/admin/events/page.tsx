@@ -64,7 +64,7 @@ export default function AdminEventsPage() {
     const matchQuery =
       !q ||
       ev.title.toLowerCase().includes(q) ||
-      ev.category.toLowerCase().includes(q) ||
+      (ev.category ? ev.category.toLowerCase().includes(q) : false) ||
       ev.venue.toLowerCase().includes(q);
     return matchStatus && matchQuery;
   });
@@ -241,7 +241,7 @@ export default function AdminEventsPage() {
               <TableHeader>
                 <TableRow className="border-b border-white/[0.06] hover:bg-transparent">
                   <TableHead className="text-neutral-400">Event Title</TableHead>
-                  <TableHead className="text-neutral-400">Category</TableHead>
+                  <TableHead className="text-neutral-400">Entry Type</TableHead>
                   <TableHead className="text-neutral-400">Status</TableHead>
                   <TableHead className="text-neutral-400">Date &amp; Venue</TableHead>
                   <TableHead className="text-neutral-400">Dynamic Registrations</TableHead>
@@ -278,20 +278,15 @@ export default function AdminEventsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-1">
-                            <Badge variant="member" className="text-[10px]">
-                              {ev.category}
-                            </Badge>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
-                                ev.is_free !== false ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-amber-400 border-amber-500/20 bg-amber-500/10"
-                              }`}>
-                                {ev.is_free !== false ? "Free" : "Paid"}
-                              </span>
-                              <span className="text-[9px] font-medium text-neutral-400 border border-white/5 bg-white/[0.02] px-1.5 py-0.5 rounded">
-                                {ev.allowed_registration_type === "team" ? "Team Only" : ev.allowed_registration_type === "individual" ? "Solo Only" : "Solo/Team"}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${
+                              ev.is_free !== false ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-amber-400 border-amber-500/20 bg-amber-500/10"
+                            }`}>
+                              {ev.is_free !== false ? "Free" : "Paid"}
+                            </span>
+                            <span className="text-[9px] font-medium text-neutral-400 border border-white/5 bg-white/[0.02] px-1.5 py-0.5 rounded">
+                              {ev.allowed_registration_type === "team" ? "Team Only" : ev.allowed_registration_type === "individual" ? "Solo Only" : "Solo/Team"}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -437,10 +432,7 @@ export default function AdminEventsPage() {
       >
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col rounded-3xl border border-white/[0.08] bg-[#0D0D0D]/95 backdrop-blur-2xl text-neutral-200 p-6">
           <DialogHeader className="space-y-1.5 pb-4 border-b border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <Badge variant="member" className="text-xs">
-                {selectedRegistrantsEvent?.category}
-              </Badge>
+            <div className="flex items-center justify-end">
               <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-500/20">
                 {selectedRegistrantsEvent
                   ? registrations.filter((r) => r.event_id === selectedRegistrantsEvent.id).length
