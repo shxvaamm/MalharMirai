@@ -63,10 +63,22 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function sanitizeReturnUrl(url: string | null | undefined, fallback = "/dashboard"): string {
+  if (!url) return fallback;
+  try {
+    const decoded = decodeURIComponent(url).trim();
+    if (decoded.startsWith("/") && !decoded.startsWith("//") && !decoded.includes("://")) {
+      return decoded;
+    }
+  } catch {}
+  return fallback;
+}
+
 function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+  const rawRedirect = searchParams.get("redirectTo") || searchParams.get("next");
+  const redirectTo = sanitizeReturnUrl(rawRedirect, "/dashboard");
   const errorParam = searchParams.get("error");
   const emailParam = searchParams.get("email");
   const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
@@ -76,7 +88,7 @@ function AuthForm() {
   // ─── If already authenticated, redirect to destination portal immediately
   React.useEffect(() => {
     if (!authLoading && currentUser) {
-      router.replace(redirectTo || "/dashboard");
+      router.replace(redirectTo);
     }
   }, [authLoading, currentUser, redirectTo, router]);
 
@@ -152,8 +164,9 @@ function AuthForm() {
 
     try {
       const supabase = createClient();
+      const destination = sanitizeReturnUrl(redirectTo, "/dashboard");
       const callbackUrl = typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback`
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`
         : "";
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -256,8 +269,8 @@ function AuthForm() {
         await grantAdminSession(userEmail, effectiveRole);
 
         // All users land on the member portal — admins see an "Admin Console" button there
-        setSuccessMessage(`Signed in successfully! Opening your portal...`);
-        router.push("/dashboard");
+        setSuccessMessage(`Signed in successfully! Opening your destination...`);
+        router.push(redirectTo);
         router.refresh();
         return;
       }
@@ -268,9 +281,8 @@ function AuthForm() {
         const effectiveRole = resolveUserRole(emailCheck.normalizedEmail, verification.role);
         await grantAdminSession(emailCheck.normalizedEmail, effectiveRole);
 
-        // All users land on the member portal — admins see an "Admin Console" button there
-        setSuccessMessage(`Signed in successfully! Opening your portal...`);
-        router.push("/dashboard");
+        setSuccessMessage(`Signed in successfully! Opening your destination...`);
+        router.push(redirectTo);
         router.refresh();
         return;
       }

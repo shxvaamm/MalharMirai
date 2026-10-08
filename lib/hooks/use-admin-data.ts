@@ -44,6 +44,7 @@ export interface StudentRegistration {
   event_title: string;
   student_name: string;
   student_email: string;
+  account_email?: string | null;
   student_phone?: string | null;
   user_id?: string | null;
   college_id?: string | null;
@@ -1200,7 +1201,7 @@ export function useAdminData() {
         ? registrations
         : registrations.filter((r) => r.event_id === eventId);
 
-    const headers = ["Pass ID", "Ticket Code", "Status", "Type", "Team Name", "Applicant Name", "Email", "Phone", "Event Title", "Custom Answer", "Registered At"];
+    const headers = ["Pass ID", "Ticket Code", "Status", "Type", "Team Name", "Applicant Name", "Student Email", "Account Email", "Phone", "Event Title", "Custom Answer", "Registered At"];
     const rows = targetRegistrations.map((r) => [
       r.id,
       r.ticket_code || "N/A",
@@ -1209,6 +1210,7 @@ export function useAdminData() {
       `"${r.team_name || ""}"`,
       `"${r.student_name}"`,
       r.student_email,
+      r.account_email || r.student_email,
       r.student_phone || "N/A",
       `"${r.event_title}"`,
       `"${(r.custom_answer || "").replace(/"/g, '""')}"`,

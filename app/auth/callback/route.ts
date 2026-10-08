@@ -33,9 +33,23 @@ async function computeHmac(data: string): Promise<string> {
  *    - Admins/Super Admins see an "Admin Console" banner there to switch portals
  *    - Members see their tickets, passes, events
  */
+// ─── Sanitize return URL to strictly allow relative paths ─────────────────
+function sanitizeReturnUrl(url: string | null | undefined, fallback = "/dashboard"): string {
+  if (!url) return fallback;
+  try {
+    const decoded = decodeURIComponent(url).trim();
+    if (decoded.startsWith("/") && !decoded.startsWith("//") && !decoded.includes("://")) {
+      return decoded;
+    }
+  } catch {}
+  return fallback;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  const rawNext = searchParams.get("next") || searchParams.get("redirectTo");
+  const destination = sanitizeReturnUrl(rawNext, "/dashboard");
   const errorParam = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
@@ -128,15 +142,17 @@ export async function GET(request: Request) {
       //    Cookies are persistent (maxAge: 86400 = 24h) so they survive tab close.
       const cookieOpts = { path: "/", sameSite: "lax" as const, maxAge: 86400 };
 
+      const targetUrl = `${appOrigin}${destination}`;
+
       if (effectiveRole === "super_admin" || effectiveRole === "admin") {
         const hmac = await computeHmac(userEmail);
-        const response = NextResponse.redirect(`${appOrigin}/dashboard`);
+        const response = NextResponse.redirect(targetUrl);
         response.cookies.set("malhar_demo_admin", hmac, cookieOpts);
         response.cookies.set("malhar_demo_role", effectiveRole, cookieOpts);
         response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), cookieOpts);
         return response;
       } else {
-        const response = NextResponse.redirect(`${appOrigin}/dashboard`);
+        const response = NextResponse.redirect(targetUrl);
         response.cookies.set("malhar_demo_role", effectiveRole, cookieOpts);
         response.cookies.set("malhar_user_email", encodeURIComponent(userEmail), cookieOpts);
         return response;

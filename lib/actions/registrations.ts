@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { hasPermission, AdminPermission, UserRole } from "@/lib/auth/rbac";
 import { normalizeEventFromDb, normalizeRegistrationFromDb } from "@/lib/utils/event-normalizer";
 
@@ -146,18 +146,34 @@ export async function checkUserRegistrationStatusAction(
 export async function registerForEventAction(
   input: EventRegistrationInput
 ): Promise<ActionResult> {
-  const eventId = input.eventId?.trim();
-  const studentName = input.studentName?.trim();
-  const studentEmail = input.studentEmail?.trim().toLowerCase();
-  const studentPhone = input.studentPhone?.trim() || null;
-  const userId = input.userId?.trim() || null;
-  const registrationType = input.registrationType || "individual";
-
-  if (!eventId) return { success: false, error: "Event ID is required." };
-  if (!studentName || studentName.length < 2) return { success: false, error: "Full name is required." };
-  if (!studentEmail || !studentEmail.includes("@")) return { success: false, error: "Valid email is required." };
-
+  // 1. Authenticate user session — registration strictly requires a logged-in account
   try {
+    const authClient = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser();
+
+    if (!user || authError) {
+      return {
+        success: false,
+        error: "Please log in or create an account to register for this event.",
+      };
+    }
+
+    // Take user_id and email strictly from session (never trust client input)
+    const userId = user.id;
+    const sessionEmail = user.email?.trim().toLowerCase();
+    const studentEmail = sessionEmail || input.studentEmail?.trim().toLowerCase();
+    const eventId = input.eventId?.trim();
+    const studentName = input.studentName?.trim();
+    const studentPhone = input.studentPhone?.trim() || null;
+    const registrationType = input.registrationType || "individual";
+
+    if (!eventId) return { success: false, error: "Event ID is required." };
+    if (!studentName || studentName.length < 2) return { success: false, error: "Full name is required." };
+    if (!studentEmail || !studentEmail.includes("@")) return { success: false, error: "Valid email is required." };
+
     const supabase = createAdminClient();
     const newId = crypto.randomUUID();
     const ticketCode = `MIRAI-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -200,15 +216,10 @@ export async function registerForEventAction(
       }
 
       // 2. Strict One-Time Registration Check: A student may only register ONCE per event
-      let dupQuery = (supabase.from("registrations") as any)
+      const dupQuery = (supabase.from("registrations") as any)
         .select("id, student_name, student_email, year_of_study, status")
-        .eq("event_id", eventId);
-
-      if (userId) {
-        dupQuery = dupQuery.or(`student_email.ilike.${studentEmail},user_id.eq.${userId}`);
-      } else {
-        dupQuery = dupQuery.ilike("student_email", studentEmail);
-      }
+        .eq("event_id", eventId)
+        .or(`user_id.eq.${userId},student_email.ilike.${studentEmail}`);
 
       const { data: existingRegs } = await dupQuery.limit(1);
       if (existingRegs && existingRegs.length > 0) {
@@ -319,7 +330,10 @@ export async function registerForEventAction(
         error.message?.toLowerCase().includes("unique") ||
         error.message?.toLowerCase().includes("duplicate")
       ) {
-        return { success: false, error: "You're already registered for this event." };
+        return {
+          success: false,
+          error: "You have already registered for this event. Each student may only register once.",
+        };
       }
       if (error.code === "23503" || error.code === "22P02") {
         // Fallback for non-UUID mock events
@@ -509,11 +523,27 @@ export async function getAdminRegistrationsAction(): Promise<ActionResult<any[]>
       }
     }
 
+    // Fetch user profiles to attach authenticated account emails
+    const userIds = Array.from(new Set(regRows.map((r: any) => r.user_id).filter(Boolean)));
+    let profileMap = new Map();
+    if (userIds.length > 0) {
+      try {
+        const { data: profileRows } = await (supabase.from("profiles") as any)
+          .select("id, email, full_name")
+          .in("id", userIds);
+        if (profileRows) {
+          profileMap = new Map(profileRows.map((p: any) => [p.id, p]));
+        }
+      } catch {}
+    }
+
     const combined = regRows.map((r: any) => {
       const normReg = normalizeRegistrationFromDb(r);
       const ev = eventMap.get(r.event_id);
+      const prof = r.user_id ? profileMap.get(r.user_id) : null;
       return {
         ...normReg,
+        account_email: prof?.email || null,
         event_title: normReg.event_title || ev?.title || "Event",
         events: ev || null,
       };

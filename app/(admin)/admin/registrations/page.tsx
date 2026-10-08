@@ -82,6 +82,7 @@ export default function AdminRegistrationsPage() {
       !q ||
       r.student_name.toLowerCase().includes(q) ||
       r.student_email.toLowerCase().includes(q) ||
+      (r.account_email && r.account_email.toLowerCase().includes(q)) ||
       (r.team_name && r.team_name.toLowerCase().includes(q)) ||
       (r.ticket_code && r.ticket_code.toLowerCase().includes(q)) ||
       r.event_title.toLowerCase().includes(q) ||
@@ -384,6 +385,11 @@ export default function AdminRegistrationsPage() {
                           <div className="text-[10px] text-neutral-400 font-mono mt-0.5">
                             {reg.student_email}
                           </div>
+                          {reg.account_email && reg.account_email !== reg.student_email && (
+                            <div className="text-[10px] text-neutral-400 font-mono truncate max-w-[200px]" title={`Account: ${reg.account_email}`}>
+                              <span className="text-neutral-500">Acc:</span> {reg.account_email}
+                            </div>
+                          )}
                           <div className="text-[10px] text-amber-400/80 font-mono">
                             {reg.ticket_code || `#${reg.id.slice(0, 8)}`}
                           </div>

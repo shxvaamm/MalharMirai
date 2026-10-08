@@ -57,7 +57,7 @@ interface EventRegistrationModalProps {
 }
 
 export function EventRegistrationModal({ event, trigger }: EventRegistrationModalProps) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
@@ -96,6 +96,21 @@ export function EventRegistrationModal({ event, trigger }: EventRegistrationModa
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [registrationCode, setRegistrationCode] = React.useState("");
 
+  // Auto-reopen modal if returning from auth with ?register=eventId
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const registerId = params.get("register");
+      if (registerId && registerId === event.id) {
+        setOpen(true);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("register");
+        window.history.replaceState(null, "", url.pathname + (url.search ? url.search : ""));
+      }
+    } catch {}
+  }, [event.id]);
+
   // Synchronize rsvpType when modal opens
   React.useEffect(() => {
     if (open) {
@@ -109,13 +124,14 @@ export function EventRegistrationModal({ event, trigger }: EventRegistrationModa
 
   // Pre-fill Name & Email from authenticated user account
   React.useEffect(() => {
-    if (user?.fullName && !name) {
-      setName(user.fullName);
+    const accountName = user?.fullName || (user as any)?.user_metadata?.full_name;
+    if (accountName && !name) {
+      setName(accountName);
     }
     if (user?.email && !email) {
       setEmail(user.email);
     }
-  }, [user]);
+  }, [user, name, email]);
 
   const [existingStatus, setExistingStatus] = React.useState<string>("pending");
 
@@ -433,25 +449,60 @@ export function EventRegistrationModal({ event, trigger }: EventRegistrationModa
       </DialogTrigger>
 
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/[0.08] bg-[#0D0D0D]/95 backdrop-blur-2xl text-neutral-200 p-6 md:p-8 shadow-2xl">
-        {/* STEP 1: Attendee Details */}
-        {step === 1 && (
-          <div className="space-y-4">
-            <DialogHeader className="space-y-1.5 text-left">
-              <div className="flex items-center justify-between">
-                <Badge variant="member" className="text-xs">
-                  {event.category}
-                </Badge>
-                <span className="text-[11px] font-semibold text-neutral-400">
-                  {isFreeEvent ? "Free Entry" : `₹${currentFee} Fee`}
-                </span>
+        {!user && !authLoading ? (
+          <div className="py-6 px-2 text-center space-y-6">
+            <DialogHeader className="space-y-2 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto text-amber-400 mb-2">
+                <Ticket className="w-6 h-6" />
               </div>
               <DialogTitle className="text-xl font-bold text-neutral-100">
-                {event.title}
+                Log in or create an account to register
               </DialogTitle>
-              <DialogDescription className="text-xs text-neutral-400">
-                Reserve your verified digital pass for this official MALHAR showcase.
+              <DialogDescription className="text-xs text-neutral-400 max-w-sm mx-auto leading-relaxed">
+                Registration for <span className="text-neutral-200 font-semibold">&ldquo;{event.title}&rdquo;</span> requires an authenticated student account so your entry ticket pass and check-in QR code can be issued.
               </DialogDescription>
             </DialogHeader>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 max-w-xs mx-auto">
+              <Link
+                href={`/login?redirectTo=${encodeURIComponent(`/events?register=${event.id}`)}`}
+                className="w-full"
+              >
+                <Button className="w-full bg-neutral-100 text-neutral-950 hover:bg-white font-semibold text-xs h-10 rounded-xl">
+                  Log In
+                </Button>
+              </Link>
+              <Link
+                href={`/login?mode=register&redirectTo=${encodeURIComponent(`/events?register=${event.id}`)}`}
+                className="w-full"
+              >
+                <Button variant="outline" className="w-full border-white/15 text-neutral-200 hover:bg-white/5 font-semibold text-xs h-10 rounded-xl">
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* STEP 1: Attendee Details */}
+            {step === 1 && (
+              <div className="space-y-4">
+                <DialogHeader className="space-y-1.5 text-left">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="member" className="text-xs">
+                      {event.category}
+                    </Badge>
+                    <span className="text-[11px] font-semibold text-neutral-400">
+                      {isFreeEvent ? "Free Entry" : `₹${currentFee} Fee`}
+                    </span>
+                  </div>
+                  <DialogTitle className="text-xl font-bold text-neutral-100">
+                    {event.title}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-neutral-400">
+                    Reserve your verified digital pass for this official MALHAR showcase.
+                  </DialogDescription>
+                </DialogHeader>
 
             {errorMessage && (
               <div className="flex items-center gap-2 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
@@ -938,6 +989,8 @@ export function EventRegistrationModal({ event, trigger }: EventRegistrationModa
             </div>
           </div>
         )}
+        </>
+      )}
       </DialogContent>
     </Dialog>
   );
